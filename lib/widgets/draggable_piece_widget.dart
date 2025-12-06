@@ -21,24 +21,34 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget> {
       data: widget.piece,
       feedback: Material(
         color: Colors.transparent,
-        child: _PieceVisual(
-          piece: widget.piece,
-          blockSize: 30,
-          opacity: 0.8,
+        child: Transform.scale(
+          scale: 1.3,
+          child: _PieceVisual(
+            piece: widget.piece,
+            blockSize: 32,
+            opacity: 0.95,
+          ),
         ),
       ),
+      feedbackOffset: Offset(-widget.piece.width * 16, -widget.piece.height * 16),
       childWhenDragging: Opacity(
-        opacity: 0.3,
+        opacity: 0.2,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: _PieceVisual(
+            piece: widget.piece,
+            blockSize: 28,
+            opacity: 0.3,
+          ),
+        ),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
         child: _PieceVisual(
           piece: widget.piece,
           blockSize: 28,
-          opacity: 0.5,
+          opacity: 1.0,
         ),
-      ),
-      child: _PieceVisual(
-        piece: widget.piece,
-        blockSize: 28,
-        opacity: 1.0,
       ),
       onDragStarted: () {
         // Optional: Add haptic feedback on drag start
@@ -83,16 +93,16 @@ class _PieceVisual extends StatelessWidget {
             return Container(
               width: blockSize,
             height: blockSize,
-            margin: const EdgeInsets.all(1),
+            margin: const EdgeInsets.all(0.5),
             decoration: isBlock
                 ? BoxDecoration(
                     color: piece.color.withValues(alpha: opacity),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(2),
                     boxShadow: [
                       BoxShadow(
                         color: piece.color.withValues(alpha: 0.5),
-                        blurRadius: 4,
-                        spreadRadius: 1,
+                        blurRadius: 3,
+                        spreadRadius: 0.5,
                         ),
                       ],
                     )
@@ -120,24 +130,68 @@ class BoardDragTarget extends StatelessWidget {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         
         // Calculate grid position from drop location
-        // This is a simplified version - you'll need to implement precise grid mapping
         final RenderBox renderBox = context.findRenderObject() as RenderBox;
         final localPosition = renderBox.globalToLocal(details.offset);
         
-        // Convert to grid coordinates (simplified)
+        // Convert to grid coordinates with proper padding consideration
         final board = gameState.board!;
+        final piece = details.data;
         final screenWidth = MediaQuery.of(context).size.width;
-        final maxSize = screenWidth * 0.85;
-        final blockSize = maxSize / board.size;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final maxWidth = screenWidth * 0.85;
+        final maxHeight = screenHeight * 0.5;
+        final maxSize = maxWidth < maxHeight ? maxWidth : maxHeight;
+        const containerPadding = 4.0; // Padding from BoardGridWidget
+        final effectiveSize = maxSize - (containerPadding * 2);
+        final blockSize = effectiveSize / board.size;
         
-        final gridX = (localPosition.dx / blockSize).floor();
-        final gridY = (localPosition.dy / blockSize).floor();
+        // Adjust for container padding
+        final adjustedX = localPosition.dx - containerPadding;
+        final adjustedY = localPosition.dy - containerPadding;
         
-        final success = gameState.placePiece(details.data, gridX, gridY);
+        // Calculate grid position - center the piece on the cursor
+        final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
+        final gridY = (adjustedY / blockSize).floor() - (piece.height ~/ 2);
+        
+        final success = gameState.placePiece(piece, gridX, gridY);
         
         if (success && settings.hapticsEnabled) {
           Vibration.vibrate(duration: 30);
+        } else if (!success && settings.hapticsEnabled) {
+          Vibration.vibrate(duration: 100, amplitude: 255);
         }
+      },
+      onMove: (details) {
+        // Show hover preview while dragging
+        final gameState = Provider.of<GameStateProvider>(context, listen: false);
+        final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) return;
+        
+        final localPosition = renderBox.globalToLocal(details.offset);
+        final board = gameState.board!;
+        final piece = details.data;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final maxWidth = screenWidth * 0.85;
+        final maxHeight = screenHeight * 0.5;
+        final maxSize = maxWidth < maxHeight ? maxWidth : maxHeight;
+        const containerPadding = 4.0;
+        final effectiveSize = maxSize - (containerPadding * 2);
+        final blockSize = effectiveSize / board.size;
+        
+        final adjustedX = localPosition.dx - containerPadding;
+        final adjustedY = localPosition.dy - containerPadding;
+        
+        // Center the piece on the cursor
+        final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
+        final gridY = (adjustedY / blockSize).floor() - (piece.height ~/ 2);
+        
+        gameState.showHoverPreview(piece, gridX, gridY);
+      },
+      onLeave: (data) {
+        // Clear hover preview when dragging away
+        final gameState = Provider.of<GameStateProvider>(context, listen: false);
+        gameState.clearHoverBlocks();
       },
       builder: (context, candidateData, rejectedData) {
         return child;

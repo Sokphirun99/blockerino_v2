@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/board.dart';
 import '../models/piece.dart';
 import '../models/game_mode.dart';
-import 'dart:math' as math;
+import 'settings_provider.dart';
 
 class GameStateProvider extends ChangeNotifier {
   Board? _board;
@@ -12,6 +12,7 @@ class GameStateProvider extends ChangeNotifier {
   int _lastBrokenLine = 0;
   GameMode _gameMode = GameMode.classic;
   bool _gameOver = false;
+  final SettingsProvider? _settingsProvider;
 
   Board? get board => _board;
   List<Piece> get hand => _hand;
@@ -19,6 +20,10 @@ class GameStateProvider extends ChangeNotifier {
   int get combo => _combo;
   bool get gameOver => _gameOver;
   GameMode get gameMode => _gameMode;
+  int get movesUntilComboReset => _lastBrokenLine;
+
+  GameStateProvider({SettingsProvider? settingsProvider})
+      : _settingsProvider = settingsProvider;
 
   void startGame(GameMode mode) {
     _gameMode = mode;
@@ -33,16 +38,7 @@ class GameStateProvider extends ChangeNotifier {
   }
 
   List<Piece> _generateRandomHand(int count) {
-    final random = math.Random();
-    return List.generate(count, (index) {
-      final shapeIndex = random.nextInt(PieceLibrary.shapes.length);
-      final colorIndex = random.nextInt(PieceLibrary.colors.length);
-      return Piece(
-        id: 'piece_${DateTime.now().millisecondsSinceEpoch}_$index',
-        shape: PieceLibrary.shapes[shapeIndex],
-        color: PieceLibrary.colors[colorIndex],
-      );
-    });
+    return PieceLibrary.createRandomHand(count);
   }
 
   void clearHoverBlocks() {
@@ -56,7 +52,7 @@ class GameStateProvider extends ChangeNotifier {
     _board!.clearHoverBlocks();
     
     if (_board!.canPlacePiece(piece, x, y)) {
-      _board!.placePiece(piece, x, y, type: BlockType.hover);
+      _board!.updateHoveredBreaks(piece, x, y);
       notifyListeners();
     }
   }
@@ -77,14 +73,15 @@ class GameStateProvider extends ChangeNotifier {
     final linesBroken = _board!.breakLines();
     if (linesBroken > 0) {
       _lastBrokenLine = 0;
-      _combo++;
-      // Score calculation: base points + combo multiplier
-      final lineScore = linesBroken * 10;
-      final comboBonus = _combo > 1 ? (_combo - 1) * 5 : 0;
-      _score += lineScore + comboBonus;
+      _combo += linesBroken;
+      // Score calculation matching blockerino-master:
+      // linesBroken * boardSize * (combo / 2) * pieceBlockCount
+      final config = GameModeConfig.fromMode(_gameMode);
+      _score += (linesBroken * config.boardSize * (_combo / 2) * pieceBlockCount).round();
     } else {
       _lastBrokenLine++;
-      if (_lastBrokenLine >= 3) {
+      final config = GameModeConfig.fromMode(_gameMode);
+      if (_lastBrokenLine >= config.handSize) {
         _combo = 0;
       }
     }
@@ -101,6 +98,8 @@ class GameStateProvider extends ChangeNotifier {
     // Check for game over
     if (!_board!.hasAnyValidMove(_hand)) {
       _gameOver = true;
+      // Update high score
+      _settingsProvider?.updateHighScore(_score);
     }
 
     notifyListeners();

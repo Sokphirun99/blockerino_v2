@@ -22,8 +22,14 @@ class BlockerinoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => GameStateProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProxyProvider<SettingsProvider, GameStateProvider>(
+          create: (context) => GameStateProvider(
+            settingsProvider: Provider.of<SettingsProvider>(context, listen: false),
+          ),
+          update: (context, settings, previous) => 
+            previous ?? GameStateProvider(settingsProvider: settings),
+        ),
       ],
       child: MaterialApp(
         title: 'Blockerino',

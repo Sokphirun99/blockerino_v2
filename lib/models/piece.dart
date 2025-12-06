@@ -1,4 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
+class PieceShape {
+  final List<List<bool>> matrix;
+  final double distributionPoints;
+
+  const PieceShape({
+    required this.matrix,
+    required this.distributionPoints,
+  });
+}
 
 class Piece {
   final String id;
@@ -33,80 +44,63 @@ class Piece {
   }
 }
 
-// Predefined piece shapes (Tetromino-style pieces)
+// Predefined piece shapes from blockerino-master with distribution points
 class PieceLibrary {
-  static final List<List<List<bool>>> shapes = [
-    // Single block
-    [
-      [true]
-    ],
-    // 2x1 horizontal
-    [
-      [true, true]
-    ],
-    // 2x1 vertical
-    [
-      [true],
-      [true]
-    ],
-    // 3x1 horizontal
-    [
-      [true, true, true]
-    ],
-    // 3x1 vertical
-    [
-      [true],
-      [true],
-      [true]
-    ],
-    // 2x2 square
-    [
-      [true, true],
-      [true, true]
-    ],
-    // L shape
-    [
-      [true, false],
-      [true, false],
-      [true, true]
-    ],
-    // L shape mirrored
-    [
-      [false, true],
-      [false, true],
-      [true, true]
-    ],
-    // T shape
-    [
-      [true, true, true],
-      [false, true, false]
-    ],
+  static const List<PieceShape> pieceShapes = [
+    // L-shapes (8 rotations)
+    PieceShape(matrix: [[true, false, false], [true, true, true]], distributionPoints: 2),
+    PieceShape(matrix: [[true, true], [true, false], [true, false]], distributionPoints: 2),
+    PieceShape(matrix: [[true, true, true], [false, false, true]], distributionPoints: 2),
+    PieceShape(matrix: [[false, true], [false, true], [true, true]], distributionPoints: 2),
+    PieceShape(matrix: [[false, false, true], [true, true, true]], distributionPoints: 2),
+    PieceShape(matrix: [[true, false], [true, false], [true, true]], distributionPoints: 2),
+    PieceShape(matrix: [[true, true, true], [true, false, false]], distributionPoints: 2),
+    PieceShape(matrix: [[true, true], [false, true], [false, true]], distributionPoints: 2),
+
+    // Triangle shapes (4 rotations)
+    PieceShape(matrix: [[true, true, true], [false, true, false]], distributionPoints: 1.5),
+    PieceShape(matrix: [[true, false], [true, true], [true, false]], distributionPoints: 1.5),
+    PieceShape(matrix: [[false, true, false], [true, true, true]], distributionPoints: 1.5),
+    PieceShape(matrix: [[false, true], [true, true], [false, true]], distributionPoints: 1.5),
+
+    // Z/S shapes (4 rotations)
+    PieceShape(matrix: [[false, true, true], [true, true, false]], distributionPoints: 1),
+    PieceShape(matrix: [[true, false], [true, true], [false, true]], distributionPoints: 1),
+    PieceShape(matrix: [[true, true, false], [false, true, true]], distributionPoints: 1),
+    PieceShape(matrix: [[false, true], [true, true], [true, false]], distributionPoints: 1),
+
     // 3x3 square
-    [
-      [true, true, true],
-      [true, true, true],
-      [true, true, true]
-    ],
-    // Z shape
-    [
-      [true, true, false],
-      [false, true, true]
-    ],
-    // S shape
-    [
-      [false, true, true],
-      [true, true, false]
-    ],
-    // Small L
-    [
-      [true, false],
-      [true, true]
-    ],
-    // Small L mirrored
-    [
-      [false, true],
-      [true, true]
-    ],
+    PieceShape(matrix: [[true, true, true], [true, true, true], [true, true, true]], distributionPoints: 3),
+
+    // 2x2 square
+    PieceShape(matrix: [[true, true], [true, true]], distributionPoints: 6),
+
+    // 4x1 vertical
+    PieceShape(matrix: [[true], [true], [true], [true]], distributionPoints: 2),
+
+    // 1x4 horizontal
+    PieceShape(matrix: [[true, true, true, true]], distributionPoints: 2),
+
+    // 3x1 vertical
+    PieceShape(matrix: [[true], [true], [true]], distributionPoints: 4),
+
+    // 1x3 horizontal
+    PieceShape(matrix: [[true, true, true]], distributionPoints: 4),
+
+    // 2x1 vertical
+    PieceShape(matrix: [[true], [true]], distributionPoints: 8),
+
+    // 1x2 horizontal
+    PieceShape(matrix: [[true, true]], distributionPoints: 8),
+
+    // Single block
+    PieceShape(matrix: [[true]], distributionPoints: 12),
+
+    // 5x1 vertical
+    PieceShape(matrix: [[true], [true], [true], [true], [true]], distributionPoints: 1),
+
+    // 1x5 horizontal
+    PieceShape(matrix: [[true, true, true, true, true]], distributionPoints: 1),
   ];
 
   static final List<Color> colors = [
@@ -121,20 +115,42 @@ class PieceLibrary {
   ];
 
   static Piece createRandomPiece() {
-    final random = DateTime.now().millisecondsSinceEpoch;
-    final shapeIndex = random % shapes.length;
-    final colorIndex = random % colors.length;
+    final random = math.Random();
     
+    // Calculate total distribution points
+    double totalPoints = 0;
+    for (var shape in pieceShapes) {
+      totalPoints += shape.distributionPoints;
+    }
+
+    // Weighted random selection
+    double randomValue = random.nextDouble() * totalPoints;
+    double currentSum = 0;
+    
+    for (var shape in pieceShapes) {
+      currentSum += shape.distributionPoints;
+      if (randomValue <= currentSum) {
+        final colorIndex = random.nextInt(colors.length);
+        return Piece(
+          id: 'piece_${DateTime.now().millisecondsSinceEpoch}_${random.nextInt(10000)}',
+          shape: shape.matrix,
+          color: colors[colorIndex],
+        );
+      }
+    }
+
+    // Fallback (should never reach here)
+    final shapeIndex = random.nextInt(pieceShapes.length);
+    final colorIndex = random.nextInt(colors.length);
     return Piece(
-      id: 'piece_$random',
-      shape: shapes[shapeIndex],
+      id: 'piece_${DateTime.now().millisecondsSinceEpoch}',
+      shape: pieceShapes[shapeIndex].matrix,
       color: colors[colorIndex],
     );
   }
 
   static List<Piece> createRandomHand(int count) {
     return List.generate(count, (index) {
-      // Add slight delay to ensure different random values
       return createRandomPiece();
     });
   }

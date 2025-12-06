@@ -51,19 +51,28 @@ class GameScreen extends StatelessWidget {
                     ),
                   ),
                   
-                  const Spacer(),
+                  const SizedBox(height: 8),
                   
-                  // Game Board with DragTarget
-                  const BoardDragTarget(
-                    child: BoardGridWidget(),
+                  // Game Board with DragTarget - wrapped in Expanded to constrain size
+                  Expanded(
+                    flex: 5,
+                    child: Center(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return const BoardDragTarget(
+                            child: BoardGridWidget(),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                   
-                  const Spacer(),
+                  const SizedBox(height: 8),
                   
                   // Hand Pieces
                   const HandPiecesWidget(),
                   
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
                 ],
               );
             },

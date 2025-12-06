@@ -14,8 +14,11 @@ class BoardGridWidget extends StatelessWidget {
         if (board == null) return const SizedBox.shrink();
 
         final screenWidth = MediaQuery.of(context).size.width;
-        final maxSize = screenWidth * 0.85;
-        final blockSize = maxSize / board.size;
+        final screenHeight = MediaQuery.of(context).size.height;
+        // Use smaller of width or available height, with padding considerations
+        final maxWidth = screenWidth * 0.85;
+        final maxHeight = screenHeight * 0.5; // Max 50% of screen height
+        final maxSize = maxWidth < maxHeight ? maxWidth : maxHeight;
 
         return Container(
           width: maxSize,
@@ -40,10 +43,7 @@ class BoardGridWidget extends StatelessWidget {
                     children: List.generate(board.size, (col) {
                       final block = board.grid[row][col];
                       return Expanded(
-                        child: _BlockCell(
-                          block: block,
-                          size: blockSize,
-                        ),
+                        child: _BlockCell(block: block),
                       );
                     }),
                   ),
@@ -59,11 +59,9 @@ class BoardGridWidget extends StatelessWidget {
 
 class _BlockCell extends StatelessWidget {
   final BoardBlock block;
-  final double size;
 
   const _BlockCell({
     required this.block,
-    required this.size,
   });
 
   @override
@@ -78,6 +76,16 @@ class _BlockCell extends StatelessWidget {
         break;
       case BlockType.hover:
         cellColor = block.color ?? Colors.blue;
+        opacity = 0.4;
+        break;
+      case BlockType.hoverBreakFilled:
+        // Show filled blocks that will be cleared with a glow effect
+        cellColor = block.hoverBreakColor ?? block.color ?? Colors.red;
+        opacity = 0.9;
+        break;
+      case BlockType.hoverBreakEmpty:
+        // Show empty spaces in lines that will be cleared
+        cellColor = block.hoverBreakColor ?? Colors.red;
         opacity = 0.5;
         break;
       case BlockType.hoverBreak:
@@ -90,12 +98,25 @@ class _BlockCell extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.all(1),
+      margin: const EdgeInsets.all(0.5),
       decoration: BoxDecoration(
         color: cellColor.withValues(alpha: opacity),
         borderRadius: BorderRadius.circular(2),
         border: block.type == BlockType.empty
             ? Border.all(color: Colors.grey[700]!, width: 0.5)
+            : block.type == BlockType.hoverBreakFilled || 
+              block.type == BlockType.hoverBreakEmpty
+              ? Border.all(color: cellColor.withValues(alpha: 1.0), width: 1.5)
+              : null,
+        boxShadow: block.type == BlockType.hoverBreakFilled || 
+                  block.type == BlockType.hoverBreakEmpty
+            ? [
+                BoxShadow(
+                  color: cellColor.withValues(alpha: 0.6),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ]
             : null,
       ),
     );
