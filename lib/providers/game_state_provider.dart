@@ -131,7 +131,9 @@ class GameStateProvider extends ChangeNotifier {
     }
 
     // Check for game over
-    if (!_board!.hasAnyValidMove(_hand)) {
+    final hasValidMove = _board!.hasAnyValidMove(_hand);
+    debugPrint('Game Over Check: hasValidMove=$hasValidMove, hand size=${_hand.length}');
+    if (!hasValidMove) {
       _gameOver = true;
       _soundService.playGameOver();
       // Update high score

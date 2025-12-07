@@ -212,7 +212,7 @@ class StoryModeScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const GameScreen(),
+                              builder: (context) => GameScreen(storyLevel: level),
                             ),
                           );
                         },

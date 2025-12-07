@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibration/vibration.dart';
@@ -5,6 +6,7 @@ import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
 import '../models/board.dart';
 import '../models/game_mode.dart';
+import '../models/story_level.dart';
 import '../widgets/board_grid_widget.dart';
 import '../widgets/hand_pieces_widget.dart';
 import '../widgets/game_hud_widget.dart';
@@ -13,8 +15,20 @@ import '../widgets/particle_effect_widget.dart';
 import '../widgets/animated_background_widget.dart';
 import '../widgets/screen_shake_widget.dart';
 
+// Safe vibration helper for web compatibility
+void _safeVibrate({int duration = 50, int amplitude = 128}) {
+  if (kIsWeb) return; // Vibration not supported on web
+  try {
+    Vibration.vibrate(duration: duration, amplitude: amplitude);
+  } catch (e) {
+    // Silently ignore vibration errors
+  }
+}
+
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final StoryLevel? storyLevel;
+  
+  const GameScreen({super.key, this.storyLevel});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -28,21 +42,35 @@ class _GameScreenState extends State<GameScreen> {
   String? _achievementMessage;
   int _lastComboLevel = 0;
 
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
-    // Ensure game is started
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final gameState = Provider.of<GameStateProvider>(context, listen: false);
-      
-      // If board is null, start a classic game as fallback
-      if (gameState.board == null) {
-        gameState.startGame(GameMode.classic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize synchronously - no async callbacks
+    if (!_initialized) {
+      _initialized = true;
+      try {
+        final gameState = Provider.of<GameStateProvider>(context, listen: false);
+        
+        // If board is null, start game with appropriate mode
+        if (gameState.board == null) {
+          // Use story level's game mode if provided, otherwise classic
+          final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
+          gameState.startGame(mode);
+        }
+        
+        // Set up line clear callback
+        gameState.onLinesCleared = _onLinesCleared;
+      } catch (e) {
+        debugPrint('Error initializing game: $e');
       }
-      
-      // Set up line clear callback
-      gameState.onLinesCleared = _onLinesCleared;
-    });
+    }
   }
 
   void _onLinesCleared(List<ClearedBlockInfo> clearedBlocks, int lineCount) {
@@ -105,18 +133,20 @@ class _GameScreenState extends State<GameScreen> {
     _lastComboLevel = combo;
 
     if (message != null) {
-      setState(() {
-        _achievementMessage = message;
-      });
-      
-      // Hide message after 2 seconds
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() {
-            _achievementMessage = null;
-          });
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _achievementMessage = message;
+        });
+        
+        // Hide message after 2 seconds
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _achievementMessage = null;
+            });
+          }
+        });
+      }
     }
   }
 
@@ -290,8 +320,35 @@ class _GameScreenState extends State<GameScreen> {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final isHighScore = gameState.score >= settings.highScore;
     
+    // Check if this is a story level and if objectives are met
+    final isStoryMode = widget.storyLevel != null;
+    int starsEarned = 0;
+    bool levelCompleted = false;
+    
+    if (isStoryMode) {
+      final level = widget.storyLevel!;
+      final score = gameState.score;
+      
+      // Check if level objectives are met
+      levelCompleted = score >= level.targetScore;
+      
+      // Calculate stars earned
+      if (score >= level.starThreshold3) {
+        starsEarned = 3;
+      } else if (score >= level.starThreshold2) {
+        starsEarned = 2;
+      } else if (score >= level.starThreshold1) {
+        starsEarned = 1;
+      }
+      
+      // Update progress if level completed
+      if (levelCompleted) {
+        settings.completeStoryLevel(level.levelNumber, starsEarned, level.coinReward);
+      }
+    }
+    
     if (settings.hapticsEnabled) {
-      Vibration.vibrate(duration: 500);
+      _safeVibrate(duration: 500);
     }
     
     showDialog(
@@ -302,13 +359,45 @@ class _GameScreenState extends State<GameScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isHighScore ? const Color(0xFFFFE66D) : Colors.purple.shade700,
+            color: isStoryMode && levelCompleted 
+                ? const Color(0xFFffd700) 
+                : isHighScore 
+                    ? const Color(0xFFFFE66D) 
+                    : Colors.purple.shade700,
             width: 2,
           ),
         ),
         title: Column(
           children: [
-            if (isHighScore) ...[
+            if (isStoryMode && levelCompleted) ...[
+              const Icon(
+                Icons.emoji_events,
+                color: Color(0xFFffd700),
+                size: 48,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'LEVEL COMPLETE!',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFFffd700),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (index) {
+                  return Icon(
+                    index < starsEarned ? Icons.star : Icons.star_border,
+                    color: const Color(0xFFffd700),
+                    size: 32,
+                  );
+                }),
+              ),
+              const SizedBox(height: 4),
+            ] else if (isHighScore) ...[
               const Icon(
                 Icons.emoji_events,
                 color: Color(0xFFFFE66D),
