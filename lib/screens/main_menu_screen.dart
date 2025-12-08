@@ -66,12 +66,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                const SizedBox(height: 20),
-                
                 // User Profile Section
                 _buildProfileSection(context, settings),
                 
-                const SizedBox(height: 20),
+                if (!settings.authService.isAnonymous) const SizedBox(height: 20),
+                
                 // Title
                 Text(
                   'BLOCKERINO',
@@ -264,6 +263,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final isAnonymous = authService.isAnonymous;
     final displayName = authService.displayName;
     final photoURL = authService.photoURL;
+
+    // // Hide profile section for guest players
+    // if (isAnonymous) {
+    //   return const SizedBox.shrink();
+    // }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
