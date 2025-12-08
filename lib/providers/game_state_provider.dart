@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/board.dart';
 import '../models/piece.dart';
 import '../models/game_mode.dart';
+import '../models/power_up.dart';
 import '../services/sound_service.dart';
 import 'settings_provider.dart';
 
@@ -146,5 +147,186 @@ class GameStateProvider extends ChangeNotifier {
 
   void resetGame() {
     startGame(_gameMode);
+  }
+
+  // ========== Power-Up Methods ==========
+
+  /// Trigger a power-up effect
+  Future<void> triggerPowerUp(PowerUpType type) async {
+    if (_settingsProvider == null) return;
+    
+    // Check if user has the power-up
+    if (_settingsProvider.getPowerUpCount(type) <= 0) return;
+
+    bool success = false;
+
+    switch (type) {
+      case PowerUpType.shuffle:
+        success = _activateShuffle();
+        break;
+      case PowerUpType.wildPiece:
+        success = _activateWildPiece();
+        break;
+      case PowerUpType.lineClear:
+        success = _activateRandomLineClear();
+        break;
+      case PowerUpType.bomb:
+        // Bomb requires position selection - handled separately
+        success = false;
+        break;
+      case PowerUpType.colorBomb:
+        success = _activateColorBomb();
+        break;
+    }
+
+    if (success) {
+      await _settingsProvider.usePowerUp(type);
+      notifyListeners();
+    }
+  }
+
+  /// Shuffle: Replace all hand pieces with new random ones
+  bool _activateShuffle() {
+    final config = GameModeConfig.fromMode(_gameMode);
+    _hand = _generateRandomHand(config.handSize);
+    _soundService.playRefill();
+    return true;
+  }
+
+  /// Wild Piece: Add a 1x1 piece that can be placed anywhere
+  bool _activateWildPiece() {
+    final wildPiece = Piece(
+      id: 'wild_${DateTime.now().millisecondsSinceEpoch}',
+      shape: [[true]],
+      color: const Color(0xFFFFD700), // Gold color for wild piece
+    );
+    _hand.add(wildPiece);
+    _soundService.playPlace();
+    notifyListeners();
+    return true;
+  }
+
+  /// Line Clear: Clear a random filled row or column
+  bool _activateRandomLineClear() {
+    if (_board == null) return false;
+
+    // Find all rows and columns that have at least one block
+    final filledRows = <int>[];
+    final filledCols = <int>[];
+
+    for (int row = 0; row < _board!.size; row++) {
+      for (int col = 0; col < _board!.size; col++) {
+        if (_board!.grid[row][col].type == BlockType.filled) {
+          if (!filledRows.contains(row)) filledRows.add(row);
+          if (!filledCols.contains(col)) filledCols.add(col);
+        }
+      }
+    }
+
+    if (filledRows.isEmpty && filledCols.isEmpty) return false;
+
+    // Randomly pick a row or column
+    final allLines = [...filledRows, ...filledCols.map((c) => -c - 1)]; // Negative for cols
+    allLines.shuffle();
+    final selectedLine = allLines.first;
+
+    final clearedBlocks = <ClearedBlockInfo>[];
+
+    if (selectedLine >= 0) {
+      // Clear row
+      for (int col = 0; col < _board!.size; col++) {
+        if (_board!.grid[selectedLine][col].type == BlockType.filled) {
+          clearedBlocks.add(ClearedBlockInfo(
+            row: selectedLine,
+            col: col,
+            color: _board!.grid[selectedLine][col].color!,
+          ));
+          _board!.grid[selectedLine][col] = BoardBlock(type: BlockType.empty);
+        }
+      }
+    } else {
+      // Clear column
+      final col = -selectedLine - 1;
+      for (int row = 0; row < _board!.size; row++) {
+        if (_board!.grid[row][col].type == BlockType.filled) {
+          clearedBlocks.add(ClearedBlockInfo(
+            row: row,
+            col: col,
+            color: _board!.grid[row][col].color!,
+          ));
+          _board!.grid[row][col] = BoardBlock(type: BlockType.empty);
+        }
+      }
+    }
+
+    // Award points
+    _score += clearedBlocks.length * 10;
+    _soundService.playClear(1);
+
+    // Trigger particles
+    if (onLinesCleared != null && clearedBlocks.isNotEmpty) {
+      onLinesCleared!(clearedBlocks, 1);
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Color Bomb: Clear all blocks of the most common color
+  bool _activateColorBomb() {
+    if (_board == null) return false;
+
+    // Count blocks by color
+    final colorCounts = <Color, int>{};
+    for (int row = 0; row < _board!.size; row++) {
+      for (int col = 0; col < _board!.size; col++) {
+        final block = _board!.grid[row][col];
+        if (block.type == BlockType.filled && block.color != null) {
+          colorCounts[block.color!] = (colorCounts[block.color!] ?? 0) + 1;
+        }
+      }
+    }
+
+    if (colorCounts.isEmpty) return false;
+
+    // Find most common color
+    Color? mostCommonColor;
+    int maxCount = 0;
+    colorCounts.forEach((color, count) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommonColor = color;
+      }
+    });
+
+    if (mostCommonColor == null) return false;
+
+    // Clear all blocks of that color
+    final clearedBlocks = <ClearedBlockInfo>[];
+    for (int row = 0; row < _board!.size; row++) {
+      for (int col = 0; col < _board!.size; col++) {
+        final block = _board!.grid[row][col];
+        if (block.type == BlockType.filled && block.color == mostCommonColor) {
+          clearedBlocks.add(ClearedBlockInfo(
+            row: row,
+            col: col,
+            color: block.color!,
+          ));
+          _board!.grid[row][col] = BoardBlock(type: BlockType.empty);
+        }
+      }
+    }
+
+    // Award points
+    _score += clearedBlocks.length * 15;
+    _soundService.playClear(clearedBlocks.length ~/ _board!.size);
+
+    // Trigger particles
+    if (onLinesCleared != null && clearedBlocks.isNotEmpty) {
+      onLinesCleared!(clearedBlocks, clearedBlocks.length ~/ _board!.size);
+    }
+
+    notifyListeners();
+    return true;
   }
 }

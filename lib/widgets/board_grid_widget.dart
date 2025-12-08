@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_state_provider.dart';
 import '../models/board.dart';
+import '../config/board_config.dart';
 
 class BoardGridWidget extends StatelessWidget {
   const BoardGridWidget({super.key});
@@ -20,12 +21,8 @@ class BoardGridWidget extends StatelessWidget {
           );
         }
 
-        final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
-        // Use smaller of width or available height, with padding considerations
-        final maxWidth = screenWidth * 0.9;
-        final maxHeight = screenHeight * 0.55; // Max 55% of screen height
-        final boardSize = maxWidth < maxHeight ? maxWidth : maxHeight;
+        // Use shared BoardConfig for consistent sizing
+        final boardSize = BoardConfig.getSize(context);
 
         return Container(
           width: boardSize,

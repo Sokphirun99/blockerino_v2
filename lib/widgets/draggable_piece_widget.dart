@@ -5,6 +5,7 @@ import 'package:vibration/vibration.dart';
 import '../models/piece.dart';
 import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
+import '../config/board_config.dart';
 
 // Safe vibration helper for web compatibility
 void _safeVibrate({int duration = 50, int amplitude = 128}) {
@@ -188,19 +189,13 @@ class BoardDragTarget extends StatelessWidget {
         // Convert to grid coordinates with proper padding consideration
         final board = gameState.board!;
         final piece = details.data;
-        final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
-        final maxWidth = screenWidth * 0.9;
-        final maxHeight = screenHeight * 0.55;
-        final boardSize = maxWidth < maxHeight ? maxWidth : maxHeight;
-        const containerPadding = 4.0; // Padding from BoardGridWidget
-        const borderWidth = 2.0; // Border width from BoardGridWidget
-        final effectiveSize = boardSize - (containerPadding * 2) - (borderWidth * 2);
-        final blockSize = effectiveSize / board.size;
+        final boardSize = BoardConfig.getSize(context);
+        final effectiveSize = BoardConfig.getEffectiveSize(context);
+        final blockSize = BoardConfig.getBlockSize(context, board.size);
         
         // Adjust for container padding and border
-        final adjustedX = localPosition.dx - containerPadding - borderWidth;
-        final adjustedY = localPosition.dy - containerPadding - borderWidth;
+        final adjustedX = localPosition.dx - BoardConfig.containerPadding - BoardConfig.borderWidth;
+        final adjustedY = localPosition.dy - BoardConfig.containerPadding - BoardConfig.borderWidth;
         
         // Calculate grid position - center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
@@ -223,18 +218,10 @@ class BoardDragTarget extends StatelessWidget {
         final localPosition = renderBox.globalToLocal(details.offset);
         final board = gameState.board!;
         final piece = details.data;
-        final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
-        final maxWidth = screenWidth * 0.9;
-        final maxHeight = screenHeight * 0.55;
-        final boardSize = maxWidth < maxHeight ? maxWidth : maxHeight;
-        const containerPadding = 4.0;
-        const borderWidth = 2.0;
-        final effectiveSize = boardSize - (containerPadding * 2) - (borderWidth * 2);
-        final blockSize = effectiveSize / board.size;
+        final blockSize = BoardConfig.getBlockSize(context, board.size);
         
-        final adjustedX = localPosition.dx - containerPadding - borderWidth;
-        final adjustedY = localPosition.dy - containerPadding - borderWidth;
+        final adjustedX = localPosition.dx - BoardConfig.containerPadding - BoardConfig.borderWidth;
+        final adjustedY = localPosition.dy - BoardConfig.containerPadding - BoardConfig.borderWidth;
         
         // Center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);

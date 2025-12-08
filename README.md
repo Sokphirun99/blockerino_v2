@@ -2,6 +2,15 @@
 
 A modern Block Blast-style puzzle game built with Flutter, featuring Firebase backend integration, multiple game modes, and comprehensive analytics.
 
+## Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/main_menu.png" width="200" alt="Main Menu" />
+  <img src="docs/screenshots/story_mode.png" width="200" alt="Story Mode" />
+  <img src="docs/screenshots/gameplay.png" width="200" alt="Gameplay" />
+  <img src="docs/screenshots/daily_challenge.png" width="200" alt="Daily Challenge" />
+</div>
+
 ## Game Features
 
 - **Three Game Modes**:

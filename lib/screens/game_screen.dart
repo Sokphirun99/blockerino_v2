@@ -7,6 +7,7 @@ import '../providers/settings_provider.dart';
 import '../models/board.dart';
 import '../models/game_mode.dart';
 import '../models/story_level.dart';
+import '../models/power_up.dart';
 import '../widgets/board_grid_widget.dart';
 import '../widgets/hand_pieces_widget.dart';
 import '../widgets/game_hud_widget.dart';
@@ -243,6 +244,15 @@ class _GameScreenState extends State<GameScreen> {
                       
                       // Hand Pieces
                       const HandPiecesWidget(),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Power-Up Bar
+                      Consumer<SettingsProvider>(
+                        builder: (context, settings, _) {
+                          return _buildPowerUpBar(context, settings);
+                        },
+                      ),
                       
                       const SizedBox(height: 8),
                     ],
@@ -539,6 +549,100 @@ class _GameScreenState extends State<GameScreen> {
               child: const Text('PLAY AGAIN'),
             ),
         ],
+      ),
+    );
+  }
+
+  // ========== Power-Up UI Methods ==========
+
+  Widget _buildPowerUpBar(BuildContext context, SettingsProvider settings) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildPowerUpButton(context, PowerUpType.shuffle, settings),
+          _buildPowerUpButton(context, PowerUpType.wildPiece, settings),
+          _buildPowerUpButton(context, PowerUpType.lineClear, settings),
+          _buildPowerUpButton(context, PowerUpType.colorBomb, settings),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPowerUpButton(BuildContext context, PowerUpType type, SettingsProvider settings) {
+    final count = settings.getPowerUpCount(type);
+    final powerUp = PowerUp.allPowerUps.firstWhere((p) => p.type == type);
+    
+    return GestureDetector(
+      onTap: count > 0 ? () async {
+        final gameState = Provider.of<GameStateProvider>(context, listen: false);
+        await gameState.triggerPowerUp(type);
+        
+        // Show feedback
+        if (mounted && count - 1 == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${powerUp.name} used! Buy more in the Store.'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } : null,
+      child: Opacity(
+        opacity: count > 0 ? 1.0 : 0.3,
+        child: Container(
+          width: 60,
+          height: 70,
+          decoration: BoxDecoration(
+            gradient: count > 0
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.purple.withValues(alpha: 0.3),
+                      Colors.blue.withValues(alpha: 0.2),
+                    ],
+                  )
+                : null,
+            color: count > 0 ? null : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: count > 0
+                  ? Colors.purpleAccent.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.1),
+              width: 2,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                powerUp.icon,
+                style: const TextStyle(fontSize: 24),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: count > 0
+                      ? const Color(0xFFffd700).withValues(alpha: 0.3)
+                      : Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: count > 0 ? Colors.white : Colors.white.withValues(alpha: 0.3),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
