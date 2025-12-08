@@ -432,14 +432,15 @@ class _GameScreenState extends State<GameScreen> {
               ),
               const SizedBox(height: 4),
             ],
-            Text(
-              'GAME OVER',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: const Color(0xFFFF6B6B),
-                    fontSize: 28,
-                  ),
-              textAlign: TextAlign.center,
-            ),
+            if (!isStoryMode || !levelCompleted)
+              Text(
+                'GAME OVER',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: const Color(0xFFFF6B6B),
+                      fontSize: 28,
+                    ),
+                textAlign: TextAlign.center,
+              ),
           ],
         ),
         content: Column(
@@ -496,21 +497,47 @@ class _GameScreenState extends State<GameScreen> {
             ),
             child: const Text('MENU'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              gameState.resetGame();
-              Navigator.pop(dialogContext);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4ECDC4),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          if (isStoryMode && levelCompleted && widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
+            ElevatedButton(
+              onPressed: () {
+                final nextLevel = StoryLevel.allLevels.firstWhere(
+                  (level) => level.levelNumber == widget.storyLevel!.levelNumber + 1,
+                );
+                gameState.resetGame();
+                Navigator.pop(dialogContext); // Close dialog
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => GameScreen(storyLevel: nextLevel),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFffd700),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: const Text('NEXT LEVEL', style: TextStyle(fontWeight: FontWeight.bold)),
+            )
+          else
+            ElevatedButton(
+              onPressed: () {
+                gameState.resetGame();
+                Navigator.pop(dialogContext);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4ECDC4),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('PLAY AGAIN'),
             ),
-            child: const Text('PLAY AGAIN'),
-          ),
         ],
       ),
     );
