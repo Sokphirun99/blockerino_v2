@@ -5,8 +5,25 @@ import '../models/game_mode.dart';
 import '../providers/settings_provider.dart';
 import 'game_screen.dart';
 
-class StoryModeScreen extends StatelessWidget {
+class StoryModeScreen extends StatefulWidget {
   const StoryModeScreen({super.key});
+
+  @override
+  State<StoryModeScreen> createState() => _StoryModeScreenState();
+}
+
+class _StoryModeScreenState extends State<StoryModeScreen> {
+  bool _analyticsLogged = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_analyticsLogged) {
+      _analyticsLogged = true;
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      settings.analyticsService.logScreenView('story_mode');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +229,7 @@ class StoryModeScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const GameScreen(),
+                              builder: (context) => GameScreen(storyLevel: level),
                             ),
                           );
                         },

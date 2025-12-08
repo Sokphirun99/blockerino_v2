@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/leaderboard.dart';
+import '../providers/settings_provider.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -10,11 +12,22 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _analyticsLogged = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_analyticsLogged) {
+      _analyticsLogged = true;
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      settings.analyticsService.logScreenView('leaderboard');
+    }
   }
 
   @override
@@ -58,18 +71,122 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   }
 
   Widget _buildLeaderboardList(String gameMode) {
-    final entries = LeaderboardService.getMockLeaderboard(gameMode);
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: entries.length + 1, // +1 for header
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildHeader();
+    return StreamBuilder(
+      stream: settings.firestoreService.getLeaderboard(
+        gameMode: gameMode,
+        limit: 100,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: Color(0xFF9d4edd),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Loading leaderboard...',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          );
         }
         
-        final entry = entries[index - 1];
-        return _buildLeaderboardCard(entry, index - 1);
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading leaderboard',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.error.toString(),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.leaderboard,
+                  size: 64,
+                  color: Color(0xFF9d4edd),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No scores yet',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Be the first to set a high score!',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        
+        final docs = snapshot.data!.docs;
+        final entries = docs.asMap().entries.map((entry) {
+          final data = entry.value.data() as Map<String, dynamic>;
+          return LeaderboardEntry(
+            rank: entry.key + 1,
+            playerId: data['playerId'] ?? entry.value.id,
+            playerName: data['playerName'] ?? 'Anonymous',
+            score: data['score'] ?? 0,
+            timestamp: (data['timestamp'] as dynamic)?.toDate() ?? DateTime.now(),
+            gameMode: gameMode,
+          );
+        }).toList();
+        
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: entries.length + 1, // +1 for header
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return _buildHeader();
+            }
+            
+            final entry = entries[index - 1];
+            return _buildLeaderboardCard(entry, index - 1);
+          },
+        );
       },
     );
   }

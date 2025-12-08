@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1069917074856",
+    "project_id": "blockerino-v2",
+    "storage_bucket": "blockerino-v2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1069917074856:android:a82e2820235ac59cffd99d",
+        "android_client_info": {
+          "package_name": "com.blockerinov2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZ7ngIvkcMso9UQsYDGLVfXX6tDzkzMoc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

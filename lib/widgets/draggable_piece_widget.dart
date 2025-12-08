@@ -1,9 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibration/vibration.dart';
 import '../models/piece.dart';
 import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
+
+// Safe vibration helper for web compatibility
+void _safeVibrate({int duration = 50, int amplitude = 128}) {
+  if (kIsWeb) return; // Vibration not supported on web
+  try {
+    Vibration.vibrate(duration: duration, amplitude: amplitude);
+  } catch (e) {
+    // Silently ignore vibration errors
+  }
+}
 
 class DraggablePieceWidget extends StatefulWidget {
   final Piece piece;
@@ -49,22 +60,25 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget> {
           opacity: 0.3,
         ),
       ),
-      child: _PieceVisual(
-        piece: widget.piece,
-        blockSize: 24,
-        opacity: 1.0,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: _PieceVisual(
+          piece: widget.piece,
+          blockSize: 24,
+          opacity: 1.0,
+        ),
       ),
       onDragStarted: () {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.hapticsEnabled) {
-          Vibration.vibrate(duration: 20);
+          _safeVibrate(duration: 20);
         }
       },
       onDragEnd: (details) {
         if (!details.wasAccepted) {
           final settings = Provider.of<SettingsProvider>(context, listen: false);
           if (settings.hapticsEnabled) {
-            Vibration.vibrate(duration: 50);
+            _safeVibrate(duration: 50);
           }
         }
       },
@@ -176,16 +190,17 @@ class BoardDragTarget extends StatelessWidget {
         final piece = details.data;
         final screenWidth = MediaQuery.of(context).size.width;
         final screenHeight = MediaQuery.of(context).size.height;
-        final maxWidth = screenWidth * 0.85;
-        final maxHeight = screenHeight * 0.5;
-        final maxSize = maxWidth < maxHeight ? maxWidth : maxHeight;
+        final maxWidth = screenWidth * 0.9;
+        final maxHeight = screenHeight * 0.55;
+        final boardSize = maxWidth < maxHeight ? maxWidth : maxHeight;
         const containerPadding = 4.0; // Padding from BoardGridWidget
-        final effectiveSize = maxSize - (containerPadding * 2);
+        const borderWidth = 2.0; // Border width from BoardGridWidget
+        final effectiveSize = boardSize - (containerPadding * 2) - (borderWidth * 2);
         final blockSize = effectiveSize / board.size;
         
-        // Adjust for container padding
-        final adjustedX = localPosition.dx - containerPadding;
-        final adjustedY = localPosition.dy - containerPadding;
+        // Adjust for container padding and border
+        final adjustedX = localPosition.dx - containerPadding - borderWidth;
+        final adjustedY = localPosition.dy - containerPadding - borderWidth;
         
         // Calculate grid position - center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
@@ -194,9 +209,9 @@ class BoardDragTarget extends StatelessWidget {
         final success = gameState.placePiece(piece, gridX, gridY);
         
         if (success && settings.hapticsEnabled) {
-          Vibration.vibrate(duration: 30);
+          _safeVibrate(duration: 30);
         } else if (!success && settings.hapticsEnabled) {
-          Vibration.vibrate(duration: 100, amplitude: 255);
+          _safeVibrate(duration: 100, amplitude: 255);
         }
       },
       onMove: (details) {
@@ -210,15 +225,16 @@ class BoardDragTarget extends StatelessWidget {
         final piece = details.data;
         final screenWidth = MediaQuery.of(context).size.width;
         final screenHeight = MediaQuery.of(context).size.height;
-        final maxWidth = screenWidth * 0.85;
-        final maxHeight = screenHeight * 0.5;
-        final maxSize = maxWidth < maxHeight ? maxWidth : maxHeight;
+        final maxWidth = screenWidth * 0.9;
+        final maxHeight = screenHeight * 0.55;
+        final boardSize = maxWidth < maxHeight ? maxWidth : maxHeight;
         const containerPadding = 4.0;
-        final effectiveSize = maxSize - (containerPadding * 2);
+        const borderWidth = 2.0;
+        final effectiveSize = boardSize - (containerPadding * 2) - (borderWidth * 2);
         final blockSize = effectiveSize / board.size;
         
-        final adjustedX = localPosition.dx - containerPadding;
-        final adjustedY = localPosition.dy - containerPadding;
+        final adjustedX = localPosition.dx - containerPadding - borderWidth;
+        final adjustedY = localPosition.dy - containerPadding - borderWidth;
         
         // Center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);

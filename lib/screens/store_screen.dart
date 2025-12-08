@@ -13,11 +13,22 @@ class StoreScreen extends StatefulWidget {
 
 class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _analyticsLogged = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_analyticsLogged) {
+      _analyticsLogged = true;
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      settings.analyticsService.logScreenView('store');
+    }
   }
 
   @override
@@ -192,6 +203,12 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
               if (!mounted) return;
               
               if (success) {
+                // Track purchase analytics
+                settings.analyticsService.logPurchase(
+                  itemName: powerUp.name,
+                  coinCost: powerUp.cost,
+                );
+                
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('${powerUp.name} purchased!'),
@@ -273,6 +290,13 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           
           if (success) {
             await settings.setTheme(theme.id);
+            
+            // Track theme purchase analytics
+            settings.analyticsService.logPurchase(
+              itemName: 'Theme: ${theme.name}',
+              coinCost: theme.unlockCost,
+            );
+            
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

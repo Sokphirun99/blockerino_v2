@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/power_up.dart';
 import '../models/theme.dart';
 import '../models/story_level.dart';
+import '../services/firebase_auth_service.dart';
+import '../services/firestore_service.dart';
+import '../services/analytics_service.dart';
 
 class SettingsProvider extends ChangeNotifier {
   bool _soundEnabled = true;
@@ -17,6 +20,11 @@ class SettingsProvider extends ChangeNotifier {
   Map<int, int> _storyLevelStars = {}; // levelNumber -> stars earned
   int _currentStoryLevel = 1;
 
+  // Firebase services
+  final FirebaseAuthService _authService = FirebaseAuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+  final AnalyticsService _analyticsService = AnalyticsService();
+
   bool get soundEnabled => _soundEnabled;
   bool get hapticsEnabled => _hapticsEnabled;
   bool get animationsEnabled => _animationsEnabled;
@@ -29,9 +37,39 @@ class SettingsProvider extends ChangeNotifier {
   List<String> get completedChallengeIds => List.from(_completedChallengeIds);
   Map<int, int> get storyLevelStars => Map.from(_storyLevelStars);
   int get currentStoryLevel => _currentStoryLevel;
+  
+  // Firebase getters
+  FirebaseAuthService get authService => _authService;
+  FirestoreService get firestoreService => _firestoreService;
+  AnalyticsService get analyticsService => _analyticsService;
 
   SettingsProvider() {
     _loadSettings();
+    _initializeFirebase();
+  }
+
+  Future<void> _initializeFirebase() async {
+    // Sign in anonymously if not signed in
+    if (_authService.currentUser == null) {
+      await _authService.signInAnonymously();
+    }
+
+    // Set user ID for analytics
+    final uid = _authService.currentUser?.uid;
+    if (uid != null) {
+      await _analyticsService.setUserId(uid);
+      
+      // Sync local data to Firestore
+      await _syncToFirestore();
+    }
+
+    // Listen to auth state changes
+    _authService.authStateChanges.listen((user) {
+      if (user != null) {
+        _syncToFirestore();
+        _analyticsService.setUserId(user.uid);
+      }
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -61,11 +99,59 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Sync local data to Firestore
+  Future<void> _syncToFirestore() async {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      // Check if user profile exists
+      final profile = await _firestoreService.getUserProfile(uid);
+      
+      if (profile == null) {
+        // Create new user profile
+        await _firestoreService.createUserProfile(
+          uid: uid,
+          displayName: _authService.displayName ?? 'Player',
+          email: _authService.email,
+          photoURL: _authService.photoURL,
+        );
+      }
+
+      // Update user profile with local data
+      await _firestoreService.updateUserProfile(uid, {
+        'coins': _coins,
+        'totalScore': _highScore,
+      });
+
+      // Sync story progress
+      for (var entry in _storyLevelStars.entries) {
+        if (entry.value > 0) {
+          await _firestoreService.saveStoryProgress(
+            uid: uid,
+            levelNumber: entry.key,
+            stars: entry.value,
+            score: 0, // We don't track individual level scores locally
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing to Firestore: $e');
+    }
+  }
+
   // Coins management
   Future<void> addCoins(int amount) async {
     _coins += amount;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('coins', _coins);
+    
+    // Sync to Firestore
+    final uid = _authService.currentUser?.uid;
+    if (uid != null) {
+      await _firestoreService.addCoins(uid, amount);
+    }
+    
     notifyListeners();
   }
 
@@ -74,6 +160,13 @@ class SettingsProvider extends ChangeNotifier {
       _coins -= amount;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('coins', _coins);
+      
+      // Sync to Firestore
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        await _firestoreService.spendCoins(uid, amount);
+      }
+      
       notifyListeners();
     }
   }
@@ -122,6 +215,10 @@ class SettingsProvider extends ChangeNotifier {
       _powerUpInventory[type] = _powerUpInventory[type]! - 1;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('powerup_${type.name}', _powerUpInventory[type]!);
+      
+      // Track power-up usage
+      await _analyticsService.logPowerUpUsed(type.name);
+      
       notifyListeners();
       return true;
     }
@@ -175,6 +272,25 @@ class SettingsProvider extends ChangeNotifier {
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('story_stars_$levelNumber', stars);
+      
+      // Sync to Firestore
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        await _firestoreService.saveStoryProgress(
+          uid: uid,
+          levelNumber: levelNumber,
+          stars: stars,
+          score: 0,
+        );
+      }
+      
+      // Log to Analytics
+      await _analyticsService.logLevelComplete(
+        levelNumber: levelNumber,
+        stars: stars,
+        score: 0,
+      );
+      
       notifyListeners();
     }
   }
@@ -217,6 +333,15 @@ class SettingsProvider extends ChangeNotifier {
       _highScore = newScore;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('highScore', newScore);
+      
+      // Sync to Firestore
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        await _firestoreService.updateUserProfile(uid, {
+          'totalScore': newScore,
+        });
+      }
+      
       notifyListeners();
     }
   }
