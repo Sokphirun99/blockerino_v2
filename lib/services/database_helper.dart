@@ -307,4 +307,13 @@ class DatabaseHelper {
     // Reset level progress
     await db.delete('level_progress');
   }
+
+  /// Clear all data from database (for settings clear data feature)
+  Future<void> clearAllData() async {
+    final db = await database;
+    
+    // Clear all tables
+    await db.delete('inventory');
+    await db.delete('level_progress');
+  }
 }

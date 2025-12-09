@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 import '../models/power_up.dart';
 import '../models/theme.dart';
 import '../models/story_level.dart';
@@ -20,6 +21,7 @@ class SettingsProvider extends ChangeNotifier {
   List<String> _completedChallengeIds = [];
   Map<int, int> _storyLevelStars = {}; // levelNumber -> stars earned
   int _currentStoryLevel = 1;
+  Locale _currentLocale = AppConfig.defaultLocale;
 
   // Firebase services
   final FirebaseAuthService _authService = FirebaseAuthService();
@@ -39,6 +41,7 @@ class SettingsProvider extends ChangeNotifier {
   List<String> get completedChallengeIds => List.from(_completedChallengeIds);
   Map<int, int> get storyLevelStars => Map.from(_storyLevelStars);
   int get currentStoryLevel => _currentStoryLevel;
+  Locale get currentLocale => _currentLocale;
   
   // Firebase getters
   FirebaseAuthService get authService => _authService;
@@ -87,6 +90,12 @@ class SettingsProvider extends ChangeNotifier {
     _unlockedThemeIds = prefs.getStringList('unlockedThemes') ?? ['default'];
     _completedChallengeIds = prefs.getStringList('completedChallenges') ?? [];
     _currentStoryLevel = prefs.getInt('currentStoryLevel') ?? 1;
+    
+    // Load language preference
+    final languageCode = prefs.getString(AppConfig.languagePrefsKey);
+    if (languageCode != null) {
+      _currentLocale = Locale(languageCode, '');
+    }
     
     // Migrate data from SharedPreferences to SQLite if needed
     await _migrateToSQLite(prefs);
@@ -371,6 +380,51 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> toggleSound() async {
+    _soundEnabled = !_soundEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('soundEnabled', _soundEnabled);
+    notifyListeners();
+  }
+
+  Future<void> toggleHaptics() async {
+    _hapticsEnabled = !_hapticsEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hapticsEnabled', _hapticsEnabled);
+    notifyListeners();
+  }
+
+  Future<void> toggleAnimations() async {
+    _animationsEnabled = !_animationsEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('animationsEnabled', _animationsEnabled);
+    notifyListeners();
+  }
+
+  Future<void> clearAllData() async {
+    // Clear SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    
+    // Clear SQLite database
+    await _dbHelper.clearAllData();
+    
+    // Reset all values to defaults
+    _soundEnabled = true;
+    _hapticsEnabled = true;
+    _animationsEnabled = true;
+    _highScore = 0;
+    _coins = 0;
+    _currentThemeId = 'default';
+    _unlockedThemeIds = ['default'];
+    _powerUpInventory = {};
+    _completedChallengeIds = [];
+    _storyLevelStars = {};
+    _currentStoryLevel = 1;
+    
+    notifyListeners();
+  }
+
   Future<void> updateHighScore(int newScore) async {
     if (newScore > _highScore) {
       _highScore = newScore;
@@ -393,6 +447,20 @@ class SettingsProvider extends ChangeNotifier {
     _highScore = 0;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('highScore', 0);
+    notifyListeners();
+  }
+  
+  /// Change app language
+  Future<void> changeLanguage(Locale locale) async {
+    if (!AppConfig.supportedLocales.contains(locale)) {
+      return;
+    }
+    
+    _currentLocale = locale;
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConfig.languagePrefsKey, locale.languageCode);
+    
     notifyListeners();
   }
 }

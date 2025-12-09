@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +10,8 @@ import 'firebase_options.dart';
 import 'screens/main_menu_screen.dart';
 import 'providers/game_state_provider.dart';
 import 'providers/settings_provider.dart';
+import 'services/app_localizations.dart';
+import 'config/app_config.dart';
 
 // Global flag to track Firebase initialization
 bool _firebaseInitialized = false;
@@ -60,19 +63,34 @@ class BlockerinoApp extends StatelessWidget {
             previous ?? GameStateProvider(settingsProvider: settings),
         ),
       ],
-      child: MaterialApp(
-        title: 'Blockerino',
-        debugShowCheckedModeBanner: false,
-        navigatorObservers: observer != null ? [observer] : [],
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: Colors.black,
-          primarySwatch: Colors.blue,
-          textTheme: GoogleFonts.pressStart2pTextTheme(
-            ThemeData.dark().textTheme,
-          ),
-        ),
-        home: const MainMenuScreen(),
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, _) {
+          return MaterialApp(
+            title: 'Blockerino',
+            debugShowCheckedModeBanner: false,
+            navigatorObservers: observer != null ? [observer] : [],
+            
+            // Localization support
+            locale: settings.currentLocale,
+            supportedLocales: AppConfig.supportedLocales,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            
+            theme: ThemeData(
+              brightness: Brightness.dark,
+              scaffoldBackgroundColor: Colors.black,
+              primarySwatch: Colors.blue,
+              textTheme: GoogleFonts.pressStart2pTextTheme(
+                ThemeData.dark().textTheme,
+              ),
+            ),
+            home: const MainMenuScreen(),
+          );
+        },
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/leaderboard.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/common_card_widget.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -252,32 +253,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
       medal = null;
     }
     
-    return Container(
+    return GradientCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isTopThree
-              ? [rankColor.withValues(alpha: 0.3), rankColor.withValues(alpha: 0.1)]
-              : [const Color(0xFF2d2d44).withValues(alpha: 0.5), const Color(0xFF1a1a2e).withValues(alpha: 0.7)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isTopThree ? rankColor : const Color(0xFF9d4edd).withValues(alpha: 0.3),
-          width: isTopThree ? 2 : 1,
-        ),
-        boxShadow: isTopThree
-            ? [
-                BoxShadow(
-                  color: rankColor.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ]
-            : [],
-      ),
+      gradientColors: isTopThree
+          ? [rankColor.withValues(alpha: 0.3), rankColor.withValues(alpha: 0.1)]
+          : [const Color(0xFF2d2d44).withValues(alpha: 0.5), const Color(0xFF1a1a2e).withValues(alpha: 0.7)],
+      borderColor: isTopThree ? rankColor : const Color(0xFF9d4edd).withValues(alpha: 0.3),
+      borderWidth: isTopThree ? 2 : 1,
+      boxShadow: isTopThree
+          ? [
+              BoxShadow(
+                color: rankColor.withValues(alpha: 0.3),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ]
+          : null,
       child: Row(
         children: [
           // Rank
