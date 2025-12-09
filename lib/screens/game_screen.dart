@@ -62,17 +62,20 @@ class _GameScreenState extends State<GameScreen> {
         
         // If board is null, start game with appropriate mode
         if (gameState.board == null) {
-          // Use story level's game mode if provided, otherwise classic
-          final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
-          gameState.startGame(mode);
-          
-          // Track game start
-          settings.analyticsService.logGameStart(mode.name);
-          if (widget.storyLevel != null) {
-            settings.analyticsService.logScreenView('game_story_level_${widget.storyLevel!.levelNumber}');
-          } else {
-            settings.analyticsService.logScreenView('game_${mode.name}');
-          }
+          // Schedule game start after the current frame to avoid setState during build
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Use story level's game mode if provided, otherwise classic
+            final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
+            gameState.startGame(mode);
+            
+            // Track game start
+            settings.analyticsService.logGameStart(mode.name);
+            if (widget.storyLevel != null) {
+              settings.analyticsService.logScreenView('game_story_level_${widget.storyLevel!.levelNumber}');
+            } else {
+              settings.analyticsService.logScreenView('game_${mode.name}');
+            }
+          });
         }
         
         // Set up line clear callback

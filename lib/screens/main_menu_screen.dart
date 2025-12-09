@@ -296,6 +296,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -304,6 +306,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 10,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),

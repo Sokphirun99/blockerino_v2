@@ -30,7 +30,7 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget> {
   @override
   Widget build(BuildContext context) {
     // Calculate feedback offset to center piece on finger
-    final feedbackBlockSize = 30.0;
+    const feedbackBlockSize = 30.0;
     final pieceWidth = widget.piece.width * feedbackBlockSize;
     final pieceHeight = widget.piece.height * feedbackBlockSize;
     
