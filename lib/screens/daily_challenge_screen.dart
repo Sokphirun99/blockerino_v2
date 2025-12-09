@@ -4,6 +4,7 @@ import '../models/daily_challenge.dart';
 import '../models/game_mode.dart';
 import '../providers/settings_provider.dart';
 import 'game_screen.dart';
+import '../widgets/common_card_widget.dart';
 
 class DailyChallengeScreen extends StatelessWidget {
   const DailyChallengeScreen({super.key});
@@ -100,29 +101,21 @@ class DailyChallengeScreen extends StatelessWidget {
   }
 
   Widget _buildChallengeCard(BuildContext context, DailyChallenge challenge, bool isCompleted, SettingsProvider settings) {
-    return Container(
+    return GradientCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isCompleted
-              ? [const Color(0xFF52b788).withValues(alpha: 0.3), const Color(0xFF40916c).withValues(alpha: 0.3)]
-              : [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)],
+      borderRadius: 20,
+      gradientColors: isCompleted
+          ? [const Color(0xFF52b788).withValues(alpha: 0.3), const Color(0xFF40916c).withValues(alpha: 0.3)]
+          : [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)],
+      borderColor: isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd),
+      borderWidth: 2,
+      boxShadow: [
+        BoxShadow(
+          color: (isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd)).withValues(alpha: 0.3),
+          blurRadius: 12,
+          spreadRadius: 2,
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd)).withValues(alpha: 0.3),
-            blurRadius: 12,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

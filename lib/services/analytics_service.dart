@@ -1,5 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
+import '../config/app_config.dart';
 
 class AnalyticsService {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -8,7 +9,7 @@ class AnalyticsService {
   Future<void> logGameStart(String gameMode) async {
     try {
       await _analytics.logEvent(
-        name: 'game_start',
+        name: AppConfig.eventGameStart,
         parameters: {
           'game_mode': gameMode,
         },
@@ -26,7 +27,7 @@ class AnalyticsService {
   }) async {
     try {
       await _analytics.logEvent(
-        name: 'game_end',
+        name: AppConfig.eventGameEnd,
         parameters: {
           'game_mode': gameMode,
           'score': score,
@@ -46,7 +47,7 @@ class AnalyticsService {
   }) async {
     try {
       await _analytics.logEvent(
-        name: 'level_complete',
+        name: AppConfig.eventLevelComplete,
         parameters: {
           'level_number': levelNumber,
           'stars': stars,
@@ -61,7 +62,7 @@ class AnalyticsService {
   Future<void> logPowerUpUsed(String powerUpType) async {
     try {
       await _analytics.logEvent(
-        name: 'power_up_used',
+        name: AppConfig.eventPowerUpUsed,
         parameters: {
           'power_up_type': powerUpType,
         },
@@ -77,7 +78,7 @@ class AnalyticsService {
   }) async {
     try {
       await _analytics.logEvent(
-        name: 'in_app_purchase',
+        name: AppConfig.eventStorePurchase,
         parameters: {
           'item_name': itemName,
           'coin_cost': coinCost,

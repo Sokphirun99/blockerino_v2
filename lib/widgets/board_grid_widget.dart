@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_state_provider.dart';
 import '../models/board.dart';
-import '../config/board_config.dart';
+import '../config/app_config.dart';
 
 class BoardGridWidget extends StatelessWidget {
   const BoardGridWidget({super.key});
@@ -21,8 +21,8 @@ class BoardGridWidget extends StatelessWidget {
           );
         }
 
-        // Use shared BoardConfig for consistent sizing
-        final boardSize = BoardConfig.getSize(context);
+        // Use shared AppConfig for consistent sizing
+        final boardSize = AppConfig.getSize(context);
 
         return Container(
           width: boardSize,

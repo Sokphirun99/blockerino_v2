@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibration/vibration.dart';
+import '../config/app_config.dart';
 import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
 import '../models/board.dart';
@@ -62,17 +63,20 @@ class _GameScreenState extends State<GameScreen> {
         
         // If board is null, start game with appropriate mode
         if (gameState.board == null) {
-          // Use story level's game mode if provided, otherwise classic
-          final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
-          gameState.startGame(mode);
-          
-          // Track game start
-          settings.analyticsService.logGameStart(mode.name);
-          if (widget.storyLevel != null) {
-            settings.analyticsService.logScreenView('game_story_level_${widget.storyLevel!.levelNumber}');
-          } else {
-            settings.analyticsService.logScreenView('game_${mode.name}');
-          }
+          // Schedule game start after the current frame to avoid setState during build
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Use story level's game mode if provided, otherwise classic
+            final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
+            gameState.startGame(mode);
+            
+            // Track game start
+            settings.analyticsService.logGameStart(mode.name);
+            if (widget.storyLevel != null) {
+              settings.analyticsService.logScreenView('game_story_level_${widget.storyLevel!.levelNumber}');
+            } else {
+              settings.analyticsService.logScreenView('game_${mode.name}');
+            }
+          });
         }
         
         // Set up line clear callback
@@ -191,9 +195,9 @@ class _GameScreenState extends State<GameScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF0f0f1a),
-                  Colors.purple.shade900.withValues(alpha: 0.3),
-                  const Color(0xFF1a0a2e),
+                  AppConfig.gameBackgroundTop,
+                  AppConfig.gameBackgroundMiddle,
+                  AppConfig.gameBackgroundBottom,
                 ],
               ),
             ),
@@ -215,7 +219,7 @@ class _GameScreenState extends State<GameScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              icon: Icon(Icons.arrow_back, color: AppConfig.textPrimary),
                               onPressed: () => Navigator.pop(context),
                             ),
                             const GameHudWidget(),
@@ -287,18 +291,18 @@ class _GameScreenState extends State<GameScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.purple.shade700,
-                          Colors.purple.shade900,
+                          AppConfig.achievementGradientStart,
+                          AppConfig.achievementGradientEnd,
                         ],
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: const Color(0xFFFFE66D),
+                        color: AppConfig.achievementBorder,
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.purple.withOpacity(0.5),
+                          color: AppConfig.achievementGlow,
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
@@ -306,8 +310,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: Text(
                       _achievementMessage!,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppConfig.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
@@ -383,15 +387,15 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a2e),
+        backgroundColor: AppConfig.dialogBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
             color: isStoryMode && levelCompleted 
-                ? const Color(0xFFffd700) 
+                ? AppConfig.accentColor
                 : isHighScore 
-                    ? const Color(0xFFFFE66D) 
-                    : Colors.purple.shade700,
+                    ? AppConfig.achievementBorder
+                    : AppConfig.achievementGradientStart,
             width: 2,
           ),
         ),
@@ -400,14 +404,14 @@ class _GameScreenState extends State<GameScreen> {
             if (isStoryMode && levelCompleted) ...[
               const Icon(
                 Icons.emoji_events,
-                color: Color(0xFFffd700),
+                color: AppConfig.accentColor,
                 size: 48,
               ),
               const SizedBox(height: 8),
               Text(
                 'LEVEL COMPLETE!',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFFffd700),
+                      color: AppConfig.accentColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -419,7 +423,7 @@ class _GameScreenState extends State<GameScreen> {
                 children: List.generate(3, (index) {
                   return Icon(
                     index < starsEarned ? Icons.star : Icons.star_border,
-                    color: const Color(0xFFffd700),
+                    color: AppConfig.accentColor,
                     size: 32,
                   );
                 }),
@@ -428,14 +432,14 @@ class _GameScreenState extends State<GameScreen> {
             ] else if (isHighScore) ...[
               const Icon(
                 Icons.emoji_events,
-                color: Color(0xFFFFE66D),
+                color: AppConfig.achievementBorder,
                 size: 48,
               ),
               const SizedBox(height: 8),
               Text(
                 'NEW HIGH SCORE!',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFFFFE66D),
+                      color: AppConfig.achievementBorder,
                       fontSize: 14,
                     ),
                 textAlign: TextAlign.center,
@@ -446,7 +450,7 @@ class _GameScreenState extends State<GameScreen> {
               Text(
                 'GAME OVER',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFFFF6B6B),
+                      color: AppConfig.gameOverColor,
                       fontSize: 28,
                     ),
                 textAlign: TextAlign.center,
@@ -459,7 +463,7 @@ class _GameScreenState extends State<GameScreen> {
             Text(
               'Final Score',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
+                    color: AppConfig.textSecondary,
                     fontSize: 14,
                   ),
             ),

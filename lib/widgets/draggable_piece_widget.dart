@@ -5,7 +5,7 @@ import 'package:vibration/vibration.dart';
 import '../models/piece.dart';
 import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
-import '../config/board_config.dart';
+import '../config/app_config.dart';
 
 // Safe vibration helper for web compatibility
 void _safeVibrate({int duration = 50, int amplitude = 128}) {
@@ -30,7 +30,7 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget> {
   @override
   Widget build(BuildContext context) {
     // Calculate feedback offset to center piece on finger
-    final feedbackBlockSize = 30.0;
+    const feedbackBlockSize = 30.0;
     final pieceWidth = widget.piece.width * feedbackBlockSize;
     final pieceHeight = widget.piece.height * feedbackBlockSize;
     
@@ -189,13 +189,11 @@ class BoardDragTarget extends StatelessWidget {
         // Convert to grid coordinates with proper padding consideration
         final board = gameState.board!;
         final piece = details.data;
-        final boardSize = BoardConfig.getSize(context);
-        final effectiveSize = BoardConfig.getEffectiveSize(context);
-        final blockSize = BoardConfig.getBlockSize(context, board.size);
+        final blockSize = AppConfig.getBlockSize(context, board.size);
         
         // Adjust for container padding and border
-        final adjustedX = localPosition.dx - BoardConfig.containerPadding - BoardConfig.borderWidth;
-        final adjustedY = localPosition.dy - BoardConfig.containerPadding - BoardConfig.borderWidth;
+        final adjustedX = localPosition.dx - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
+        final adjustedY = localPosition.dy - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
         
         // Calculate grid position - center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
@@ -218,10 +216,10 @@ class BoardDragTarget extends StatelessWidget {
         final localPosition = renderBox.globalToLocal(details.offset);
         final board = gameState.board!;
         final piece = details.data;
-        final blockSize = BoardConfig.getBlockSize(context, board.size);
+        final blockSize = AppConfig.getBlockSize(context, board.size);
         
-        final adjustedX = localPosition.dx - BoardConfig.containerPadding - BoardConfig.borderWidth;
-        final adjustedY = localPosition.dy - BoardConfig.containerPadding - BoardConfig.borderWidth;
+        final adjustedX = localPosition.dx - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
+        final adjustedY = localPosition.dy - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
         
         // Center the piece on the cursor
         final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);

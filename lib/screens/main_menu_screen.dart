@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/app_config.dart';
 import '../models/game_mode.dart';
 import '../providers/game_state_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/app_localizations.dart';
 import '../widgets/animated_background_widget.dart';
 import 'game_screen.dart';
 import 'story_mode_screen.dart';
 import 'daily_challenge_screen.dart';
-import 'store_screen.dart';
 import 'leaderboard_screen.dart';
+import 'store_screen.dart';
+import 'settings_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -33,6 +36,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final localizations = AppLocalizations.of(context);
     
     return Scaffold(
       body: Stack(
@@ -49,58 +53,53 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.purple.shade900.withOpacity(0.2),
+                  AppConfig.backgroundOverlay1,
+                  AppConfig.backgroundOverlay2,
                 ],
               ),
             ),
             child: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
+              child: SingleChildScrollView(
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: AppConfig.mainMenuVerticalPadding),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Spacing to replace hidden Guest Player profile section
+                      const SizedBox(height: 20),
+                      
+                      // Title
+                      Text(
+                        localizations.appName,
+                        style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                              color: AppConfig.textPrimary,
+                              fontSize: 32,
+                              letterSpacing: 2,
+                            ),
                       ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                // User Profile Section
-                _buildProfileSection(context, settings),
-                
-                if (!settings.authService.isAnonymous) const SizedBox(height: 20),
-                
-                // Title
-                Text(
-                  'BLOCKERINO',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: Colors.white,
-                        fontSize: 32,
-                        letterSpacing: 2,
+                      const SizedBox(height: 6),
+                      Text(
+                        localizations.appTagline,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppConfig.textSecondary,
+                              fontSize: 12,
+                            ),
                       ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '8x8 grid, break lines!',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                ),
                 const SizedBox(height: 12),
                 
                 // Coins Display
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFffd700), Color(0xFFffa500)],
+                    gradient: LinearGradient(
+                      colors: [AppConfig.accentColor, AppConfig.coinGradientEnd],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        color: AppConfig.accentColor.withValues(alpha: 0.3),
                         blurRadius: 8,
                         spreadRadius: 1,
                       ),
@@ -128,16 +127,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: AppConfig.cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    border: Border.all(color: AppConfig.cardBorder),
                   ),
                   child: Column(
                     children: [
                       Text(
-                        'HIGH SCORE',
+                        localizations.translate('high_score'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white70,
+                              color: AppConfig.textSecondary,
                               fontSize: 10,
                             ),
                       ),
@@ -145,7 +144,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       Text(
                         '${settings.highScore}',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: const Color(0xFFFFD700),
+                              color: AppConfig.accentColor,
                               fontSize: 24,
                             ),
                       ),
@@ -156,8 +155,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 
                 // Story Mode Button (NEW!)
                 _MenuButton(
-                  text: '📖 STORY MODE',
-                  subtitle: 'Journey Through Challenges',
+                  text: '📖 ${localizations.translate('story_mode')}',
+                  subtitle: localizations.translate('story_subtitle'),
                   color: const Color(0xFF9d4edd),
                   onPressed: () {
                     Navigator.push(
@@ -170,8 +169,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 
                 // Daily Challenge Button (NEW!)
                 _MenuButton(
-                  text: '⭐ DAILY CHALLENGE',
-                  subtitle: 'Complete Today\'s Quest',
+                  text: '⭐ ${localizations.translate('daily_challenge')}',
+                  subtitle: localizations.translate('daily_subtitle'),
                   color: const Color(0xFFffd700),
                   onPressed: () {
                     Navigator.push(
@@ -184,8 +183,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 
                 // Classic Mode Button
                 _MenuButton(
-                  text: 'CLASSIC MODE',
-                  subtitle: '8x8 Grid • 3 Pieces',
+                  text: localizations.classicMode,
+                  subtitle: localizations.translate('classic_subtitle'),
                   color: const Color(0xFF4ECDC4),
                   onPressed: () {
                     _startGame(context, GameMode.classic);
@@ -195,8 +194,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 
                 // Chaos Mode Button
                 _MenuButton(
-                  text: 'CHAOS MODE',
-                  subtitle: '10x10 Grid • 5 Pieces',
+                  text: localizations.chaosMode,
+                  subtitle: localizations.translate('chaos_subtitle'),
                   color: const Color(0xFFFF6B6B),
                   onPressed: () {
                     _startGame(context, GameMode.chaos);
@@ -206,8 +205,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 
                 // Store Button (NEW!)
                 _MenuButton(
-                  text: '🏪 STORE',
-                  subtitle: 'Power-Ups & Themes',
+                  text: '🏪 ${localizations.translate('store')}',
+                  subtitle: localizations.translate('store_subtitle'),
                   color: const Color(0xFF06b6d4),
                   onPressed: () {
                     Navigator.push(
@@ -227,23 +226,49 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     );
                   },
                   child: Text(
-                    'LEADERBOARD',
+                    localizations.translate('leaderboard'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white70,
+                          color: AppConfig.textSecondary,
                           fontSize: 12,
                         ),
                   ),
                 ),
+                const SizedBox(height: 8),
+                
+                // Settings Button
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.settings,
+                        size: 14,
+                        color: AppConfig.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        localizations.translate('settings'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppConfig.textSecondary,
+                              fontSize: 12,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 40),
               ],
-                        ), // Column
-                      ), // IntrinsicHeight
-                    ), // ConstrainedBox
-                  ); // SingleChildScrollView
-                },
-              ), // LayoutBuilder
-            ), // SafeArea
+            ), // Column
           ), // Container
+        ), // SingleChildScrollView
+      ), // SafeArea
+    ), // Container
         ], // Stack children
       ), // Stack
     ); // Scaffold
@@ -258,6 +283,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 
+  // DISABLED: Guest Player Profile Section (Not yet in use)
+  /*
   Widget _buildProfileSection(BuildContext context, SettingsProvider settings) {
     final authService = settings.authService;
     final isAnonymous = authService.isAnonymous;
@@ -273,16 +300,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        color: AppConfig.cardBackground,
+        borderRadius: BorderRadius.circular(AppConfig.profileCardRadius),
+        border: Border.all(color: AppConfig.cardBorder),
       ),
       child: Row(
         children: [
           // Avatar
           CircleAvatar(
             radius: 24,
-            backgroundColor: const Color(0xFF9d4edd),
+            backgroundColor: AppConfig.primaryColor,
             backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
             child: photoURL == null
                 ? Text(
@@ -299,19 +326,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               children: [
                 Text(
                   isAnonymous ? 'Guest Player' : displayName ?? 'Player',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppConfig.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   isAnonymous ? 'Tap to sign in' : authService.email ?? '',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AppConfig.textSecondary,
                     fontSize: 10,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -321,7 +352,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             ElevatedButton(
               onPressed: () => _showSignInDialog(context, settings),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF9d4edd),
+                backgroundColor: AppConfig.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 shape: RoundedRectangleBorder(
@@ -339,7 +370,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       ),
     );
   }
+  */
 
+  // DISABLED: Sign In Dialog (Not yet in use)
+  /*
   void _showSignInDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
@@ -399,7 +433,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       ),
     );
   }
+  */
 
+  // DISABLED: Sign Out Dialog (Not yet in use)
+  /*
   void _showSignOutDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
@@ -441,6 +478,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       ),
     );
   }
+  */
 }
 
 class _MenuButton extends StatelessWidget {

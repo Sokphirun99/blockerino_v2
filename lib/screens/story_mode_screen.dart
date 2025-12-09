@@ -4,6 +4,7 @@ import '../models/story_level.dart';
 import '../models/game_mode.dart';
 import '../providers/settings_provider.dart';
 import 'game_screen.dart';
+import '../widgets/common_card_widget.dart';
 
 class StoryModeScreen extends StatefulWidget {
   const StoryModeScreen({super.key});
@@ -128,30 +129,23 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
   }
 
   Widget _buildLevelCard(BuildContext context, StoryLevel level, bool isUnlocked, int stars, SettingsProvider settings) {
-    return Container(
+    return GradientCard(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isUnlocked
-              ? [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)]
-              : [const Color(0xFF1a1a1a).withValues(alpha: 0.5), const Color(0xFF0a0a0a).withValues(alpha: 0.7)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isUnlocked ? _getDifficultyColor(level.difficulty) : Colors.white.withValues(alpha: 0.1),
-          width: 2,
-        ),
-        boxShadow: [
-          if (isUnlocked)
-            BoxShadow(
-              color: _getDifficultyColor(level.difficulty).withValues(alpha: 0.3),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-        ],
-      ),
+      borderRadius: 20,
+      gradientColors: isUnlocked
+          ? [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)]
+          : [const Color(0xFF1a1a1a).withValues(alpha: 0.5), const Color(0xFF0a0a0a).withValues(alpha: 0.7)],
+      borderColor: isUnlocked ? _getDifficultyColor(level.difficulty) : Colors.white.withValues(alpha: 0.1),
+      borderWidth: 2,
+      boxShadow: isUnlocked
+          ? [
+              BoxShadow(
+                color: _getDifficultyColor(level.difficulty).withValues(alpha: 0.3),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ]
+          : null,
       child: Stack(
         children: [
           Padding(

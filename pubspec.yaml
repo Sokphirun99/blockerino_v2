@@ -9,12 +9,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
   cupertino_icons: ^1.0.2
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   vibration: ^2.1.0
   flutter_animate: ^4.5.0
   google_fonts: ^6.1.0
+  
+  # Database
+  sqflite: ^2.3.0
+  path: ^1.9.0
   
   # Firebase Core (required for all Firebase services)
   firebase_core: ^3.8.1

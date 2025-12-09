@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/app_config.dart';
 import '../models/power_up.dart';
 import '../models/theme.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/common_card_widget.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -42,14 +44,14 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
     return Scaffold(
       appBar: AppBar(
         title: const Text('Store', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1a1a2e),
+        backgroundColor: AppConfig.dialogBackground,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.flash_on), text: 'Power-Ups'),
             Tab(icon: Icon(Icons.palette), text: 'Themes'),
           ],
-          indicatorColor: const Color(0xFF9d4edd),
+          indicatorColor: AppConfig.primaryColor,
         ),
       ),
       body: Container(
@@ -57,7 +59,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF1a1a2e), Color(0xFF0f0f1e)],
+            colors: [AppConfig.dialogBackground, AppConfig.gameBackgroundTop],
           ),
         ),
         child: Column(
@@ -86,12 +88,12 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFffd700), Color(0xFFffa500)],
+              colors: [AppConfig.accentColor, AppConfig.coinGradientEnd],
             ),
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                color: AppConfig.accentColor.withValues(alpha: 0.3),
                 blurRadius: 12,
                 spreadRadius: 2,
               ),
@@ -141,26 +143,19 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   }
 
   Widget _buildPowerUpCard(PowerUp powerUp, int count, SettingsProvider settings) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF2d2d44).withValues(alpha: 0.8),
-            const Color(0xFF1a1a2e).withValues(alpha: 0.9),
-          ],
+    return GradientCard(
+      gradientColors: [
+        AppConfig.cardBackground,
+        AppConfig.dialogBackground,
+      ],
+      borderColor: AppConfig.primaryColor.withValues(alpha: 0.3),
+      boxShadow: [
+        BoxShadow(
+          color: AppConfig.primaryColor.withValues(alpha: 0.2),
+          blurRadius: 8,
+          spreadRadius: 1,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF9d4edd).withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF9d4edd).withValues(alpha: 0.2),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
+      ],
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -193,7 +188,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
               ),
               child: Text(
                 'Owned: $count',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(color: AppConfig.textPrimary, fontWeight: FontWeight.bold),
               ),
             ),
           const SizedBox(height: 8),
@@ -227,8 +222,8 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9d4edd),
-              foregroundColor: Colors.white,
+              backgroundColor: AppConfig.primaryColor,
+              foregroundColor: AppConfig.textPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             ),
             child: Row(
@@ -316,27 +311,22 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           }
         }
       },
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [theme.primaryColor.withValues(alpha: 0.3), theme.secondaryColor.withValues(alpha: 0.3)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isCurrent ? theme.primaryColor : theme.primaryColor.withValues(alpha: 0.3),
-            width: isCurrent ? 3 : 1,
-          ),
-          boxShadow: [
-            if (isCurrent)
-              BoxShadow(
-                color: theme.primaryColor.withValues(alpha: 0.5),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-          ],
-        ),
+      child: GradientCard(
+        gradientColors: [
+          theme.primaryColor.withValues(alpha: 0.3),
+          theme.secondaryColor.withValues(alpha: 0.3),
+        ],
+        borderColor: isCurrent ? theme.primaryColor : theme.primaryColor.withValues(alpha: 0.3),
+        borderWidth: isCurrent ? 3 : 1,
+        boxShadow: isCurrent
+            ? [
+                BoxShadow(
+                  color: theme.primaryColor.withValues(alpha: 0.5),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              ]
+            : null,
         child: Stack(
           children: [
             Column(
