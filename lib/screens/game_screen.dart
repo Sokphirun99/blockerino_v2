@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vibration/vibration.dart';
+import 'package:confetti/confetti.dart';
 import '../config/app_config.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
@@ -46,12 +47,20 @@ class _GameScreenState extends State<GameScreen> {
   bool _shouldShake = false;
   String? _achievementMessage;
   int _lastComboLevel = 0;
+  late ConfettiController _confettiController;
 
   bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
   }
 
   @override
@@ -70,7 +79,7 @@ class _GameScreenState extends State<GameScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             // Use story level's game mode if provided, otherwise classic
             final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
-            gameCubit.startGame(mode);
+            gameCubit.startGame(mode, storyLevel: widget.storyLevel);
             
             // Track game start
             settingsCubit.analyticsService.logGameStart(mode.name);
@@ -233,14 +242,16 @@ class _GameScreenState extends State<GameScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: Icon(Icons.arrow_back, color: AppConfig.textPrimary),
+                              icon: const Icon(Icons.arrow_back, color: AppConfig.textPrimary),
                               onPressed: () {
                                 // Save game before going back
                                 context.read<GameCubit>().saveGame();
                                 Navigator.pop(context);
                               },
                             ),
-                            const GameHudWidget(),
+                            const Flexible(
+                              child: GameHudWidget(),
+                            ),
                           ],
                         ),
                       ),
@@ -316,7 +327,7 @@ class _GameScreenState extends State<GameScreen> {
                         color: AppConfig.achievementBorder,
                         width: 2,
                       ),
-                      boxShadow: [
+                      boxShadow: const [
                         BoxShadow(
                           color: AppConfig.achievementGlow,
                           blurRadius: 20,
@@ -326,7 +337,7 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: Text(
                       _achievementMessage!,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppConfig.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -350,6 +361,26 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           )),
+          
+          // Confetti overlay for celebrations
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirection: 3.14 / 2, // Downward
+              emissionFrequency: 0.05,
+              numberOfParticles: 20,
+              gravity: 0.1,
+              shouldLoop: false,
+              colors: const [
+                Color(0xFF9d4edd),
+                Color(0xFF7b2cbf),
+                Color(0xFFFFE66D),
+                Color(0xFFFFD700),
+                Color(0xFF52b788),
+              ],
+            ),
+          ),
         ],
       ),
       ),
@@ -363,6 +394,16 @@ class _GameScreenState extends State<GameScreen> {
     
     final isHighScore = state.finalScore >= settingsCubit.state.highScore;
     
+    // Get story mode data from state if available
+    final isStoryMode = state.storyLevel != null;
+    final starsEarned = state.starsEarned;
+    final levelCompleted = state.levelCompleted;
+    
+    // Trigger confetti for high score or level complete
+    if (isHighScore || (isStoryMode && levelCompleted)) {
+      _confettiController.play();
+    }
+    
     // Track game end analytics
     final mode = widget.storyLevel?.gameMode ?? state.gameMode;
     settingsCubit.analyticsService.logGameEnd(
@@ -372,31 +413,13 @@ class _GameScreenState extends State<GameScreen> {
       duration: 0, // We don't track duration yet, could add timer
     );
     
-    // Check if this is a story level and if objectives are met
-    final isStoryMode = widget.storyLevel != null;
-    int starsEarned = 0;
-    bool levelCompleted = false;
-    
-    if (isStoryMode) {
-      final level = widget.storyLevel!;
-      final score = state.finalScore;
-      
-      // Check if level objectives are met
-      levelCompleted = score >= level.targetScore;
-      
-      // Calculate stars earned
-      if (score >= level.starThreshold3) {
-        starsEarned = 3;
-      } else if (score >= level.starThreshold2) {
-        starsEarned = 2;
-      } else if (score >= level.starThreshold1) {
-        starsEarned = 1;
-      }
-      
-      // Update progress if level completed
-      if (levelCompleted) {
-        settingsCubit.completeStoryLevel(level.levelNumber, starsEarned, level.coinReward);
-      }
+    // Update progress if story level completed
+    if (isStoryMode && levelCompleted) {
+      settingsCubit.completeStoryLevel(
+        state.storyLevel!.levelNumber,
+        starsEarned,
+        state.storyLevel!.coinReward,
+      );
     }
     
     if (settingsCubit.state.hapticsEnabled) {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:gap/gap.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
@@ -58,6 +60,41 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
     }
     _lastCombo = newCombo;
   }
+  
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+  
+  Widget _buildObjective(String text, bool completed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (completed)
+            const Icon(Icons.check_circle, color: Color(0xFF52b788), size: 12)
+          else
+            Icon(Icons.circle_outlined, color: Colors.white.withValues(alpha: 0.5), size: 12),
+          const SizedBox(width: 4),
+          Flexible(
+            child: AutoSizeText(
+              text,
+              style: TextStyle(
+                color: completed ? const Color(0xFF52b788) : Colors.white,
+                fontSize: 10,
+                fontWeight: completed ? FontWeight.bold : FontWeight.normal,
+              ),
+              maxLines: 1,
+              minFontSize: 6,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +118,85 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
         return Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // Story mode: Show time limit and objectives
+            if (gameState.storyLevel != null) ...[
+              // Time limit (if applicable)
+              if (gameState.timeRemaining >= 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gameState.timeRemaining <= 10
+                          ? [const Color(0xFFFF6B6B), const Color(0xFFFF4757)]
+                          : [const Color(0xFF9d4edd), const Color(0xFF7b2cbf)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (gameState.timeRemaining <= 10
+                                ? const Color(0xFFFF6B6B)
+                                : const Color(0xFF9d4edd))
+                            .withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.timer, color: Colors.white, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatTime(gameState.timeRemaining),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              // Objectives display
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'OBJECTIVES',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (gameState.storyLevel!.targetScore > 0)
+                      _buildObjective(
+                        '🎯 Score: ${gameState.score}/${gameState.storyLevel!.targetScore}',
+                        gameState.score >= gameState.storyLevel!.targetScore,
+                      ),
+                    if (gameState.storyLevel!.targetLines != null)
+                      _buildObjective(
+                        '📊 Lines: ${gameState.linesCleared}/${gameState.storyLevel!.targetLines}',
+                        gameState.linesCleared >= gameState.storyLevel!.targetLines!,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             // High score indicator
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -92,19 +208,23 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                       : Colors.white38,
                   size: 12,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '${isNewHighScore ? gameState.score : settings.highScore}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isNewHighScore 
-                            ? const Color(0xFFFFE66D) 
-                            : Colors.white38,
-                        fontSize: 10,
-                      ),
+                const Gap(4),
+                Flexible(
+                  child: AutoSizeText(
+                    '${isNewHighScore ? gameState.score : settings.highScore}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isNewHighScore 
+                              ? const Color(0xFFFFE66D) 
+                              : Colors.white38,
+                          fontSize: 10,
+                        ),
+                    maxLines: 1,
+                    minFontSize: 8,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 2),
+            const Gap(2),
             Text(
               'SCORE',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -112,16 +232,21 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                     fontSize: 10,
                   ),
             ),
-            Text(
-              '${gameState.score}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: AutoSizeText(
+                '${gameState.score}',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                maxLines: 1,
+                minFontSize: 18,
+              ),
             ),
             if (gameState.combo > 1) ...[
-              const SizedBox(height: 4),
+              const Gap(4),
               AnimatedBuilder(
                 animation: _comboAnimationController,
                 builder: (context, child) {
@@ -130,10 +255,10 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
-                            const Color(0xFFFFD700),
-                            const Color(0xFFFFE66D),
+                            Color(0xFFFFD700),
+                            Color(0xFFFFE66D),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -204,7 +329,7 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                 child: Row(
                   children: [
                     Expanded(
-                      flex: (comboProgress * 100).round(),
+                      flex: (comboProgress * 100).round().clamp(0, 100),
                       child: Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFE66D),
@@ -213,19 +338,24 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                       ),
                     ),
                     Expanded(
-                      flex: ((1 - comboProgress) * 100).round(),
+                      flex: ((1 - comboProgress) * 100).round().clamp(0, 100),
                       child: const SizedBox.shrink(),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                '$movesLeft moves left',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white60,
-                      fontSize: 8,
-                    ),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  '$movesLeft moves left',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white60,
+                        fontSize: 8,
+                      ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ],

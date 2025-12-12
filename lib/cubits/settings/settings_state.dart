@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import '../../models/power_up.dart';
-import '../../models/theme.dart';
 
 class SettingsState extends Equatable {
   final bool soundEnabled;
@@ -9,8 +8,6 @@ class SettingsState extends Equatable {
   final bool animationsEnabled;
   final int highScore;
   final int coins;
-  final String currentThemeId;
-  final List<String> unlockedThemeIds;
   final Map<PowerUpType, int> powerUpInventory;
   final List<String> completedChallengeIds;
   final Map<int, int> storyLevelStars;
@@ -23,8 +20,6 @@ class SettingsState extends Equatable {
     required this.animationsEnabled,
     required this.highScore,
     required this.coins,
-    required this.currentThemeId,
-    required this.unlockedThemeIds,
     required this.powerUpInventory,
     required this.completedChallengeIds,
     required this.storyLevelStars,
@@ -39,8 +34,6 @@ class SettingsState extends Equatable {
       animationsEnabled: true,
       highScore: 0,
       coins: 0,
-      currentThemeId: 'default',
-      unlockedThemeIds: ['default'],
       powerUpInventory: {},
       completedChallengeIds: [],
       storyLevelStars: {},
@@ -48,8 +41,6 @@ class SettingsState extends Equatable {
       currentLocale: Locale('en', ''),
     );
   }
-
-  GameTheme get currentTheme => GameTheme.fromId(currentThemeId) ?? GameTheme.defaultTheme;
 
   int get totalStarsEarned {
     return storyLevelStars.values.fold(0, (sum, stars) => sum + stars);
@@ -61,8 +52,6 @@ class SettingsState extends Equatable {
     bool? animationsEnabled,
     int? highScore,
     int? coins,
-    String? currentThemeId,
-    List<String>? unlockedThemeIds,
     Map<PowerUpType, int>? powerUpInventory,
     List<String>? completedChallengeIds,
     Map<int, int>? storyLevelStars,
@@ -75,8 +64,6 @@ class SettingsState extends Equatable {
       animationsEnabled: animationsEnabled ?? this.animationsEnabled,
       highScore: highScore ?? this.highScore,
       coins: coins ?? this.coins,
-      currentThemeId: currentThemeId ?? this.currentThemeId,
-      unlockedThemeIds: unlockedThemeIds ?? this.unlockedThemeIds,
       powerUpInventory: powerUpInventory ?? this.powerUpInventory,
       completedChallengeIds: completedChallengeIds ?? this.completedChallengeIds,
       storyLevelStars: storyLevelStars ?? this.storyLevelStars,
@@ -92,8 +79,6 @@ class SettingsState extends Equatable {
         animationsEnabled,
         highScore,
         coins,
-        currentThemeId,
-        unlockedThemeIds,
         powerUpInventory,
         completedChallengeIds,
         storyLevelStars,

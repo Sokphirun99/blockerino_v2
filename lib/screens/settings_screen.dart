@@ -36,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppConfig.dialogBackground,
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -131,21 +131,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         secondary: Icon(icon, color: AppConfig.primaryColor),
         title: Text(
           title,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppConfig.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppConfig.textSecondary,
             fontSize: 12,
           ),
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: AppConfig.primaryColor,
+        activeThumbColor: AppConfig.primaryColor,
       ),
     );
   }
@@ -234,10 +234,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.language, color: AppConfig.primaryColor),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 'Select Language',
                 style: TextStyle(
@@ -274,7 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 settings.changeLanguage(locale);
               },
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -290,8 +290,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildStatRow('Total Coins', '${state.coins}', Icons.monetization_on),
           const Divider(height: 24),
           _buildStatRow('Story Progress', 'Level ${state.currentStoryLevel}', Icons.book),
-          const Divider(height: 24),
-          _buildStatRow('Themes Unlocked', '${state.unlockedThemeIds.length}', Icons.palette),
         ],
       ),
     );
@@ -305,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppConfig.textSecondary,
               fontSize: 14,
             ),
@@ -313,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppConfig.textPrimary,
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -328,30 +326,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           ListTile(
-            leading: Icon(Icons.cloud_upload, color: AppConfig.primaryColor),
-            title: Text(
+            leading: const Icon(Icons.cloud_upload, color: AppConfig.primaryColor),
+            title: const Text(
               'Sync Data',
               style: TextStyle(color: AppConfig.textPrimary),
             ),
-            subtitle: Text(
+            subtitle: const Text(
               'Sync your progress to the cloud',
               style: TextStyle(color: AppConfig.textSecondary, fontSize: 12),
             ),
-            trailing: Icon(Icons.sync, color: AppConfig.textSecondary),
+            trailing: const Icon(Icons.sync, color: AppConfig.textSecondary),
             onTap: () => _syncData(settings),
           ),
-          Divider(height: 1, color: AppConfig.cardBorder),
+          const Divider(height: 1, color: AppConfig.cardBorder),
           ListTile(
-            leading: Icon(Icons.delete_forever, color: AppConfig.gameOverColor),
-            title: Text(
+            leading: const Icon(Icons.delete_forever, color: AppConfig.gameOverColor),
+            title: const Text(
               'Clear All Data',
               style: TextStyle(color: AppConfig.gameOverColor),
             ),
-            subtitle: Text(
+            subtitle: const Text(
               'Reset all progress and settings',
               style: TextStyle(color: AppConfig.textSecondary, fontSize: 12),
             ),
-            trailing: Icon(Icons.warning, color: AppConfig.gameOverColor),
+            trailing: const Icon(Icons.warning, color: AppConfig.gameOverColor),
             onTap: () => _showClearDataDialog(settings),
           ),
         ],
@@ -360,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildAppInfo() {
-    return Column(
+    return const Column(
       children: [
         Text(
           'BLOCKERINO',
@@ -371,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           'Version 2.0.0',
           style: TextStyle(
@@ -379,7 +377,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             fontSize: 12,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           '© 2025 Blockerino Games',
           style: TextStyle(
@@ -480,11 +478,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppConfig.dialogBackground,
-        title: Text(
+        title: const Text(
           '⚠️ Clear All Data',
           style: TextStyle(color: AppConfig.gameOverColor),
         ),
-        content: Text(
+        content: const Text(
           'This will permanently delete:\n'
           '• All game progress\n'
           '• High scores\n'

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../../models/board.dart';
 import '../../models/piece.dart';
 import '../../models/game_mode.dart';
+import '../../models/story_level.dart';
 import '../../models/power_up.dart';
 import '../../services/sound_service.dart';
 import '../settings/settings_cubit.dart';
@@ -40,8 +43,11 @@ class GameCubit extends Cubit<GameState> {
   final Map<GameMode, _SavedGameState> _savedGames = {};
   
   // Random Bag System (Section 4.1 of technical document)
-  static List<int> _pieceBag = [];
+  static final List<int> _pieceBag = [];
   static int _bagIndex = 0;
+  
+  // Story mode timer
+  Timer? _storyTimer;
   
   /// Callback for when lines are cleared (for particle effects)
   LineClearCallback? onLinesCleared;
@@ -72,7 +78,10 @@ class GameCubit extends Cubit<GameState> {
     return null;
   }
 
-  void startGame(GameMode mode) {
+  void startGame(GameMode mode, {StoryLevel? storyLevel}) {
+    // Cancel any existing timer
+    _storyTimer?.cancel();
+    
     // Save current game state before switching modes (if there's an active game)
     final currentState = state;
     if (currentState is GameInProgress && currentState.gameMode != mode) {
@@ -82,6 +91,12 @@ class GameCubit extends Cubit<GameState> {
     // If coming from GameOver, clear the saved game for this mode
     if (currentState is GameOver && currentState.gameMode == mode) {
       _savedGames.remove(mode);
+    }
+    
+    // Story mode doesn't support save/load - always start fresh
+    if (storyLevel != null || mode == GameMode.story) {
+      _startStoryGame(storyLevel!);
+      return;
     }
     
     // Check if this mode has a saved game (and we're not in GameOver state)
@@ -102,6 +117,52 @@ class GameCubit extends Cubit<GameState> {
         gameMode: mode,
       ));
     }
+  }
+  
+  void _startStoryGame(StoryLevel level) {
+    final config = GameModeConfig.fromMode(GameMode.story);
+    final board = Board(size: config.boardSize);
+    final hand = _generateRandomHand(config.handSize);
+    
+    // Check if power-ups are disabled
+    final powerUpsDisabled = level.restrictions.any(
+      (r) => r.toLowerCase().contains('no power') || r.toLowerCase().contains('without power')
+    );
+    
+    emit(GameInProgress(
+      board: board,
+      hand: hand,
+      score: 0,
+      combo: 0,
+      lastBrokenLine: 0,
+      gameMode: GameMode.story,
+      storyLevel: level,
+      linesCleared: 0,
+      timeRemaining: level.timeLimit ?? -1,
+      powerUpsDisabled: powerUpsDisabled,
+    ));
+    
+    // Start timer if level has time limit
+    if (level.timeLimit != null && level.timeLimit! > 0) {
+      _startStoryTimer();
+    }
+  }
+  
+  void _startStoryTimer() {
+    _storyTimer?.cancel();
+    _storyTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final currentState = state;
+      if (currentState is! GameInProgress || currentState.timeRemaining <= 0) {
+        timer.cancel();
+        if (currentState is GameInProgress && currentState.timeRemaining == 0) {
+          // Time's up - check if objectives were met
+          _endStoryLevel(currentState, timeUp: true);
+        }
+        return;
+      }
+      
+      emit(currentState.copyWith(timeRemaining: currentState.timeRemaining - 1));
+    });
   }
   
   void _saveCurrentGame(GameInProgress currentState) {
@@ -248,6 +309,9 @@ class GameCubit extends Cubit<GameState> {
     final clearResult = currentState.board.breakLinesWithInfo();
     final linesBroken = clearResult.lineCount;
     
+    // Track lines cleared for story mode
+    int newLinesCleared = currentState.linesCleared + linesBroken;
+    
     int newCombo = currentState.combo;
     int newLastBrokenLine = currentState.lastBrokenLine;
     
@@ -292,9 +356,21 @@ class GameCubit extends Cubit<GameState> {
     final hasValidMove = currentState.board.hasAnyValidMove(newHand);
     debugPrint('Game Over Check: hasValidMove=$hasValidMove, hand size=${newHand.length}');
     
-    if (!hasValidMove) {
+    // For story mode, only end on game over (no valid moves)
+    if (currentState.storyLevel != null) {
+      // Story mode: check for game over (no valid moves)
+      // Let players continue playing to reach higher star thresholds
+      if (!hasValidMove) {
+        _endStoryLevel(currentState.copyWith(
+          score: newScore,
+          linesCleared: newLinesCleared,
+          hand: newHand,
+        ), failed: newScore < currentState.storyLevel!.targetScore);
+        return true;
+      }
+    } else if (!hasValidMove) {
+      // Regular mode: game over
       _soundService.playGameOver();
-      // Update high score
       settingsCubit?.updateHighScore(newScore);
       
       emit(GameOver(
@@ -302,27 +378,73 @@ class GameCubit extends Cubit<GameState> {
         finalScore: newScore,
         gameMode: currentState.gameMode,
       ));
-    } else {
-      emit(GameInProgress(
-        board: currentState.board,
-        hand: newHand,
-        score: newScore,
-        combo: newCombo,
-        lastBrokenLine: newLastBrokenLine,
-        gameMode: currentState.gameMode,
-      ));
+      return true;
     }
+    
+    // Continue game
+    emit(GameInProgress(
+      board: currentState.board,
+      hand: newHand,
+      score: newScore,
+      combo: newCombo,
+      lastBrokenLine: newLastBrokenLine,
+      gameMode: currentState.gameMode,
+      storyLevel: currentState.storyLevel,
+      linesCleared: newLinesCleared,
+      timeRemaining: currentState.timeRemaining,
+      powerUpsDisabled: currentState.powerUpsDisabled,
+    ));
 
     return true;
   }
 
   void resetGame() {
+    _storyTimer?.cancel();
     final currentState = state;
     if (currentState is GameInProgress) {
-      startGame(currentState.gameMode);
+      startGame(currentState.gameMode, storyLevel: currentState.storyLevel);
     } else if (currentState is GameOver) {
-      startGame(currentState.gameMode);
+      startGame(currentState.gameMode, storyLevel: currentState.storyLevel);
     }
+  }
+  
+  void _endStoryLevel(GameInProgress currentState, {bool failed = false, bool timeUp = false}) {
+    _storyTimer?.cancel();
+    
+    final level = currentState.storyLevel!;
+    final score = currentState.score;
+    
+    // Calculate stars based on score
+    int stars = 0;
+    bool completed = !failed && !timeUp;
+    
+    if (completed) {
+      if (score >= level.starThreshold3) {
+        stars = 3;
+      } else if (score >= level.starThreshold2) {
+        stars = 2;
+      } else if (score >= level.starThreshold1) {
+        stars = 1;
+      }
+      
+      _soundService.playPlace(); // Victory sound
+      
+      // Award coins if level completed
+      if (stars > 0) {
+        settingsCubit?.addCoins(level.coinReward);
+      }
+    } else {
+      _soundService.playGameOver();
+    }
+    
+    emit(GameOver(
+      board: currentState.board,
+      finalScore: score,
+      gameMode: GameMode.story,
+      storyLevel: level,
+      starsEarned: stars,
+      levelCompleted: completed,
+    ));
   }
 
   // ========== Power-Up Methods ==========
@@ -332,6 +454,12 @@ class GameCubit extends Cubit<GameState> {
     
     final currentState = state;
     if (currentState is! GameInProgress) return;
+    
+    // Check if power-ups are disabled in story mode
+    if (currentState.powerUpsDisabled) {
+      debugPrint('Power-ups are disabled for this level');
+      return;
+    }
     
     // Check if user has the power-up
     if (settingsCubit!.getPowerUpCount(type) <= 0) return;
@@ -546,10 +674,10 @@ class GameCubit extends Cubit<GameState> {
       _pieceBag.addAll([16, 17, 18, 19, 27, 28]); // 3x3, 4x1, 5x1
     }
     
-    // Fisher-Yates shuffle
-    final random = DateTime.now().millisecondsSinceEpoch;
+    // Fisher-Yates shuffle with proper RNG
+    final rng = math.Random();
     for (int i = _pieceBag.length - 1; i > 0; i--) {
-      final j = (random + i) % (i + 1);
+      final j = rng.nextInt(i + 1);
       final temp = _pieceBag[i];
       _pieceBag[i] = _pieceBag[j];
       _pieceBag[j] = temp;

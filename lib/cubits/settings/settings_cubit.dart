@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import '../../models/power_up.dart';
-import '../../models/theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
@@ -28,10 +27,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> _initializeFirebase() async {
-    // Sign in anonymously if not signed in
-    if (_authService.currentUser == null) {
-      await _authService.signInAnonymously();
-    }
+    try {
+      // Sign in anonymously if not signed in
+      if (_authService.currentUser == null) {
+        await _authService.signInAnonymously();
+      }
 
     // Set user ID for analytics
     final uid = _authService.currentUser?.uid;
@@ -42,13 +42,17 @@ class SettingsCubit extends Cubit<SettingsState> {
       await _syncToFirestore();
     }
 
-    // Listen to auth state changes
-    _authService.authStateChanges.listen((user) {
-      if (user != null) {
-        _syncToFirestore();
-        _analyticsService.setUserId(user.uid);
-      }
-    });
+      // Listen to auth state changes
+      _authService.authStateChanges.listen((user) {
+        if (user != null) {
+          _syncToFirestore();
+          _analyticsService.setUserId(user.uid);
+        }
+      });
+    } catch (e) {
+      debugPrint('Firebase initialization error: $e');
+      // Continue without Firebase features
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -60,8 +64,6 @@ class SettingsCubit extends Cubit<SettingsState> {
     final animationsEnabled = prefs.getBool('animationsEnabled') ?? true;
     final highScore = prefs.getInt('highScore') ?? 0;
     final coins = prefs.getInt('coins') ?? 0;
-    final currentThemeId = prefs.getString('currentTheme') ?? 'default';
-    final unlockedThemeIds = prefs.getStringList('unlockedThemes') ?? ['default'];
     final completedChallengeIds = prefs.getStringList('completedChallenges') ?? [];
     final currentStoryLevel = prefs.getInt('currentStoryLevel') ?? 1;
     
@@ -84,8 +86,6 @@ class SettingsCubit extends Cubit<SettingsState> {
       animationsEnabled: animationsEnabled,
       highScore: highScore,
       coins: coins,
-      currentThemeId: currentThemeId,
-      unlockedThemeIds: unlockedThemeIds,
       powerUpInventory: powerUpInventory,
       completedChallengeIds: completedChallengeIds,
       storyLevelStars: storyLevelStars,
@@ -195,36 +195,6 @@ class SettingsCubit extends Cubit<SettingsState> {
       
       emit(state.copyWith(coins: newCoins));
     }
-  }
-
-  // Theme management
-  Future<void> setTheme(String themeId) async {
-    if (state.unlockedThemeIds.contains(themeId)) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('currentTheme', themeId);
-      emit(state.copyWith(currentThemeId: themeId));
-    }
-  }
-
-  Future<bool> unlockTheme(String themeId) async {
-    final theme = GameTheme.fromId(themeId);
-    if (theme == null || state.unlockedThemeIds.contains(themeId)) {
-      return false;
-    }
-    
-    if (state.coins >= theme.unlockCost) {
-      await spendCoins(theme.unlockCost);
-      final newUnlockedThemes = List<String>.from(state.unlockedThemeIds)..add(themeId);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('unlockedThemes', newUnlockedThemes);
-      emit(state.copyWith(unlockedThemeIds: newUnlockedThemes));
-      return true;
-    }
-    return false;
-  }
-
-  bool isThemeUnlocked(String themeId) {
-    return state.unlockedThemeIds.contains(themeId);
   }
 
   // Power-up management (using SQLite)

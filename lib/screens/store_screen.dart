@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../config/app_config.dart';
 import '../models/power_up.dart';
-import '../models/theme.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../cubits/settings/settings_state.dart';
 import '../widgets/common_card_widget.dart';
@@ -22,7 +21,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 1, vsync: this);
   }
 
   @override
@@ -51,7 +50,6 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.flash_on), text: 'Power-Ups'),
-            Tab(icon: Icon(Icons.palette), text: 'Themes'),
           ],
           indicatorColor: AppConfig.primaryColor,
         ),
@@ -65,7 +63,6 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
                 controller: _tabController,
                 children: [
                   _buildPowerUpsTab(),
-                  _buildThemesTab(),
                 ],
               ),
             ),
@@ -112,7 +109,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
 
   Widget _buildPowerUpCard(PowerUp powerUp, int count, SettingsCubit settings) {
     return GradientCard(
-      gradientColors: [
+      gradientColors: const [
         AppConfig.cardBackground,
         AppConfig.dialogBackground,
       ],
@@ -132,10 +129,12 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           Text(
             powerUp.name,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
@@ -156,7 +155,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
               ),
               child: Text(
                 'Owned: $count',
-                style: TextStyle(color: AppConfig.textPrimary, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: AppConfig.textPrimary, fontWeight: FontWeight.bold),
               ),
             ),
           const SizedBox(height: 8),
@@ -185,163 +184,19 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🪙', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 4),
-                Text('${powerUp.cost}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Text('🪙', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 2),
+                Flexible(
+                  child: Text(
+                    '${powerUp.cost}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildThemesTab() {
-    return BlocBuilder<SettingsCubit, SettingsState>(
-      builder: (context, state) {
-        final settings = context.read<SettingsCubit>();
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.8,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: GameTheme.allThemes.length,
-          itemBuilder: (context, index) {
-            final theme = GameTheme.allThemes[index];
-            final isUnlocked = state.unlockedThemeIds.contains(theme.id);
-            final isCurrent = state.currentThemeId == theme.id;
-            
-            return _buildThemeCard(theme, isUnlocked, isCurrent, settings);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildThemeCard(GameTheme theme, bool isUnlocked, bool isCurrent, SettingsCubit settings) {
-    return GestureDetector(
-      onTap: () async {
-        if (isCurrent) return;
-        
-        if (isUnlocked) {
-          await settings.setTheme(theme.id);
-          if (!mounted) return;
-          SharedSnackBars.showSuccess(context, 'Theme "${theme.name}" activated!');
-        } else {
-          final success = await settings.unlockTheme(theme.id);
-          if (!mounted) return;
-          
-          if (success) {
-            await settings.setTheme(theme.id);
-            
-            // Track theme purchase analytics
-            settings.analyticsService.logPurchase(
-              itemName: 'Theme: ${theme.name}',
-              coinCost: theme.unlockCost,
-            );
-            
-            if (!mounted) return;
-            SharedSnackBars.showSuccess(context, 'Theme "${theme.name}" unlocked!');
-          } else {
-            SharedSnackBars.showNotEnoughCoins(context);
-          }
-        }
-      },
-      child: GradientCard(
-        gradientColors: [
-          theme.primaryColor.withValues(alpha: 0.3),
-          theme.secondaryColor.withValues(alpha: 0.3),
-        ],
-        borderColor: isCurrent ? theme.primaryColor : theme.primaryColor.withValues(alpha: 0.3),
-        borderWidth: isCurrent ? 3 : 1,
-        boxShadow: isCurrent
-            ? [
-                BoxShadow(
-                  color: theme.primaryColor.withValues(alpha: 0.5),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-              ]
-            : null,
-        child: Stack(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(theme.emoji, style: const TextStyle(fontSize: 48)),
-                const SizedBox(height: 8),
-                Text(
-                  theme.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  theme.description,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (!isUnlocked)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('🪙', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${theme.unlockCost}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (isCurrent)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'ACTIVE',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (!isUnlocked)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Center(
-                  child: Icon(Icons.lock, size: 40, color: Colors.white),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

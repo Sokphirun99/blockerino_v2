@@ -66,8 +66,8 @@ class Piece {
   static Piece random() => PieceLibrary.createRandomPiece();
   
   /// Create piece from shape index (for bag system)
-  static Piece fromShapeIndex(int index) {
-    return PieceLibrary.createPieceFromIndex(index);
+  static Piece fromShapeIndex(int index, {List<Color>? themeColors}) {
+    return PieceLibrary.createPieceFromIndex(index, themeColors: themeColors);
   }
 }
 
@@ -141,8 +141,9 @@ class PieceLibrary {
     const Color(0xFFFF69B4), // Hot Pink
   ];
 
-  static Piece createRandomPiece() {
+  static Piece createRandomPiece({List<Color>? themeColors}) {
     final random = math.Random();
+    final colorPalette = themeColors ?? colors;
     
     // Calculate total distribution points
     double totalPoints = 0;
@@ -157,45 +158,46 @@ class PieceLibrary {
     for (var shape in pieceShapes) {
       currentSum += shape.distributionPoints;
       if (randomValue <= currentSum) {
-        final colorIndex = random.nextInt(colors.length);
+        final colorIndex = random.nextInt(colorPalette.length);
         return Piece(
           id: 'piece_${DateTime.now().millisecondsSinceEpoch}_${random.nextInt(10000)}',
           shape: shape.matrix,
-          color: colors[colorIndex],
+          color: colorPalette[colorIndex],
         );
       }
     }
 
     // Fallback (should never reach here)
     final shapeIndex = random.nextInt(pieceShapes.length);
-    final colorIndex = random.nextInt(colors.length);
+    final colorIndex = random.nextInt(colorPalette.length);
     return Piece(
       id: 'piece_${DateTime.now().millisecondsSinceEpoch}',
       shape: pieceShapes[shapeIndex].matrix,
-      color: colors[colorIndex],
+      color: colorPalette[colorIndex],
     );
   }
 
-  static List<Piece> createRandomHand(int count) {
+  static List<Piece> createRandomHand(int count, {List<Color>? themeColors}) {
     return List.generate(count, (index) {
-      return createRandomPiece();
+      return createRandomPiece(themeColors: themeColors);
     });
   }
   
   /// Create piece from specific index (for bag system)
-  static Piece createPieceFromIndex(int index) {
+  static Piece createPieceFromIndex(int index, {List<Color>? themeColors}) {
     final random = math.Random();
+    final colorPalette = themeColors ?? colors;
     if (index < 0 || index >= pieceShapes.length) {
       index = random.nextInt(pieceShapes.length);
     }
     
     final shape = pieceShapes[index];
-    final colorIndex = random.nextInt(colors.length);
+    final colorIndex = random.nextInt(colorPalette.length);
     
     return Piece(
       id: 'piece_${DateTime.now().millisecondsSinceEpoch}_${random.nextInt(10000)}',
       shape: shape.matrix,
-      color: colors[colorIndex],
+      color: colorPalette[colorIndex],
     );
   }
 }

@@ -18,6 +18,21 @@ dependencies:
   flutter_animate: ^4.5.0
   google_fonts: ^6.1.0
   
+  # Audio & Sound Effects
+  audioplayers: ^6.1.0
+  
+  # Visual Enhancements
+  confetti: ^0.8.0
+  flutter_svg: ^2.0.14
+  lottie: ^3.2.1
+  
+  # UI Improvements
+  gap: ^3.0.1
+  auto_size_text: ^3.0.0
+  
+  # Utilities
+  logger: ^2.5.0
+  
   # Database
   sqflite: ^2.3.0
   path: ^1.9.0
@@ -60,6 +75,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.3
 
 flutter_launcher_icons:
   android: true
@@ -70,7 +86,20 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/app_icon.png"
   remove_alpha_ios: true
 
+flutter_native_splash:
+  color: "#1a1a2e"
+  image: assets/icon/app_icon.png
+  color_dark: "#1a1a2e"
+  image_dark: assets/icon/app_icon.png
+  android_12:
+    image: assets/icon/app_icon.png
+    icon_background_color: "#7b2cbf"
+  android: true
+  ios: true
+  web: false
+
 flutter:
   uses-material-design: true
   assets:
     - assets/fonts/
+    - assets/sounds/

@@ -308,6 +308,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 4),
                 Text(

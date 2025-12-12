@@ -58,6 +58,8 @@ class Board {
   final int size;
   late List<List<BoardBlock>> grid;
   late BigInt _bitboard; // Bitboard for O(1) collision detection
+  late List<BigInt> _rowMasks; // Pre-calculated masks for O(1) row checks
+  late List<BigInt> _colMasks; // Pre-calculated masks for O(1) column checks
 
   Board({required this.size}) {
     grid = List.generate(
@@ -67,11 +69,32 @@ class Board {
         (j) => BoardBlock(type: BlockType.empty),
       ),
     );
+    _initializeMasks();
     _updateBitboard();
   }
 
   Board.fromGrid(this.size, this.grid) {
+    _initializeMasks();
     _updateBitboard();
+  }
+
+  /// Pre-calculate row and column masks for O(1) line checking
+  void _initializeMasks() {
+    _rowMasks = List.generate(size, (row) {
+      BigInt mask = BigInt.zero;
+      for (int col = 0; col < size; col++) {
+        mask |= BigInt.one << (row * size + col);
+      }
+      return mask;
+    });
+    
+    _colMasks = List.generate(size, (col) {
+      BigInt mask = BigInt.zero;
+      for (int row = 0; row < size; row++) {
+        mask |= BigInt.one << (row * size + col);
+      }
+      return mask;
+    });
   }
 
   /// Updates the bitboard representation of the grid
@@ -240,28 +263,18 @@ class Board {
     List<int> colsToClear = [];
     List<ClearedBlockInfo> clearedBlocks = [];
 
-    // Check rows
+    // Check rows using O(1) bitwise operations
     for (int row = 0; row < size; row++) {
-      bool isFull = true;
-      for (int col = 0; col < size; col++) {
-        if (grid[row][col].type != BlockType.filled) {
-          isFull = false;
-          break;
-        }
+      if ((_bitboard & _rowMasks[row]) == _rowMasks[row]) {
+        rowsToClear.add(row);
       }
-      if (isFull) rowsToClear.add(row);
     }
 
-    // Check columns
+    // Check columns using O(1) bitwise operations
     for (int col = 0; col < size; col++) {
-      bool isFull = true;
-      for (int row = 0; row < size; row++) {
-        if (grid[row][col].type != BlockType.filled) {
-          isFull = false;
-          break;
-        }
+      if ((_bitboard & _colMasks[col]) == _colMasks[col]) {
+        colsToClear.add(col);
       }
-      if (isFull) colsToClear.add(col);
     }
 
     // Collect info about blocks to clear (before clearing)

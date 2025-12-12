@@ -1,9 +1,12 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/power_up.dart';
 
 /// Database helper for managing complex game data with SQLite
 /// Handles power-up inventory and story level progress
+/// On web, uses SharedPreferences as fallback since SQLite is not supported
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -12,6 +15,10 @@ class DatabaseHelper {
 
   /// Get database instance, initializing if necessary
   Future<Database> get database async {
+    if (kIsWeb) {
+      // On web, we use SharedPreferences instead
+      throw UnsupportedError('SQLite not supported on web. Use web-specific methods.');
+    }
     if (_database != null) return _database!;
     _database = await _initDB('blockerino.db');
     return _database!;
@@ -63,6 +70,11 @@ class DatabaseHelper {
 
   /// Get power-up count from inventory
   Future<int> getPowerUpCount(PowerUpType type) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt('powerup_${type.name}') ?? 0;
+    }
+    
     final db = await database;
     final result = await db.query(
       'inventory',
@@ -79,6 +91,15 @@ class DatabaseHelper {
 
   /// Get all power-up inventory
   Future<Map<PowerUpType, int>> getAllInventory() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final inventory = <PowerUpType, int>{};
+      for (var type in PowerUpType.values) {
+        inventory[type] = prefs.getInt('powerup_${type.name}') ?? 0;
+      }
+      return inventory;
+    }
+    
     final db = await database;
     final result = await db.query('inventory');
 
@@ -101,6 +122,13 @@ class DatabaseHelper {
 
   /// Add power-ups to inventory
   Future<void> addPowerUp(PowerUpType type, int amount) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final currentCount = await getPowerUpCount(type);
+      await prefs.setInt('powerup_${type.name}', currentCount + amount);
+      return;
+    }
+    
     final db = await database;
     final currentCount = await getPowerUpCount(type);
     
@@ -114,11 +142,16 @@ class DatabaseHelper {
 
   /// Use (decrement) a power-up from inventory
   Future<bool> usePowerUp(PowerUpType type) async {
-    final db = await database;
     final currentCount = await getPowerUpCount(type);
-
     if (currentCount <= 0) return false;
 
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('powerup_${type.name}', currentCount - 1);
+      return true;
+    }
+
+    final db = await database;
     await db.update(
       'inventory',
       {'count': currentCount - 1},
@@ -161,6 +194,19 @@ class DatabaseHelper {
 
   /// Get all level stars
   Future<Map<int, int>> getAllLevelStars() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final stars = <int, int>{};
+      // Load up to 100 levels (arbitrary limit for web)
+      for (int i = 1; i <= 100; i++) {
+        final levelStars = prefs.getInt('story_level_$i') ?? 0;
+        if (levelStars > 0) {
+          stars[i] = levelStars;
+        }
+      }
+      return stars;
+    }
+    
     final db = await database;
     final result = await db.query('level_progress');
 

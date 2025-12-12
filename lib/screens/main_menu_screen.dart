@@ -61,7 +61,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               child: SingleChildScrollView(
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: AppConfig.mainMenuVerticalPadding),
+                  padding: const EdgeInsets.symmetric(vertical: AppConfig.mainMenuVerticalPadding),
                   child: BlocBuilder<SettingsCubit, SettingsState>(
                     builder: (context, settingsState) {
                       return Column(
@@ -94,7 +94,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [AppConfig.accentColor, AppConfig.coinGradientEnd],
                     ),
                     borderRadius: BorderRadius.circular(20),

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../models/board.dart';
 import '../../models/piece.dart';
 import '../../models/game_mode.dart';
+import '../../models/story_level.dart';
 
 /// Base class for all game states
 abstract class GameState extends Equatable {
@@ -25,6 +26,12 @@ class GameInProgress extends GameState {
   final int lastBrokenLine;
   final GameMode gameMode;
   final bool showInvalidPreview;
+  
+  // Story mode specific fields
+  final StoryLevel? storyLevel;
+  final int linesCleared;
+  final int timeRemaining; // in seconds, -1 = no limit
+  final bool powerUpsDisabled;
 
   const GameInProgress({
     required this.board,
@@ -34,6 +41,10 @@ class GameInProgress extends GameState {
     required this.lastBrokenLine,
     required this.gameMode,
     this.showInvalidPreview = false,
+    this.storyLevel,
+    this.linesCleared = 0,
+    this.timeRemaining = -1,
+    this.powerUpsDisabled = false,
   });
 
   @override
@@ -45,6 +56,10 @@ class GameInProgress extends GameState {
         lastBrokenLine,
         gameMode,
         showInvalidPreview,
+        storyLevel,
+        linesCleared,
+        timeRemaining,
+        powerUpsDisabled,
       ];
 
   GameInProgress copyWith({
@@ -55,6 +70,10 @@ class GameInProgress extends GameState {
     int? lastBrokenLine,
     GameMode? gameMode,
     bool? showInvalidPreview,
+    StoryLevel? storyLevel,
+    int? linesCleared,
+    int? timeRemaining,
+    bool? powerUpsDisabled,
   }) {
     return GameInProgress(
       board: board ?? this.board,
@@ -64,6 +83,10 @@ class GameInProgress extends GameState {
       lastBrokenLine: lastBrokenLine ?? this.lastBrokenLine,
       gameMode: gameMode ?? this.gameMode,
       showInvalidPreview: showInvalidPreview ?? this.showInvalidPreview,
+      storyLevel: storyLevel ?? this.storyLevel,
+      linesCleared: linesCleared ?? this.linesCleared,
+      timeRemaining: timeRemaining ?? this.timeRemaining,
+      powerUpsDisabled: powerUpsDisabled ?? this.powerUpsDisabled,
     );
   }
 }
@@ -73,15 +96,21 @@ class GameOver extends GameState {
   final Board board;
   final int finalScore;
   final GameMode gameMode;
+  final StoryLevel? storyLevel;
+  final int starsEarned;
+  final bool levelCompleted; // true if objectives met, false if failed
 
   const GameOver({
     required this.board,
     required this.finalScore,
     required this.gameMode,
+    this.storyLevel,
+    this.starsEarned = 0,
+    this.levelCompleted = false,
   });
 
   @override
-  List<Object?> get props => [board, finalScore, gameMode];
+  List<Object?> get props => [board, finalScore, gameMode, storyLevel, starsEarned, levelCompleted];
 }
 
 /// State when loading a saved game

@@ -126,7 +126,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
 
   Widget _buildLevelCard(BuildContext context, StoryLevel level, bool isUnlocked, int stars, SettingsCubit settings) {
     return GradientCard(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       borderRadius: 20,
       gradientColors: isUnlocked
           ? [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)]
@@ -145,7 +145,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -171,48 +171,76 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                     if (isUnlocked) _buildStarDisplay(stars),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   level.title,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: isUnlocked ? Colors.white : Colors.white.withValues(alpha: 0.3),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   level.description,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     color: isUnlocked ? Colors.white.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.2),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 if (isUnlocked) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     level.story,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontStyle: FontStyle.italic,
                       color: Colors.white.withValues(alpha: 0.6),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildLevelInfo(level),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       RewardDisplay(coins: level.coinReward),
                       const Spacer(),
-                      PrimaryActionButton(
-                        text: 'PLAY',
-                        backgroundColor: _getDifficultyColor(level.difficulty),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => GameScreen(storyLevel: level),
+                      Builder(
+                        builder: (context) {
+                          final responsive = ResponsiveUtil(context);
+                          return ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => GameScreen(storyLevel: level),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _getDifficultyColor(level.difficulty),
+                              foregroundColor: Colors.white,
+                              padding: responsive.horizontalPadding(mobile: 16),
+                              minimumSize: Size(
+                                responsive.isMobile ? 60 : responsive.isTablet ? 80 : 100,
+                                responsive.isMobile ? 30 : responsive.isTablet ? 36 : 42,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: Text(
+                              'PLAY',
+                              style: TextStyle(
+                                fontSize: responsive.fontSize(12, 14, 16),
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           );
                         },

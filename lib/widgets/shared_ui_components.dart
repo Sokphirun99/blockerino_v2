@@ -1,6 +1,48 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 
+/// Responsive utility for adaptive sizing across phone, tablet, and web
+class ResponsiveUtil {
+  final BuildContext context;
+  
+  ResponsiveUtil(this.context);
+  
+  double get screenWidth => MediaQuery.of(context).size.width;
+  double get screenHeight => MediaQuery.of(context).size.height;
+  
+  // Determine device type
+  bool get isMobile => screenWidth < 600;
+  bool get isTablet => screenWidth >= 600 && screenWidth < 1200;
+  bool get isDesktop => screenWidth >= 1200;
+  
+  // Responsive font sizes
+  double fontSize(double mobile, [double? tablet, double? desktop]) {
+    if (isDesktop) return desktop ?? tablet ?? mobile * 1.5;
+    if (isTablet) return tablet ?? mobile * 1.3;
+    return mobile;
+  }
+  
+  // Responsive padding
+  EdgeInsets padding({
+    required double mobile,
+    double? tablet,
+    double? desktop,
+  }) {
+    final multiplier = isDesktop ? (desktop ?? 2.0) : isTablet ? (tablet ?? 1.5) : 1.0;
+    return EdgeInsets.all(mobile * multiplier);
+  }
+  
+  // Responsive horizontal padding
+  EdgeInsets horizontalPadding({
+    required double mobile,
+    double? tablet,
+    double? desktop,
+  }) {
+    final value = isDesktop ? (desktop ?? mobile * 2) : isTablet ? (tablet ?? mobile * 1.5) : mobile;
+    return EdgeInsets.symmetric(horizontal: value, vertical: value * 0.4);
+  }
+}
+
 /// Shared gradient background used across all game screens
 class GameGradientBackground extends StatelessWidget {
   final Widget child;
@@ -88,14 +130,17 @@ class RewardDisplay extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('🪙', style: TextStyle(fontSize: 20)),
-        const SizedBox(width: 4),
-        Text(
-          '+$coins',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFFffd700),
+        const Text('🪙', style: TextStyle(fontSize: 18)),
+        const SizedBox(width: 2),
+        Flexible(
+          child: Text(
+            '+$coins',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFffd700),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
