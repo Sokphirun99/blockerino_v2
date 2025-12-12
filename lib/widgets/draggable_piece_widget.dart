@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vibration/vibration.dart';
 import '../models/piece.dart';
-import '../providers/game_state_provider.dart';
-import '../providers/settings_provider.dart';
+import '../cubits/game/game_cubit.dart';
+import '../cubits/game/game_state.dart';
+import '../cubits/settings/settings_cubit.dart';
 import '../config/app_config.dart';
 
 // Safe vibration helper for web compatibility
@@ -29,55 +30,72 @@ class DraggablePieceWidget extends StatefulWidget {
 class _DraggablePieceWidgetState extends State<DraggablePieceWidget> {
   @override
   Widget build(BuildContext context) {
-    // Calculate feedback offset to center piece on finger
-    const feedbackBlockSize = 30.0;
-    final pieceWidth = widget.piece.width * feedbackBlockSize;
-    final pieceHeight = widget.piece.height * feedbackBlockSize;
+    // Get the actual board block size for 1:1 feedback scale
+    // Default to 8x8 if board is null (safe fallback)
+    final gameCubit = context.read<GameCubit>();
+    final currentState = gameCubit.state;
+    final boardSize = currentState is GameInProgress ? currentState.board.size : 8;
+    final actualBlockSize = AppConfig.getBlockSize(context, boardSize);
+    
+    // Use actual size for feedback so it matches the board slots exactly
+    final feedbackBlockSize = actualBlockSize;
     
     return Draggable<Piece>(
       data: widget.piece,
       maxSimultaneousDrags: 1,
-      affinity: Axis.vertical, // Helps distinguish from scroll gestures
+      hitTestBehavior: HitTestBehavior.opaque, // Makes entire area tappable
+      dragAnchorStrategy: (draggable, context, position) {
+        // This makes the piece center on the finger
+        // For even-sized pieces, we need to offset by 0.5 block size to align with grid
+        final widthOffset = (widget.piece.width % 2 == 0) ? 0.5 : 0.0;
+        final heightOffset = (widget.piece.height % 2 == 0) ? 0.5 : 0.0;
+        
+        return Offset(
+          (widget.piece.width / 2 + widthOffset) * feedbackBlockSize, 
+          (widget.piece.height / 2 + heightOffset) * feedbackBlockSize
+        );
+      },
       feedback: Material(
         color: Colors.transparent,
         elevation: 8,
-        child: Transform.translate(
-          offset: Offset(-pieceWidth / 2, -pieceHeight - 30), // Center and lift above finger
-          child: Transform.scale(
-            scale: 1.3,
-            child: _PieceVisual(
-              piece: widget.piece,
-              blockSize: feedbackBlockSize,
-              opacity: 0.95,
-            ),
-          ),
+        child: _PieceVisual(
+          piece: widget.piece,
+          blockSize: feedbackBlockSize,
+          opacity: 0.9,
         ),
       ),
       childWhenDragging: Opacity(
         opacity: 0.3,
-        child: _PieceVisual(
-          piece: widget.piece,
-          blockSize: 24,
-          opacity: 0.3,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: _PieceVisual(
+              piece: widget.piece,
+              blockSize: 26.0, // Larger blocks like Block Blast
+              opacity: 0.3,
+            ),
+          ),
         ),
       ),
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: _PieceVisual(
-          piece: widget.piece,
-          blockSize: 24,
-          opacity: 1.0,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: _PieceVisual(
+            piece: widget.piece,
+            blockSize: 26.0, // Larger blocks like Block Blast
+            opacity: 1.0,
+          ),
         ),
       ),
       onDragStarted: () {
-        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        final settings = context.read<SettingsCubit>().state;
         if (settings.hapticsEnabled) {
           _safeVibrate(duration: 20);
         }
       },
       onDragEnd: (details) {
         if (!details.wasAccepted) {
-          final settings = Provider.of<SettingsProvider>(context, listen: false);
+          final settings = context.read<SettingsCubit>().state;
           if (settings.hapticsEnabled) {
             _safeVibrate(duration: 50);
           }
@@ -151,89 +169,117 @@ class _PieceVisual extends StatelessWidget {
 
   Color _lightenColor(Color color, double amount) {
     return Color.fromARGB(
-      color.alpha,
-      (color.red + (255 - color.red) * amount).round().clamp(0, 255),
-      (color.green + (255 - color.green) * amount).round().clamp(0, 255),
-      (color.blue + (255 - color.blue) * amount).round().clamp(0, 255),
+      color.a.toInt(),
+      (color.r * 255 + (255 - color.r * 255) * amount).round().clamp(0, 255),
+      (color.g * 255 + (255 - color.g * 255) * amount).round().clamp(0, 255),
+      (color.b * 255 + (255 - color.b * 255) * amount).round().clamp(0, 255),
     );
   }
 
   Color _darkenColor(Color color, double amount) {
     return Color.fromARGB(
-      color.alpha,
-      (color.red * (1 - amount)).round().clamp(0, 255),
-      (color.green * (1 - amount)).round().clamp(0, 255),
-      (color.blue * (1 - amount)).round().clamp(0, 255),
+      color.a.toInt(),
+      (color.r * 255 * (1 - amount)).round().clamp(0, 255),
+      (color.g * 255 * (1 - amount)).round().clamp(0, 255),
+      (color.b * 255 * (1 - amount)).round().clamp(0, 255),
     );
   }
 }
 
 // Drag target overlay for the board
-class BoardDragTarget extends StatelessWidget {
+class BoardDragTarget extends StatefulWidget {
   final Widget child;
 
   const BoardDragTarget({super.key, required this.child});
 
   @override
+  State<BoardDragTarget> createState() => _BoardDragTargetState();
+}
+
+class _BoardDragTargetState extends State<BoardDragTarget> {
+  int _lastGridX = -1;
+  int _lastGridY = -1;
+
+  @override
   Widget build(BuildContext context) {
     return DragTarget<Piece>(
       onWillAcceptWithDetails: (details) => true,
+      // Use the last known grid position to drop at shadow location
       onAcceptWithDetails: (details) {
-        final gameState = Provider.of<GameStateProvider>(context, listen: false);
-        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        final gameCubit = context.read<GameCubit>();
+        final settings = context.read<SettingsCubit>().state;
         
-        // Calculate grid position from drop location
-        final RenderBox renderBox = context.findRenderObject() as RenderBox;
-        final localPosition = renderBox.globalToLocal(details.offset);
+        // Drop at the last shadow position (where user sees it will land)
+        final gridX = _lastGridX;
+        final gridY = _lastGridY;
         
-        // Convert to grid coordinates with proper padding consideration
-        final board = gameState.board!;
+        if (gridX == -1 || gridY == -1) return; // No valid position
+        
         final piece = details.data;
-        final blockSize = AppConfig.getBlockSize(context, board.size);
-        
-        // Adjust for container padding and border
-        final adjustedX = localPosition.dx - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
-        final adjustedY = localPosition.dy - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
-        
-        // Calculate grid position - center the piece on the cursor
-        final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
-        final gridY = (adjustedY / blockSize).floor() - (piece.height ~/ 2);
-        
-        final success = gameState.placePiece(piece, gridX, gridY);
+        final success = gameCubit.placePiece(piece, gridX, gridY);
         
         if (success && settings.hapticsEnabled) {
           _safeVibrate(duration: 30);
         } else if (!success && settings.hapticsEnabled) {
           _safeVibrate(duration: 100, amplitude: 255);
         }
+        
+        // Reset state
+        _lastGridX = -1;
+        _lastGridY = -1;
       },
       onMove: (details) {
-        // Show hover preview while dragging
-        final gameState = Provider.of<GameStateProvider>(context, listen: false);
+        // Show hover preview while dragging - update immediately for responsiveness
+        final gameCubit = context.read<GameCubit>();
+        final currentState = gameCubit.state;
+        if (currentState is! GameInProgress) return;
+        
         final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
         if (renderBox == null) return;
         
         final localPosition = renderBox.globalToLocal(details.offset);
-        final board = gameState.board!;
+        final board = currentState.board;
         final piece = details.data;
         final blockSize = AppConfig.getBlockSize(context, board.size);
         
         final adjustedX = localPosition.dx - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
         final adjustedY = localPosition.dy - AppConfig.boardContainerPadding - AppConfig.boardBorderWidth;
         
-        // Center the piece on the cursor
-        final gridX = (adjustedX / blockSize).floor() - (piece.width ~/ 2);
-        final gridY = (adjustedY / blockSize).floor() - (piece.height ~/ 2);
+        // The finger/anchor is at the CENTER of the piece
+        final pieceWidthInPixels = piece.width * blockSize;
+        final pieceHeightInPixels = piece.height * blockSize;
         
-        gameState.showHoverPreview(piece, gridX, gridY);
+        final topLeftX = adjustedX - (pieceWidthInPixels / 2);
+        final topLeftY = adjustedY - (pieceHeightInPixels / 2);
+        
+        // Convert to grid coordinates
+        final gridX = (topLeftX / blockSize).round();
+        final gridY = (topLeftY / blockSize).round();
+        
+        // Only update if position changed (prevents unnecessary rebuilds)
+        if (gridX != _lastGridX || gridY != _lastGridY) {
+          gameCubit.showHoverPreview(piece, gridX, gridY);
+          _lastGridX = gridX;
+          _lastGridY = gridY;
+
+                    // Only save position if it's potentially valid (non-negative)
+          // This keeps the last valid position for dropping
+          if (gridX >= 0 && gridY >= 0) {
+            _lastGridX = gridX;
+            _lastGridY = gridY;
+          }
+
+        }
       },
       onLeave: (data) {
         // Clear hover preview when dragging away
-        final gameState = Provider.of<GameStateProvider>(context, listen: false);
-        gameState.clearHoverBlocks();
+        final gameCubit = context.read<GameCubit>();
+        gameCubit.clearHoverBlocks();
+        _lastGridX = -1;
+        _lastGridY = -1;
       },
       builder: (context, candidateData, rejectedData) {
-        return child;
+        return widget.child;
       },
     );
   }

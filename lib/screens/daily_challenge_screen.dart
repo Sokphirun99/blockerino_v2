@@ -1,13 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:gap/gap.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import '../models/daily_challenge.dart';
 import '../models/game_mode.dart';
-import '../providers/settings_provider.dart';
+import '../cubits/settings/settings_cubit.dart';
+import '../cubits/settings/settings_state.dart';
 import 'game_screen.dart';
 import '../widgets/common_card_widget.dart';
+import '../widgets/shared_ui_components.dart';
 
-class DailyChallengeScreen extends StatelessWidget {
+class DailyChallengeScreen extends StatefulWidget {
   const DailyChallengeScreen({super.key});
+
+  @override
+  State<DailyChallengeScreen> createState() => _DailyChallengeScreenState();
+}
+
+class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
+  bool _analyticsLogged = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_analyticsLogged) {
+      _analyticsLogged = true;
+      final settings = context.read<SettingsCubit>();
+      settings.analyticsService.logScreenView('daily_challenge');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,16 +40,10 @@ class DailyChallengeScreen extends StatelessWidget {
         title: const Text('Daily Challenge', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1a1a2e),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1a1a2e), Color(0xFF0f0f1e)],
-          ),
-        ),
-        child: Consumer<SettingsProvider>(
-          builder: (context, settings, child) {
+      body: GameGradientBackground(
+        child: BlocBuilder<SettingsCubit, SettingsState>(
+          builder: (context, state) {
+            final settings = context.read<SettingsCubit>();
             final isCompleted = settings.isChallengeCompleted(todayChallenge.id);
             
             return SingleChildScrollView(
@@ -37,12 +52,12 @@ class DailyChallengeScreen extends StatelessWidget {
                 children: [
                   // Timer countdown to next challenge
                   _buildCountdownTimer(today),
-                  const SizedBox(height: 24),
+                  const Gap(24),
                   
                   // Today's challenge card
                   _buildChallengeCard(context, todayChallenge, isCompleted, settings),
                   
-                  const SizedBox(height: 24),
+                  const Gap(24),
                   
                   // Previous challenges (last 3 days)
                   _buildPreviousChallenges(context, today, settings),
@@ -77,7 +92,7 @@ class DailyChallengeScreen extends StatelessWidget {
       child: Column(
         children: [
           const Icon(Icons.timer, size: 48, color: Colors.white),
-          const SizedBox(height: 8),
+          const Gap(8),
           const Text(
             'New Challenge In',
             style: TextStyle(
@@ -86,23 +101,24 @@ class DailyChallengeScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
+          const Gap(4),
+          AutoSizeText(
             '${timeUntil.inHours}h ${timeUntil.inMinutes % 60}m',
             style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            maxLines: 1,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildChallengeCard(BuildContext context, DailyChallenge challenge, bool isCompleted, SettingsProvider settings) {
+  Widget _buildChallengeCard(BuildContext context, DailyChallenge challenge, bool isCompleted, SettingsCubit settings) {
     return GradientCard(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       borderRadius: 20,
       gradientColors: isCompleted
           ? [const Color(0xFF52b788).withValues(alpha: 0.3), const Color(0xFF40916c).withValues(alpha: 0.3)]
@@ -123,20 +139,21 @@ class DailyChallengeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
+                child: AutoSizeText(
                   challenge.title,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  maxLines: 2,
                 ),
               ),
               if (isCompleted)
                 const Icon(Icons.check_circle, color: Color(0xFF52b788), size: 32),
             ],
           ),
-          const SizedBox(height: 12),
+          const Gap(12),
           Text(
             challenge.description,
             style: TextStyle(
@@ -144,61 +161,78 @@ class DailyChallengeScreen extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.8),
             ),
           ),
-          const SizedBox(height: 16),
+          const Gap(16),
           _buildChallengeInfo('Mode', challenge.gameMode == GameMode.classic ? 'Classic' : 'Chaos'),
           _buildChallengeInfo('Target', _getTargetText(challenge)),
-          const SizedBox(height: 16),
+          const Gap(16),
           Row(
             children: [
-              const Text('🪙', style: TextStyle(fontSize: 24)),
-              const SizedBox(width: 8),
-              Text(
+              const Text('🪙', style: TextStyle(fontSize: 14)),
+              const Gap(2),
+              AutoSizeText(
                 '${challenge.rewardCoins}',
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFFffd700),
                 ),
               ),
               const Spacer(),
               if (!isCompleted)
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
+                Builder(
+                  builder: (context) {
+                    final responsive = ResponsiveUtil(context);
+                    return ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const GameScreen(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9d4edd),
+                        foregroundColor: Colors.white,
+                        padding: responsive.horizontalPadding(mobile: 16),
+                        minimumSize: Size(
+                          responsive.isMobile ? 60 : responsive.isTablet ? 80 : 100,
+                          responsive.isMobile ? 30 : responsive.isTablet ? 36 : 42,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: Text(
+                        'START',
+                        style: TextStyle(
+                          fontSize: responsive.fontSize(12, 14, 16),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9d4edd),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text(
-                    'START',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
                 ),
               if (isCompleted)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF52b788),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Text(
-                    'COMPLETED',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final responsive = ResponsiveUtil(context);
+                    return Container(
+                      padding: responsive.horizontalPadding(mobile: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF52b788),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'COMPLETED',
+                        style: TextStyle(
+                          fontSize: responsive.fontSize(12, 14, 16),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
@@ -219,12 +253,17 @@ class DailyChallengeScreen extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.6),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Flexible(
+            child: AutoSizeText(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              maxLines: 1,
+              minFontSize: 10,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -249,7 +288,7 @@ class DailyChallengeScreen extends StatelessWidget {
     }
   }
 
-  Widget _buildPreviousChallenges(BuildContext context, DateTime today, SettingsProvider settings) {
+  Widget _buildPreviousChallenges(BuildContext context, DateTime today, SettingsCubit settings) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -298,7 +337,7 @@ class DailyChallengeScreen extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
-              const SizedBox(height: 4),
+              const Gap(4),
               Text(
                 challenge.title,
                 style: const TextStyle(
