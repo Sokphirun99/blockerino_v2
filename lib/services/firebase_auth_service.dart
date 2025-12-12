@@ -1,10 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 
 class FirebaseAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final Logger _logger = Logger();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -16,10 +17,10 @@ class FirebaseAuthService {
   Future<UserCredential?> signInAnonymously() async {
     try {
       final userCredential = await _auth.signInAnonymously();
-      debugPrint('Signed in anonymously: ${userCredential.user?.uid}');
+      _logger.i('Signed in anonymously: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      debugPrint('Error signing in anonymously: $e');
+      _logger.e('Error signing in anonymously', error: e);
       return null;
     }
   }
@@ -46,10 +47,10 @@ class FirebaseAuthService {
 
       // Sign in to Firebase with the Google credential
       final userCredential = await _auth.signInWithCredential(credential);
-      debugPrint('Signed in with Google: ${userCredential.user?.displayName}');
+      _logger.i('Signed in with Google: ${userCredential.user?.displayName}');
       return userCredential;
     } catch (e) {
-      debugPrint('Error signing in with Google: $e');
+      _logger.e('Error signing in with Google', error: e);
       return null;
     }
   }
@@ -72,10 +73,10 @@ class FirebaseAuthService {
 
       // Link the anonymous account with Google credentials
       final userCredential = await _auth.currentUser?.linkWithCredential(credential);
-      debugPrint('Linked anonymous account with Google: ${userCredential?.user?.displayName}');
+      _logger.i('Linked anonymous account with Google: ${userCredential?.user?.displayName}');
       return userCredential;
     } catch (e) {
-      debugPrint('Error linking anonymous account with Google: $e');
+      _logger.e('Error linking anonymous account with Google', error: e);
       return null;
     }
   }
@@ -85,9 +86,9 @@ class FirebaseAuthService {
     try {
       await _googleSignIn.signOut();
       await _auth.signOut();
-      debugPrint('Signed out successfully');
+      _logger.i('Signed out successfully');
     } catch (e) {
-      debugPrint('Error signing out: $e');
+      _logger.e('Error signing out', error: e);
     }
   }
 

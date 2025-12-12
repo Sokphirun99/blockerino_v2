@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../config/app_config.dart';
 import '../models/game_mode.dart';
-import '../providers/game_state_provider.dart';
-import '../providers/settings_provider.dart';
+import '../cubits/game/game_cubit.dart';
+import '../cubits/settings/settings_cubit.dart';
+import '../cubits/settings/settings_state.dart';
 import '../services/app_localizations.dart';
 import '../widgets/animated_background_widget.dart';
 import 'game_screen.dart';
@@ -11,7 +12,6 @@ import 'story_mode_screen.dart';
 import 'daily_challenge_screen.dart';
 import 'leaderboard_screen.dart';
 import 'store_screen.dart';
-import 'settings_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -28,14 +28,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     super.didChangeDependencies();
     if (!_analyticsLogged) {
       _analyticsLogged = true;
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
-      settings.analyticsService.logScreenView('main_menu');
+      final settingsCubit = context.read<SettingsCubit>();
+      settingsCubit.analyticsService.logScreenView('main_menu');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
     final localizations = AppLocalizations.of(context);
     
     return Scaffold(
@@ -62,11 +61,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               child: SingleChildScrollView(
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: AppConfig.mainMenuVerticalPadding),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
+                  padding: const EdgeInsets.symmetric(vertical: AppConfig.mainMenuVerticalPadding),
+                  child: BlocBuilder<SettingsCubit, SettingsState>(
+                    builder: (context, settingsState) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
                       // Spacing to replace hidden Guest Player profile section
                       const SizedBox(height: 20),
                       
@@ -93,7 +94,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [AppConfig.accentColor, AppConfig.coinGradientEnd],
                     ),
                     borderRadius: BorderRadius.circular(20),
@@ -111,7 +112,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       const Text('🪙', style: TextStyle(fontSize: 20)),
                       const SizedBox(width: 8),
                       Text(
-                        '${settings.coins}',
+                        '${settingsState.coins}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -142,7 +143,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${settings.highScore}',
+                        '${settingsState.highScore}',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               color: AppConfig.accentColor,
                               fontSize: 24,
@@ -235,48 +236,45 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 const SizedBox(height: 8),
                 
-                // Settings Button
-                TextButton(
+                // DISABLED: Settings button (not yet ready for use)
+                /*
+                _MenuButton(
+                  text: localizations.translate('settings'),
+                  icon: Icons.settings,
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const SettingsScreen()),
                     );
                   },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.settings,
-                        size: 14,
-                        color: AppConfig.textSecondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        localizations.translate('settings'),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppConfig.textSecondary,
-                              fontSize: 12,
-                            ),
-                      ),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppConfig.cardBackground.withOpacity(0.3),
+                      AppConfig.cardBackground.withOpacity(0.1),
                     ],
                   ),
                 ),
+                */
+                
                 const SizedBox(height: 40),
-              ],
-            ), // Column
+                      ],
+                    ); // Column
+                    }, // BlocBuilder builder
+                  ), // BlocBuilder
+                ), // Container
+              ), // SingleChildScrollView
+            ), // SafeArea
           ), // Container
-        ), // SingleChildScrollView
-      ), // SafeArea
-    ), // Container
         ], // Stack children
       ), // Stack
     ); // Scaffold
   }
 
   void _startGame(BuildContext context, GameMode mode) {
-    final gameState = Provider.of<GameStateProvider>(context, listen: false);
-    gameState.startGame(mode);
+    final gameCubit = context.read<GameCubit>();
+    
+    // Always call startGame - it will auto-resume if there's a saved game for this mode
+    gameCubit.startGame(mode);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const GameScreen()),
@@ -507,6 +505,8 @@ class _MenuButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               text,
@@ -515,6 +515,7 @@ class _MenuButton extends StatelessWidget {
                     fontSize: 16,
                     letterSpacing: 1,
                   ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
@@ -523,6 +524,7 @@ class _MenuButton extends StatelessWidget {
                     color: Colors.white70,
                     fontSize: 10,
                   ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

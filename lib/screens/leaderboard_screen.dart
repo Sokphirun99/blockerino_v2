@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/leaderboard.dart';
-import '../providers/settings_provider.dart';
+import '../cubits/settings/settings_cubit.dart';
 import '../widgets/common_card_widget.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -26,7 +26,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     super.didChangeDependencies();
     if (!_analyticsLogged) {
       _analyticsLogged = true;
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      final settings = context.read<SettingsCubit>();
       settings.analyticsService.logScreenView('leaderboard');
     }
   }
@@ -72,7 +72,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
   }
 
   Widget _buildLeaderboardList(String gameMode) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = context.read<SettingsCubit>();
     
     return StreamBuilder(
       stream: settings.firestoreService.getLeaderboard(
@@ -308,6 +308,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 const SizedBox(height: 4),
                 Text(

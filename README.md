@@ -48,9 +48,13 @@ lib/
 │   ├── game_mode.dart             # Game mode configurations
 │   ├── story_level.dart           # Story mode level definitions (20 levels)
 │   └── leaderboard_entry.dart     # Leaderboard data model
-├── providers/
-│   ├── game_state_provider.dart   # Game state management with Firebase sync
-│   └── settings_provider.dart     # App settings with Firestore persistence
+├── cubits/                        # BLoC (Cubit) state management
+│   ├── game/
+│   │   ├── game_cubit.dart        # Game logic cubit with Firebase sync
+│   │   └── game_state.dart        # Game state classes (Initial, InProgress, Over)
+│   └── settings/
+│       ├── settings_cubit.dart    # Settings cubit with Firestore persistence
+│       └── settings_state.dart    # Settings state with Equatable
 ├── services/
 │   ├── auth_service.dart          # Firebase Authentication (Anonymous + Google)
 │   ├── firestore_service.dart     # Cloud Firestore operations
@@ -137,14 +141,17 @@ flutter build apk --release
 
 ### State Management
 
-- **Provider pattern** for reactive state management
-- **GameStateProvider**: 
+- **BLoC (Cubit) pattern** for reactive state management with immutable states
+- **GameCubit**: 
   - Game logic, score, combo, and piece placement
+  - Separate states: GameInitial, GameInProgress, GameOver, GameLoading
   - Firebase sync for scores and achievements
   - Story mode progression tracking
-- **SettingsProvider**: 
+  - Per-mode saved games with SharedPreferences persistence
+- **SettingsCubit**: 
   - User preferences (sound, haptics, animations, volume)
-  - Persistent storage with Firestore
+  - Immutable state with Equatable for performance
+  - Persistent storage with Firestore and SQLite
   - Anonymous authentication on first launch
 
 ### Game Logic
@@ -243,7 +250,8 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 
 ### Core Flutter
 - `flutter` (SDK >=3.2.0) - UI framework
-- `provider` ^6.1.2 - State management
+- `flutter_bloc` ^9.1.1 - BLoC state management
+- `equatable` ^2.0.7 - Value equality for state classes
 
 ### Firebase
 - `firebase_core` ^3.15.2 - Firebase initialization

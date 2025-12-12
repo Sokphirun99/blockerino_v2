@@ -1,6 +1,7 @@
 enum GameMode {
   classic,
   chaos,
+  story, // Story mode (uses classic config but separate save state)
 }
 
 class GameModeConfig {
@@ -32,6 +33,8 @@ class GameModeConfig {
         return classic;
       case GameMode.chaos:
         return chaos;
+      case GameMode.story:
+        return classic; // Story uses classic config (8x8, 3 pieces)
     }
   }
 }

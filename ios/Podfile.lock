@@ -1198,6 +1198,9 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
+  - audioplayers_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - BoringSSL-GRPC (0.0.37):
     - BoringSSL-GRPC/Implementation (= 0.0.37)
     - BoringSSL-GRPC/Interface (= 0.0.37)
@@ -1404,6 +1407,8 @@ PODS:
     - GoogleUtilities/Environment (~> 8.1)
     - GTMSessionFetcher/Core (< 5.0, >= 3.4)
   - Flutter (1.0.0)
+  - flutter_native_splash (2.4.3):
+    - Flutter
   - google_sign_in_ios (0.0.1):
     - AppAuth (>= 1.7.4)
     - Flutter
@@ -1594,6 +1599,7 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/darwin`)
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
   - cloud_functions (from `.symlinks/plugins/cloud_functions/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
@@ -1606,6 +1612,7 @@ DEPENDENCIES:
   - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - firebase_storage (from `.symlinks/plugins/firebase_storage/ios`)
   - Flutter (from `Flutter`)
+  - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -1656,6 +1663,8 @@ SPEC REPOS:
     - RecaptchaInterop
 
 EXTERNAL SOURCES:
+  audioplayers_darwin:
+    :path: ".symlinks/plugins/audioplayers_darwin/darwin"
   cloud_firestore:
     :path: ".symlinks/plugins/cloud_firestore/ios"
   cloud_functions:
@@ -1680,6 +1689,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_storage/ios"
   Flutter:
     :path: Flutter
+  flutter_native_splash:
+    :path: ".symlinks/plugins/flutter_native_splash/ios"
   google_sign_in_ios:
     :path: ".symlinks/plugins/google_sign_in_ios/darwin"
   path_provider_foundation:
@@ -1695,6 +1706,7 @@ SPEC CHECKSUMS:
   abseil: a05cc83bf02079535e17169a73c5be5ba47f714b
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
+  audioplayers_darwin: 4027b33a8f471d996c13f71cb77f0b1583b5d923
   BoringSSL-GRPC: dded2a44897e45f28f08ae87a55ee4bcd19bc508
   cloud_firestore: 97e42181866db3cba3fe3935895ab779b6acacd6
   cloud_functions: 614444590e43b7567dc7f57e6027cb15ab4a2c0e
@@ -1730,6 +1742,7 @@ SPEC CHECKSUMS:
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
   FirebaseStorage: 50fc9ee147392943e492467db6b52759b0447037
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_native_splash: df59bb2e1421aa0282cb2e95618af4dcb0c56c29
   google_sign_in_ios: 7411fab6948df90490dc4620ecbcabdc3ca04017
   GoogleAdsOnDeviceConversion: 2be6297a4f048459e0ae17fad9bfd2844e10cf64
   GoogleAppMeasurement: 700dce7541804bec33db590a5c496b663fbe2539
