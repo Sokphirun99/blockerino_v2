@@ -82,6 +82,9 @@ class GameCubit extends Cubit<GameState> {
     // Cancel any existing timer
     _storyTimer?.cancel();
     
+    // Start background music
+    _soundService.playBGM();
+    
     // Save current game state before switching modes (if there's an active game)
     final currentState = state;
     if (currentState is GameInProgress && currentState.gameMode != mode) {
@@ -370,6 +373,7 @@ class GameCubit extends Cubit<GameState> {
       }
     } else if (!hasValidMove) {
       // Regular mode: game over
+      _soundService.stopBGM();
       _soundService.playGameOver();
       settingsCubit?.updateHighScore(newScore);
       
@@ -427,6 +431,7 @@ class GameCubit extends Cubit<GameState> {
         stars = 1;
       }
       
+      _soundService.stopBGM();
       _soundService.playPlace(); // Victory sound
       
       // Award coins if level completed
@@ -434,6 +439,7 @@ class GameCubit extends Cubit<GameState> {
         settingsCubit?.addCoins(level.coinReward);
       }
     } else {
+      _soundService.stopBGM();
       _soundService.playGameOver();
     }
     

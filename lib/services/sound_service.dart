@@ -70,7 +70,7 @@ class SoundService {
     try {
       // TODO: Replace with actual asset path when adding bgm_loop.mp3
       // await _bgmPlayer.play(AssetSource('sounds/bgm_loop.mp3'));
-      _logger.d('BGM playback requested (add asset to enable)');
+      _logger.d('BGM playback requested (add asset to enable  )');
     } catch (e) {
       _logger.e('Failed to play BGM', error: e);
     }
