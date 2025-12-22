@@ -54,7 +54,8 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Story Mode', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Story Mode',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1a1a2e),
       ),
       body: GameGradientBackground(
@@ -73,9 +74,11 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                       final isUnlocked = index == 0 ||
                           (state.storyLevelStars[level.levelNumber] ?? 0) > 0 ||
                           level.levelNumber <= state.currentStoryLevel;
-                      final stars = state.storyLevelStars[level.levelNumber] ?? 0;
-                      
-                      return _buildLevelCard(context, level, isUnlocked, stars, settings);
+                      final stars =
+                          state.storyLevelStars[level.levelNumber] ?? 0;
+
+                      return _buildLevelCard(
+                          context, level, isUnlocked, stars, settings);
                     },
                   ),
                 ),
@@ -88,9 +91,10 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
   }
 
   Widget _buildProgressHeader(SettingsState state) {
-    final totalStars = state.storyLevelStars.values.fold(0, (sum, stars) => sum + stars);
+    final totalStars =
+        state.storyLevelStars.values.fold(0, (sum, stars) => sum + stars);
     final maxStars = StoryLevel.allLevels.length * 3;
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -101,7 +105,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFF9d4edd).withOpacity(0.3),
+            color: const Color(0xFF9d4edd).withOpacity(0.3),
             blurRadius: 12,
             spreadRadius: 2,
           ),
@@ -139,7 +143,8 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
             child: LinearProgressIndicator(
               value: maxStars > 0 ? totalStars / maxStars : 0.0,
               backgroundColor: Colors.white.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
               minHeight: 8,
             ),
           ),
@@ -148,14 +153,23 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
     );
   }
 
-  Widget _buildLevelCard(BuildContext context, StoryLevel level, bool isUnlocked, int stars, SettingsCubit settings) {
+  Widget _buildLevelCard(BuildContext context, StoryLevel level,
+      bool isUnlocked, int stars, SettingsCubit settings) {
     return GradientCard(
       margin: const EdgeInsets.only(bottom: 12),
       borderRadius: 20,
       gradientColors: isUnlocked
-          ? [Color(0xFF2d2d44).withOpacity(0.8), Color(0xFF1a1a2e).withOpacity(0.9)]
-          : [Color(0xFF1a1a1a).withOpacity(0.5), Color(0xFF0a0a0a).withOpacity(0.7)],
-      borderColor: isUnlocked ? _getDifficultyColor(level.difficulty) : Colors.white.withOpacity(0.1),
+          ? [
+              const Color(0xFF2d2d44).withOpacity(0.8),
+              const Color(0xFF1a1a2e).withOpacity(0.9)
+            ]
+          : [
+              const Color(0xFF1a1a1a).withOpacity(0.5),
+              const Color(0xFF0a0a0a).withOpacity(0.7)
+            ],
+      borderColor: isUnlocked
+          ? _getDifficultyColor(level.difficulty)
+          : Colors.white.withOpacity(0.1),
       borderWidth: 2,
       boxShadow: isUnlocked
           ? [
@@ -176,7 +190,8 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: _getDifficultyColor(level.difficulty),
                         borderRadius: BorderRadius.circular(20),
@@ -201,7 +216,9 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isUnlocked ? Colors.white : Colors.white.withOpacity(0.3),
+                    color: isUnlocked
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.3),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -211,7 +228,9 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                   level.description,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isUnlocked ? Colors.white.withOpacity(0.7) : Colors.white.withOpacity(0.2),
+                    color: isUnlocked
+                        ? Colors.white.withOpacity(0.7)
+                        : Colors.white.withOpacity(0.2),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -243,17 +262,27 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => GameScreen(storyLevel: level),
+                                  builder: (context) =>
+                                      GameScreen(storyLevel: level),
                                 ),
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _getDifficultyColor(level.difficulty),
+                              backgroundColor:
+                                  _getDifficultyColor(level.difficulty),
                               foregroundColor: Colors.white,
                               padding: responsive.horizontalPadding(mobile: 16),
                               minimumSize: Size(
-                                responsive.isMobile ? 60 : responsive.isTablet ? 80 : 100,
-                                responsive.isMobile ? 30 : responsive.isTablet ? 36 : 42,
+                                responsive.isMobile
+                                    ? 60
+                                    : responsive.isTablet
+                                        ? 80
+                                        : 100,
+                                responsive.isMobile
+                                    ? 30
+                                    : responsive.isTablet
+                                        ? 36
+                                        : 42,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
@@ -295,7 +324,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
   Widget _buildDifficultyBadge(LevelDifficulty difficulty) {
     String text;
     Color color;
-    
+
     switch (difficulty) {
       case LevelDifficulty.easy:
         text = 'Easy';
@@ -314,7 +343,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
         color = const Color(0xFFff006e);
         break;
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -381,7 +410,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Color(0xFF9d4edd).withOpacity(0.2),
+        color: const Color(0xFF9d4edd).withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

@@ -22,7 +22,7 @@ class Piece {
     required this.color,
   });
 
-  int get width => shape[0].length;
+  int get width => shape.isEmpty ? 0 : shape[0].length;
   int get height => shape.length;
 
   int getBlockCount() {
@@ -48,7 +48,7 @@ class Piece {
     return {
       'id': id,
       'shape': shape,
-      'color': color.toARGB32(),
+      'color': color.value,
     };
   }
 

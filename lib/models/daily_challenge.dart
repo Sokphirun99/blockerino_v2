@@ -1,4 +1,5 @@
 import 'game_mode.dart';
+import 'dart:math' as math;
 
 enum ChallengeType {
   clearLines,      // Clear X lines
@@ -59,7 +60,8 @@ class DailyChallenge {
   // Generate a daily challenge based on current date
   static DailyChallenge generateForDate(DateTime date) {
     final seed = date.year * 10000 + date.month * 100 + date.day;
-    final challengeIndex = seed % 10;
+    final random = math.Random(seed);
+    final challengeIndex = random.nextInt(10);
 
     final challenges = [
       DailyChallenge(

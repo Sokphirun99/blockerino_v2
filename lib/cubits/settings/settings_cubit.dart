@@ -21,9 +21,26 @@ class SettingsCubit extends Cubit<SettingsState> {
   FirestoreService get firestoreService => _firestoreService;
   AnalyticsService get analyticsService => _analyticsService;
 
-  SettingsCubit() : super(SettingsState.initial()) {
-    _loadSettings();
-    _initializeFirebase();
+  SettingsCubit() : super(SettingsState.initial());
+
+  Future<void> initialize() async {
+    await _loadSettings();
+    await _initializeFirebase();
+  }
+
+  Future<void> _restoreFromFirestore(String uid) async {
+    try {
+      final profile = await _firestoreService.getUserProfile(uid);
+      if (profile != null) {
+        emit(state.copyWith(
+          highScore: profile['totalScore'] ?? state.highScore,
+          coins: profile['coins'] ?? state.coins,
+        ));
+      }
+      // Optionally restore story progress here if needed
+    } catch (e) {
+      // Handle error (log, fallback, etc.)
+    }
   }
 
   Future<void> _initializeFirebase() async {
@@ -33,18 +50,19 @@ class SettingsCubit extends Cubit<SettingsState> {
         await _authService.signInAnonymously();
       }
 
-    // Set user ID for analytics
-    final uid = _authService.currentUser?.uid;
-    if (uid != null) {
-      await _analyticsService.setUserId(uid);
-      
-      // Sync local data to Firestore
-      await _syncToFirestore();
-    }
+      // Set user ID for analytics
+      final uid = _authService.currentUser?.uid;
+      if (uid != null) {
+        await _analyticsService.setUserId(uid);
+        // Restore cloud data before syncing
+        await _restoreFromFirestore(uid);
+        await _syncToFirestore();
+      }
 
       // Listen to auth state changes
       _authService.authStateChanges.listen((user) {
         if (user != null) {
+          _restoreFromFirestore(user.uid);
           _syncToFirestore();
           _analyticsService.setUserId(user.uid);
         }
@@ -224,8 +242,15 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (powerUp == null) return false;
     
     if (state.coins >= powerUp.cost) {
-      await spendCoins(powerUp.cost);
-      await addPowerUp(type, 1);
+      final newCoins = state.coins - powerUp.cost;
+      final newInventory = Map<PowerUpType, int>.from(state.powerUpInventory);
+      newInventory[type] = (newInventory[type] ?? 0) + 1;
+      emit(state.copyWith(coins: newCoins, powerUpInventory: newInventory));
+      // Save to DB/Prefs async
+      await addCoins(0); // Triggers DB save only
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('coins', newCoins);
+      await prefs.setInt('powerUp_${type.name}', newInventory[type]!);
       return true;
     }
     return false;

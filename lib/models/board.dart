@@ -110,6 +110,11 @@ class Board {
     }
   }
 
+  /// Public method to update the bitboard
+  void updateBitboard() {
+    _updateBitboard();
+  }
+
   bool canPlacePiece(Piece piece, int x, int y) {
     // 1. Boundary Checks (O(1))
     if (x < 0 || y < 0) return false;
@@ -441,7 +446,7 @@ class Board {
       'grid': grid.map((row) => 
         row.map((block) => {
           'type': block.type.index,
-          'color': block.color?.toARGB32(),
+          'color': block.color?.value,
         }).toList()
       ).toList(),
     };
