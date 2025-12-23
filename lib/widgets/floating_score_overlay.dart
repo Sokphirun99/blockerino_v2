@@ -20,6 +20,7 @@ class FloatingScoreOverlayState extends State<FloatingScoreOverlay> {
 
   /// Show a floating score at the specified position
   void showScore(Offset position, int points) {
+    if (!mounted) return;
     setState(() {
       _entries.add(_ScoreEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -30,6 +31,7 @@ class FloatingScoreOverlayState extends State<FloatingScoreOverlay> {
   }
 
   void _removeEntry(String id) {
+    if (!mounted) return;
     setState(() {
       _entries.removeWhere((element) => element.id == id);
     });

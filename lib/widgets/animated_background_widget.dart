@@ -100,7 +100,7 @@ class _BackgroundPainter extends CustomPainter {
       particle.y = (particle.y + particle.speed * 0.01 * speedMultiplier) % 1.0;
 
       final paint = Paint()
-        ..color = Colors.purple.withOpacity(particle.opacity)
+        ..color = Colors.purple.withValues(alpha: particle.opacity)
         ..style = PaintingStyle.fill;
 
       final position = Offset(
@@ -110,9 +110,9 @@ class _BackgroundPainter extends CustomPainter {
 
       // Draw particle with glow effect
       canvas.drawCircle(position, particle.size * 2,
-          paint..color = paint.color.withOpacity(particle.opacity * 0.3));
+          paint..color = paint.color.withValues(alpha: particle.opacity * 0.3));
       canvas.drawCircle(position, particle.size,
-          paint..color = paint.color.withOpacity(particle.opacity));
+          paint..color = paint.color.withValues(alpha: particle.opacity));
     }
   }
 

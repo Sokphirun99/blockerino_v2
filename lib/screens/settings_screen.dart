@@ -29,10 +29,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.translate('settings'), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(localizations.translate('settings'),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppConfig.dialogBackground,
       ),
       body: Container(
@@ -74,37 +75,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: state.animationsEnabled,
                   onChanged: (value) => settings.toggleAnimations(),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Language Section
                 _buildSectionHeader('Language'),
                 _buildLanguageCard(settings, state),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Account Section - DISABLED (Not yet in use)
                 // _buildSectionHeader('Account'),
                 // _buildAccountCard(settings),
                 const SizedBox(height: 24),
-                
+
                 // Theme Section - DISABLED (Not yet in use)
                 // _buildSectionHeader('Appearance'),
                 // _buildThemeCard(settings),
                 // const SizedBox(height: 24),
-                
+
                 // Statistics Section
                 _buildSectionHeader('Statistics'),
                 _buildStatsCard(state),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Data Management Section
                 _buildSectionHeader('Data'),
                 _buildDataCard(settings),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // App Info
                 _buildAppInfo(),
               ],
@@ -250,22 +251,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           ...AppConfig.supportedLocales.map((locale) {
-            final isSelected = state.currentLocale.languageCode == locale.languageCode;
+            final isSelected =
+                state.currentLocale.languageCode == locale.languageCode;
             return ListTile(
-              leading: Radio<String>(
-                value: locale.languageCode,
-                groupValue: state.currentLocale.languageCode,
-                onChanged: (value) {
-                  if (value != null) {
-                    settings.changeLanguage(Locale(value, ''));
-                  }
-                },
-                activeColor: AppConfig.primaryColor,
+              leading: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? AppConfig.primaryColor : Colors.white54,
+                    width: 2,
+                  ),
+                ),
+                child: isSelected
+                    ? Center(
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppConfig.primaryColor,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
               title: Text(
-                AppConfig.languageNames[locale.languageCode] ?? locale.languageCode,
+                AppConfig.languageNames[locale.languageCode] ??
+                    locale.languageCode,
                 style: TextStyle(
-                  color: isSelected ? AppConfig.primaryColor : AppConfig.textPrimary,
+                  color: isSelected
+                      ? AppConfig.primaryColor
+                      : AppConfig.textPrimary,
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -289,7 +307,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 24),
           _buildStatRow('Total Coins', '${state.coins}', Icons.monetization_on),
           const Divider(height: 24),
-          _buildStatRow('Story Progress', 'Level ${state.currentStoryLevel}', Icons.book),
+          _buildStatRow(
+              'Story Progress', 'Level ${state.currentStoryLevel}', Icons.book),
         ],
       ),
     );
@@ -326,7 +345,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.cloud_upload, color: AppConfig.primaryColor),
+            leading:
+                const Icon(Icons.cloud_upload, color: AppConfig.primaryColor),
             title: const Text(
               'Sync Data',
               style: TextStyle(color: AppConfig.textPrimary),
@@ -340,7 +360,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(height: 1, color: AppConfig.cardBorder),
           ListTile(
-            leading: const Icon(Icons.delete_forever, color: AppConfig.gameOverColor),
+            leading: const Icon(Icons.delete_forever,
+                color: AppConfig.gameOverColor),
             title: const Text(
               'Clear All Data',
               style: TextStyle(color: AppConfig.gameOverColor),
@@ -499,10 +520,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              final currentContext = context;
               await settings.clearAllData();
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (mounted && currentContext.mounted) {
+                Navigator.pop(currentContext);
+                ScaffoldMessenger.of(currentContext).showSnackBar(
                   const SnackBar(content: Text('All data cleared')),
                 );
               }

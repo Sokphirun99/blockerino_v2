@@ -105,7 +105,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF9d4edd).withOpacity(0.3),
+            color: const Color(0xFF9d4edd).withValues(alpha: 0.3),
             blurRadius: 12,
             spreadRadius: 2,
           ),
@@ -142,7 +142,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: maxStars > 0 ? totalStars / maxStars : 0.0,
-              backgroundColor: Colors.white.withOpacity(0.2),
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
               valueColor:
                   const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
               minHeight: 8,
@@ -160,21 +160,21 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
       borderRadius: 20,
       gradientColors: isUnlocked
           ? [
-              const Color(0xFF2d2d44).withOpacity(0.8),
-              const Color(0xFF1a1a2e).withOpacity(0.9)
+              const Color(0xFF2d2d44).withValues(alpha: 0.8),
+              const Color(0xFF1a1a2e).withValues(alpha: 0.9)
             ]
           : [
-              const Color(0xFF1a1a1a).withOpacity(0.5),
-              const Color(0xFF0a0a0a).withOpacity(0.7)
+              const Color(0xFF1a1a1a).withValues(alpha: 0.5),
+              const Color(0xFF0a0a0a).withValues(alpha: 0.7)
             ],
       borderColor: isUnlocked
           ? _getDifficultyColor(level.difficulty)
-          : Colors.white.withOpacity(0.1),
+          : Colors.white.withValues(alpha: 0.1),
       borderWidth: 2,
       boxShadow: isUnlocked
           ? [
               BoxShadow(
-                color: _getDifficultyColor(level.difficulty).withOpacity(0.3),
+                color: _getDifficultyColor(level.difficulty).withValues(alpha: 0.3),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -218,7 +218,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                     fontWeight: FontWeight.bold,
                     color: isUnlocked
                         ? Colors.white
-                        : Colors.white.withOpacity(0.3),
+                        : Colors.white.withValues(alpha: 0.3),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -229,8 +229,8 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     color: isUnlocked
-                        ? Colors.white.withOpacity(0.7)
-                        : Colors.white.withOpacity(0.2),
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : Colors.white.withValues(alpha: 0.2),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -242,7 +242,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -308,7 +308,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Center(
@@ -347,7 +347,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.3),
+        color: color.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color, width: 1),
       ),
@@ -410,7 +410,7 @@ class _StoryModeScreenState extends State<StoryModeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF9d4edd).withOpacity(0.2),
+        color: const Color(0xFF9d4edd).withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

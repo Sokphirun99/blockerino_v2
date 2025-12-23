@@ -42,8 +42,19 @@ enum HapticFeedbackType {
   error,
 }
 
-/// Fat Finger fix: Offset the piece above the finger so user can see placement
-const double kDragYOffset = -40.0;
+/// Fat Finger fix: Calculate responsive Y offset based on screen size
+/// This ensures the piece is always visible above the finger on all devices
+double _getDragYOffset(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  // Base offset of 40 logical pixels, scaled by device pixel ratio for physical pixels
+  // On high-DPI screens, we need more physical pixels to achieve the same visual offset
+  const baseOffset = 40.0;
+  final pixelRatio = mediaQuery.devicePixelRatio;
+  // Scale offset: more on high-DPI screens, but cap at reasonable maximum
+  final scaledOffset =
+      baseOffset * (1.0 + (pixelRatio - 1.0) * 0.3).clamp(1.0, 1.5);
+  return -scaledOffset;
+}
 
 class DraggablePieceWidget extends StatefulWidget {
   final Piece piece;
@@ -87,10 +98,10 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
     final boardSize =
         currentState is GameInProgress ? currentState.board.size : 8;
     final actualBlockSize = AppConfig.getBlockSize(context, boardSize);
-    
+
     // Use actual size for feedback so it matches the board slots exactly
     final feedbackBlockSize = actualBlockSize;
-    
+
     return Draggable<Piece>(
       data: widget.piece,
       maxSimultaneousDrags: 1,
@@ -100,21 +111,33 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
         // For even-sized pieces, we need to offset by 0.5 block size to align with grid
         final widthOffset = (widget.piece.width % 2 == 0) ? 0.5 : 0.0;
         final heightOffset = (widget.piece.height % 2 == 0) ? 0.5 : 0.0;
-        
+        final dragYOffset = _getDragYOffset(context);
+
         return Offset(
-          (widget.piece.width / 2 + widthOffset) * feedbackBlockSize, 
+            (widget.piece.width / 2 + widthOffset) * feedbackBlockSize,
             (widget.piece.height / 2 + heightOffset) * feedbackBlockSize -
-                kDragYOffset);
+                dragYOffset);
       },
       feedback: Transform.scale(
-        scale: 1.1, // Scale up by 10% when dragging - tactile "lifted" effect
+        scale: 1.15, // Scale up by 15% when dragging - better visibility
         child: Material(
-        color: Colors.transparent,
-        elevation: 8,
-        child: _PieceVisual(
-          piece: widget.piece,
-          blockSize: feedbackBlockSize,
-          opacity: 0.9,
+          color: Colors.transparent,
+          elevation: 12, // Increased elevation for better shadow/visibility
+          shadowColor: Colors.black.withValues(alpha: 0.5), // Stronger shadow
+          child: Container(
+            // Add subtle border for better contrast against any background
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: _PieceVisual(
+              piece: widget.piece,
+              blockSize: feedbackBlockSize,
+              opacity: 1.0, // Full opacity for maximum visibility
+            ),
           ),
         ),
       ),
@@ -137,15 +160,15 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
         builder: (context, child) {
           return Transform.scale(
             scale: _isDragging ? 1.0 : _scaleAnimation.value,
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: _PieceVisual(
-            piece: widget.piece,
-            blockSize: 26.0, // Larger blocks like Block Blast
-            opacity: 1.0,
-          ),
-        ),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: _PieceVisual(
+                  piece: widget.piece,
+                  blockSize: 26.0, // Larger blocks like Block Blast
+                  opacity: 1.0,
+                ),
+              ),
             ),
           );
         },
@@ -167,8 +190,8 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
           }
         });
 
-          final settings = context.read<SettingsCubit>().state;
-          if (settings.hapticsEnabled) {
+        final settings = context.read<SettingsCubit>().state;
+        if (settings.hapticsEnabled) {
           if (details.wasAccepted) {
             _intelligentHaptic(HapticFeedbackType.drop);
           } else {
@@ -234,7 +257,7 @@ class _PieceVisual extends StatelessWidget {
                         // <--- NEW: Highlight Edge
                         color: Colors.white.withValues(alpha: 0.3 * opacity),
                         width: 1,
-                        ),
+                      ),
                     )
                   : null,
             );
@@ -311,9 +334,10 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     }
 
     // CRITICAL FIX: Apply Y offset to match visual position (piece floats above finger)
-    // kDragYOffset is -40.0, so we ADD it (not subtract) to move calculation UP
-    // adjustedY += (-40.0) = adjustedY - 40.0 (moves UP to match visual)
-    adjustedY += kDragYOffset;
+    // The offset is negative, so we ADD it (not subtract) to move calculation UP
+    // This matches the visual position where the piece appears above the finger
+    final dragYOffset = _getDragYOffset(context);
+    adjustedY += dragYOffset;
 
     // The finger/anchor is at the CENTER of the piece
     final pieceWidthInPixels = piece.width * blockSize;
@@ -323,13 +347,16 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     final topLeftY = adjustedY - (pieceHeightInPixels / 2);
 
     // Convert to grid coordinates
-    final gridX = (topLeftX / blockSize).round();
-    final gridY = (topLeftY / blockSize).round();
+    // Use floor() instead of round() for more predictable placement
+    // This makes it easier to place pieces - they snap to grid cells more reliably
+    final gridX = (topLeftX / blockSize).floor();
+    final gridY = (topLeftY / blockSize).floor();
 
     // CRITICAL: Validate coordinates are within bounds before returning
-    // This prevents placement failures and crashes
-    if (gridX < 0 || gridY < 0) return null;
-    if (gridX + piece.width > board.size || gridY + piece.height > board.size) {
+    // Allow slight negative values (will be clamped in canPlacePiece)
+    // This makes placement more forgiving near edges
+    if (gridX < -1 || gridY < -1) return null;
+    if (gridX + piece.width > board.size + 1 || gridY + piece.height > board.size + 1) {
       return null;
     }
 
@@ -387,7 +414,7 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
 
         // Place the piece
         final success = gameCubit.placePiece(piece, gridX, gridY);
-        
+
         if (settings.hapticsEnabled) {
           if (success) {
             // Drop haptic is handled in onDragEnd, but we can add line clear haptic here
@@ -396,7 +423,7 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
             _intelligentHaptic(HapticFeedbackType.error);
           }
         }
-        
+
         // Reset state
         _lastGridX = -1;
         _lastGridY = -1;
@@ -419,7 +446,7 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
 
         final gridX = gridPos.gridX;
         final gridY = gridPos.gridY;
-        
+
         // Only update if position changed (prevents unnecessary rebuilds)
         if (gridX != _lastGridX || gridY != _lastGridY) {
           final currentState = gameCubit.state;
@@ -430,7 +457,7 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
 
             // Only show hover preview if position is valid
             if (isValid) {
-          gameCubit.showHoverPreview(piece, gridX, gridY);
+              gameCubit.showHoverPreview(piece, gridX, gridY);
             } else {
               gameCubit.clearHoverBlocks();
             }

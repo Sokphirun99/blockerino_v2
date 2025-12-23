@@ -45,6 +45,7 @@ class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
 
   void _startShake() {
     _controller.forward(from: 0.0).then((_) {
+      if (!mounted) return;
       setState(() {
         _shakeOffset = Offset.zero;
       });
@@ -53,6 +54,7 @@ class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
   }
 
   void _updateShake() {
+    if (!mounted) return;
     if (_controller.isAnimating) {
       final progress = _controller.value;
       final intensity = widget.intensity * (1.0 - progress); // Decay over time
