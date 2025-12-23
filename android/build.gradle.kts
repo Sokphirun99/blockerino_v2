@@ -1,6 +1,7 @@
 plugins {
     // Add the dependency for the Google services Gradle plugin
-    id("com.google.gms.google-services") version "4.4.4" apply false
+    // Use version 4.3.15 to match what's already on the classpath
+    id("com.google.gms.google-services") version "4.3.15" apply false
 }
 
 allprojects {

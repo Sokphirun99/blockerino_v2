@@ -8,11 +8,11 @@ class SoundService {
   static final SoundService _instance = SoundService._internal();
   factory SoundService() => _instance;
   SoundService._internal();
-  
+
   final Logger _logger = Logger();
   final Map<String, AudioPlayer> _audioPlayers = {};
   final AudioPlayer _bgmPlayer = AudioPlayer();
-  
+
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
   bool _initialized = false;
@@ -23,11 +23,11 @@ class SoundService {
   /// Initialize audio players and preload sounds
   Future<void> initialize() async {
     if (_initialized) return;
-    
+
     try {
       // Set background music to loop
       _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      
+
       // Preload sound effects
       _audioPlayers['place'] = AudioPlayer();
       _audioPlayers['clear'] = AudioPlayer();
@@ -35,7 +35,7 @@ class SoundService {
       _audioPlayers['gameOver'] = AudioPlayer();
       _audioPlayers['error'] = AudioPlayer();
       _audioPlayers['refill'] = AudioPlayer();
-      
+
       _initialized = true;
       _logger.i('SoundService initialized successfully');
     } catch (e) {
@@ -64,16 +64,17 @@ class SoundService {
   }
 
   /// Play background music
+  /// DISABLED: BGM not needed yet
   Future<void> playBGM() async {
-    if (!_soundEnabled) return;
-    
-    try {
-      // TODO: Replace with actual asset path when adding bgm_loop.mp3
-      // await _bgmPlayer.play(AssetSource('sounds/bgm_loop.mp3'));
-      _logger.d('BGM playback requested (add asset to enable  )');
-    } catch (e) {
-      _logger.e('Failed to play BGM', error: e);
-    }
+    // BGM disabled - return early
+    return;
+    // if (!_soundEnabled) return;
+    // try {
+    //   await _bgmPlayer.play(AssetSource('sounds/bgm_loop.mp3'));
+    //   _logger.d('BGM playback started');
+    // } catch (e) {
+    //   _logger.e('Failed to play BGM', error: e);
+    // }
   }
 
   /// Stop background music
@@ -91,12 +92,10 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.lightImpact();
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding pop.mp3
-        // await _audioPlayers['place']?.play(AssetSource('sounds/pop.mp3'));
-        _logger.d('Place sound requested (add asset to enable)');
+        await _audioPlayers['place']?.play(AssetSource('sounds/pop.mp3'));
       } catch (e) {
         _logger.e('Failed to play place sound', error: e);
       }
@@ -119,12 +118,10 @@ class SoundService {
         await HapticFeedback.mediumImpact();
       }
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding blast.wav
-        // await _audioPlayers['clear']?.play(AssetSource('sounds/blast.wav'));
-        _logger.d('Clear sound requested for $lineCount lines (add asset to enable)');
+        await _audioPlayers['clear']?.play(AssetSource('sounds/blast.wav'));
       } catch (e) {
         _logger.e('Failed to play clear sound', error: e);
       }
@@ -143,12 +140,10 @@ class SoundService {
         }
       }
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding combo.mp3
-        // await _audioPlayers['combo']?.play(AssetSource('sounds/combo.mp3'));
-        _logger.d('Combo sound requested for level $comboLevel (add asset to enable)');
+        await _audioPlayers['combo']?.play(AssetSource('sounds/combo.mp3'));
       } catch (e) {
         _logger.e('Failed to play combo sound', error: e);
       }
@@ -165,12 +160,11 @@ class SoundService {
       await Future.delayed(const Duration(milliseconds: 150));
       await HapticFeedback.heavyImpact();
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding game_over.mp3
-        // await _audioPlayers['gameOver']?.play(AssetSource('sounds/game_over.mp3'));
-        _logger.d('Game over sound requested (add asset to enable)');
+        await _audioPlayers['gameOver']
+            ?.play(AssetSource('sounds/game_over.mp3'));
       } catch (e) {
         _logger.e('Failed to play game over sound', error: e);
       }
@@ -182,12 +176,10 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.vibrate();
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding error.mp3
-        // await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
-        _logger.d('Error sound requested (add asset to enable)');
+        await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
       } catch (e) {
         _logger.e('Failed to play error sound', error: e);
       }
@@ -199,12 +191,11 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.selectionClick();
     }
-    
+
     if (_soundEnabled && _initialized) {
       try {
-        // TODO: Replace with actual asset path when adding refill.mp3
-        // await _audioPlayers['refill']?.play(AssetSource('sounds/refill.mp3'));
-        _logger.d('Refill sound requested (add asset to enable)');
+        // Use pop.mp3 for refill (no dedicated refill sound)
+        await _audioPlayers['refill']?.play(AssetSource('sounds/pop.mp3'));
       } catch (e) {
         _logger.e('Failed to play refill sound', error: e);
       }

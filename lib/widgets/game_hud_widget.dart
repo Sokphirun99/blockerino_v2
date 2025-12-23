@@ -6,6 +6,7 @@ import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../models/game_mode.dart';
+import 'combo_fire_widget.dart';
 
 class GameHudWidget extends StatefulWidget {
   const GameHudWidget({super.key});
@@ -14,7 +15,8 @@ class GameHudWidget extends StatefulWidget {
   State<GameHudWidget> createState() => _GameHudWidgetState();
 }
 
-class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProviderStateMixin {
+class _GameHudWidgetState extends State<GameHudWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _comboAnimationController;
   late Animation<double> _comboScaleAnimation;
   late Animation<double> _comboGlowAnimation;
@@ -41,11 +43,11 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
       ),
     ]).animate(_comboAnimationController);
 
-    _comboGlowAnimation = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(
-          parent: _comboAnimationController,
-          curve: Curves.easeInOut,
-        ));
+    _comboGlowAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _comboAnimationController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   @override
@@ -60,13 +62,40 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
     }
     _lastCombo = newCombo;
   }
-  
+
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
     return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
-  
+
+  /// Get score text color based on combo level
+  Color _getComboScoreColor(int combo) {
+    switch (combo) {
+      case 2:
+        return const Color(0xFFFFD700); // Gold
+      case 3:
+        return const Color(0xFFFFA500); // Orange
+      case 4:
+        return const Color(0xFFFF4500); // Red-Orange
+      case 5:
+        return const Color(0xFFFF1493); // Deep Pink
+      default:
+        return const Color(0xFF00FFFF); // Cyan (max combo)
+    }
+  }
+
+  bool _areObjectivesMet(GameInProgress gameState) {
+    if (gameState.storyLevel == null) return false;
+    final level = gameState.storyLevel!;
+
+    final scoreComplete = gameState.score >= level.targetScore;
+    final linesComplete = level.targetLines == null ||
+        gameState.linesCleared >= level.targetLines!;
+
+    return scoreComplete && linesComplete;
+  }
+
   Widget _buildObjective(String text, bool completed) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -76,7 +105,8 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
           if (completed)
             const Icon(Icons.check_circle, color: Color(0xFF52b788), size: 12)
           else
-            Icon(Icons.circle_outlined, color: Colors.white.withValues(alpha: 0.5), size: 12),
+            Icon(Icons.circle_outlined,
+                color: Colors.white.withValues(alpha: 0.5), size: 12),
           const SizedBox(width: 4),
           Flexible(
             child: AutoSizeText(
@@ -101,20 +131,21 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
     return BlocBuilder<GameCubit, GameState>(
       builder: (context, gameState) {
         if (gameState is! GameInProgress) return const SizedBox.shrink();
-        
+
         // Trigger animation when combo changes
         if (gameState.combo != _lastCombo) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _triggerComboAnimation(gameState.combo);
           });
         }
-        
+
         final settings = context.watch<SettingsCubit>().state;
         final config = GameModeConfig.fromMode(gameState.gameMode);
         final movesLeft = config.handSize - gameState.lastBrokenLine;
-        final comboProgress = gameState.combo > 0 ? movesLeft / config.handSize : 0.0;
+        final comboProgress =
+            gameState.combo > 0 ? movesLeft / config.handSize : 0.0;
         final isNewHighScore = gameState.score > settings.highScore;
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -123,7 +154,8 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
               // Time limit (if applicable)
               if (gameState.timeRemaining >= 0) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: gameState.timeRemaining <= 10
@@ -190,8 +222,36 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                     if (gameState.storyLevel!.targetLines != null)
                       _buildObjective(
                         '📊 Lines: ${gameState.linesCleared}/${gameState.storyLevel!.targetLines}',
-                        gameState.linesCleared >= gameState.storyLevel!.targetLines!,
+                        gameState.linesCleared >=
+                            gameState.storyLevel!.targetLines!,
                       ),
+                    // Show COMPLETE button when objectives are met
+                    if (_areObjectivesMet(gameState)) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            context.read<GameCubit>().completeStoryLevel();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF52b788),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            '✓ COMPLETE',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -203,9 +263,8 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
               children: [
                 Icon(
                   Icons.star,
-                  color: isNewHighScore 
-                      ? const Color(0xFFFFE66D) 
-                      : Colors.white38,
+                  color:
+                      isNewHighScore ? const Color(0xFFFFE66D) : Colors.white38,
                   size: 12,
                 ),
                 const Gap(4),
@@ -213,8 +272,8 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                   child: AutoSizeText(
                     '${isNewHighScore ? gameState.score : settings.highScore}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isNewHighScore 
-                              ? const Color(0xFFFFE66D) 
+                          color: isNewHighScore
+                              ? const Color(0xFFFFE66D)
                               : Colors.white38,
                           fontSize: 10,
                         ),
@@ -232,17 +291,26 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                     fontSize: 10,
                   ),
             ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
-              child: AutoSizeText(
-                '${gameState.score}',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                maxLines: 1,
-                minFontSize: 18,
+            // Score with combo fire effect
+            ComboFireWidget(
+              combo: gameState.combo,
+              child: ComboGlowWidget(
+                comboLevel: gameState.combo,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: AutoSizeText(
+                    '${gameState.score}',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: gameState.combo > 1
+                              ? _getComboScoreColor(gameState.combo)
+                              : Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                    maxLines: 1,
+                    minFontSize: 18,
+                  ),
+                ),
               ),
             ),
             if (gameState.combo > 1) ...[
@@ -252,66 +320,77 @@ class _GameHudWidgetState extends State<GameHudWidget> with SingleTickerProvider
                 builder: (context, child) {
                   return Transform.scale(
                     scale: _comboScaleAnimation.value,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFFFD700),
-                            Color(0xFFFFE66D),
+                    child: ComboFireWidget(
+                      combo: gameState.combo,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFFD700),
+                              Color(0xFFFFE66D),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(
+                              alpha: 0.3 + (_comboGlowAnimation.value * 0.7),
+                            ),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFE66D).withValues(
+                                alpha: 0.3 + (_comboGlowAnimation.value * 0.5),
+                              ),
+                              blurRadius: 8 + (_comboGlowAnimation.value * 12),
+                              spreadRadius: 2 + (_comboGlowAnimation.value * 4),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(
-                            alpha: 0.3 + (_comboGlowAnimation.value * 0.7),
-                          ),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFE66D).withValues(
-                              alpha: 0.3 + (_comboGlowAnimation.value * 0.5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '🔥',
+                              style: TextStyle(fontSize: 16),
                             ),
-                            blurRadius: 8 + (_comboGlowAnimation.value * 12),
-                            spreadRadius: 2 + (_comboGlowAnimation.value * 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            '🔥',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'COMBO',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.black,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1,
-                                ),
-                          ),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'x${gameState.combo}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 12,
+                            const SizedBox(width: 4),
+                            Text(
+                              'COMBO',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.black,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
+                                    letterSpacing: 1,
                                   ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'x${gameState.combo}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

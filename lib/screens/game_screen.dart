@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +21,7 @@ import '../widgets/particle_effect_widget.dart';
 import '../widgets/animated_background_widget.dart';
 import '../widgets/screen_shake_widget.dart';
 import '../widgets/shared_ui_components.dart';
+import '../widgets/floating_score_overlay.dart';
 
 // Safe vibration helper for web compatibility
 void _safeVibrate({int duration = 50, int amplitude = 128}) {
@@ -33,7 +35,7 @@ void _safeVibrate({int duration = 50, int amplitude = 128}) {
 
 class GameScreen extends StatefulWidget {
   final StoryLevel? storyLevel;
-  
+
   const GameScreen({super.key, this.storyLevel});
 
   @override
@@ -42,11 +44,15 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final GlobalKey _boardKey = GlobalKey();
+  final GlobalKey _gridKey =
+      GlobalKey(); // Key for inner grid widget (accurate coordinates)
+  final GlobalKey<FloatingScoreOverlayState> _scoreOverlayKey = GlobalKey();
   final List<ParticleData> _activeParticles = [];
   int _particleIdCounter = 0;
   bool _shouldShake = false;
   String? _achievementMessage;
   int _lastComboLevel = 0;
+  int _lastScore = 0; // Track score for floating score popups
   late ConfettiController _confettiController;
 
   bool _initialized = false;
@@ -54,7 +60,8 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 3));
   }
 
   @override
@@ -72,7 +79,7 @@ class _GameScreenState extends State<GameScreen> {
       try {
         final gameCubit = context.read<GameCubit>();
         final settingsCubit = context.read<SettingsCubit>();
-        
+
         // If no active game, start game with appropriate mode
         if (!gameCubit.hasActiveGame) {
           // Schedule game start after the current frame to avoid setState during build
@@ -80,17 +87,18 @@ class _GameScreenState extends State<GameScreen> {
             // Use story level's game mode if provided, otherwise classic
             final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
             gameCubit.startGame(mode, storyLevel: widget.storyLevel);
-            
+
             // Track game start
             settingsCubit.analyticsService.logGameStart(mode.name);
             if (widget.storyLevel != null) {
-              settingsCubit.analyticsService.logScreenView('game_story_level_${widget.storyLevel!.levelNumber}');
+              settingsCubit.analyticsService.logScreenView(
+                  'game_story_level_${widget.storyLevel!.levelNumber}');
             } else {
               settingsCubit.analyticsService.logScreenView('game_${mode.name}');
             }
           });
         }
-        
+
         // Set up line clear callback
         gameCubit.onLinesCleared = _onLinesCleared;
       } catch (e) {
@@ -123,24 +131,58 @@ class _GameScreenState extends State<GameScreen> {
     // Show achievement messages
     _checkAchievements(lineCount, gameState.combo);
 
-    // Create particles for each cleared block
-    setState(() {
-      for (final blockInfo in clearedBlocks) {
-        final particleX = boardPosition.dx + 4 + (blockInfo.col * blockSize) + (blockSize / 2);
-        final particleY = boardPosition.dy + 4 + (blockInfo.row * blockSize) + (blockSize / 2);
-        
-        _activeParticles.add(ParticleData(
-          id: _particleIdCounter++,
-          position: Offset(particleX, particleY),
-          color: blockInfo.color ?? Colors.white,
-        ));
-      }
-    });
+    // Calculate score earned for floating popup
+    final scoreEarned = gameState.score - _lastScore;
+    _lastScore = gameState.score;
+
+    // Create particles for each cleared block with ripple delay
+    for (final blockInfo in clearedBlocks) {
+      // Use delay for ripple effect
+      Future.delayed(Duration(milliseconds: blockInfo.delayMs), () {
+        if (!mounted) return;
+
+        final particleX = boardPosition.dx +
+            4 +
+            (blockInfo.col * blockSize) +
+            (blockSize / 2);
+        final particleY = boardPosition.dy +
+            4 +
+            (blockInfo.row * blockSize) +
+            (blockSize / 2);
+
+        setState(() {
+          _activeParticles.add(ParticleData(
+            id: _particleIdCounter++,
+            position: Offset(particleX, particleY),
+            color: blockInfo.color ?? Colors.white,
+          ));
+        });
+      });
+    }
+
+    // Add floating score popup at the center of cleared area
+    if (clearedBlocks.isNotEmpty && scoreEarned > 0) {
+      final centerBlock = clearedBlocks[clearedBlocks.length ~/ 2];
+      final scoreX = boardPosition.dx +
+          4 +
+          (centerBlock.col * blockSize) +
+          (blockSize / 2);
+      final scoreY = boardPosition.dy +
+          4 +
+          (centerBlock.row * blockSize) +
+          (blockSize / 2);
+
+      // Show score in the overlay system
+      _scoreOverlayKey.currentState?.showScore(
+        Offset(scoreX, scoreY),
+        scoreEarned,
+      );
+    }
   }
 
   void _checkAchievements(int lineCount, int combo) {
     String? message;
-    
+
     // Check for special line clears
     if (lineCount >= 4) {
       message = '🔥 QUAD CLEAR! 🔥';
@@ -164,7 +206,7 @@ class _GameScreenState extends State<GameScreen> {
         setState(() {
           _achievementMessage = message;
         });
-        
+
         // Hide message after 2 seconds
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
@@ -186,7 +228,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final gameCubit = context.read<GameCubit>();
-    
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
@@ -196,193 +238,240 @@ class _GameScreenState extends State<GameScreen> {
         }
       },
       child: Scaffold(
-        body: Stack(
-          children: [
-            // Animated background
-            const Positioned.fill(
-              child: AnimatedBackgroundWidget(),
-          ),
-          
-          // Main game content with screen shake
-          ScreenShakeWidget(
-            shouldShake: _shouldShake,
-            intensity: 8.0,
-            onShakeComplete: () {
-              setState(() {
-                _shouldShake = false;
-              });
-            },
-            child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppConfig.gameBackgroundTop,
-                  AppConfig.gameBackgroundMiddle,
-                  AppConfig.gameBackgroundBottom,
-                ],
-              ),
-            ),
-            child: SafeArea(
-              child: BlocBuilder<GameCubit, GameState>(
-                builder: (context, state) {
-                  if (state is GameOver) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _showGameOverDialog(context, context.read<GameCubit>());
-                    });
+        body: BlocBuilder<GameCubit, GameState>(
+          builder: (context, gameState) {
+            // Calculate background speed multiplier based on game state
+            double speedMultiplier = 1.0;
+            if (gameState is GameInProgress) {
+              // Speed up with combo (max 2.5x at combo 5+)
+              final comboSpeed = 1.0 + (gameState.combo.clamp(0, 5) * 0.3);
+
+              // Speed up when board is getting full (calculate filled percentage)
+              int filledBlocks = 0;
+              for (int row = 0; row < gameState.board.size; row++) {
+                for (int col = 0; col < gameState.board.size; col++) {
+                  if (gameState.board.grid[row][col].type == BlockType.filled) {
+                    filledBlocks++;
                   }
-                  
-                  return Column(
-                    children: [
-                      // Header with back button and score
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back, color: AppConfig.textPrimary),
-                              onPressed: () {
-                                // Save game before going back
-                                context.read<GameCubit>().saveGame();
-                                Navigator.pop(context);
+                }
+              }
+              final boardFullness =
+                  filledBlocks / (gameState.board.size * gameState.board.size);
+              final fullnessSpeed =
+                  1.0 + (boardFullness * 1.5); // Max 2.5x when 100% full
+
+              // Use the higher of the two multipliers
+              speedMultiplier =
+                  comboSpeed > fullnessSpeed ? comboSpeed : fullnessSpeed;
+            }
+
+            return FloatingScoreOverlay(
+              key: _scoreOverlayKey,
+              child: Stack(
+                children: [
+                  // Animated background with dynamic speed
+                  Positioned.fill(
+                    child: AnimatedBackgroundWidget(
+                      speedMultiplier: speedMultiplier,
+                    ),
+                  ),
+
+                  // Main game content with screen shake
+                  ScreenShakeWidget(
+                    shouldShake: _shouldShake,
+                    intensity: 8.0,
+                    onShakeComplete: () {
+                      setState(() {
+                        _shouldShake = false;
+                      });
+                    },
+                    child: BlocBuilder<SettingsCubit, SettingsState>(
+                      builder: (context, settings) {
+                        final theme = settings.currentTheme;
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: theme.getBackgroundGradient(),
+                          ),
+                          child: SafeArea(
+                            child: BlocBuilder<GameCubit, GameState>(
+                              builder: (context, state) {
+                                if (state is GameOver) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    _showGameOverDialog(
+                                        context, context.read<GameCubit>());
+                                  });
+                                }
+
+                                return Column(
+                                  children: [
+                                    // Header with back button and score
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0, vertical: 8.0),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_back,
+                                                color: AppConfig.textPrimary),
+                                            onPressed: () {
+                                              // Save game before going back
+                                              context
+                                                  .read<GameCubit>()
+                                                  .saveGame();
+                                              Navigator.pop(context);
+                                            },
+                                          ),
+                                          const Flexible(
+                                            child: GameHudWidget(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Game Board with DragTarget - wrapped in Expanded to constrain size
+                                    Expanded(
+                                      flex: 3,
+                                      child: Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12.0),
+                                          child: BoardDragTarget(
+                                            gridKey:
+                                                _gridKey, // Pass grid key for accurate coordinates
+                                            child: KeyedSubtree(
+                                              key: _boardKey,
+                                              child: BoardGridWidget(
+                                                  gridKey: _gridKey),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Hand Pieces - more space like Block Blast
+                                    const Expanded(
+                                      flex: 1,
+                                      child: HandPiecesWidget(),
+                                    ),
+
+                                    // Power-Up Bar
+                                    BlocBuilder<SettingsCubit, SettingsState>(
+                                      builder: (context, settingsState) {
+                                        return _buildPowerUpBar(context,
+                                            context.read<SettingsCubit>());
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 8),
+                                  ],
+                                );
                               },
                             ),
-                            const Flexible(
-                              child: GameHudWidget(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Achievement notification
+                  if (_achievementMessage != null)
+                    Positioned(
+                      top: 120,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 300),
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Opacity(
+                                opacity: value,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppConfig.achievementGradientStart,
+                                  AppConfig.achievementGradientEnd,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: AppConfig.achievementBorder,
+                                width: 2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: AppConfig.achievementGlow,
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                      
-                      // Game Board with DragTarget - wrapped in Expanded to constrain size
-                      Expanded(
-                        flex: 3,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                            child: BoardDragTarget(
-                              child: KeyedSubtree(
-                                key: _boardKey,
-                                child: const BoardGridWidget(),
+                            child: Text(
+                              _achievementMessage!,
+                              style: const TextStyle(
+                                color: AppConfig.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
                               ),
                             ),
                           ),
                         ),
                       ),
-                      
-                      // Hand Pieces - more space like Block Blast
-                      const Expanded(
-                        flex: 1,
-                        child: HandPiecesWidget(),
-                      ),
-                      
-                      // Power-Up Bar
-                      BlocBuilder<SettingsCubit, SettingsState>(
-                        builder: (context, settingsState) {
-                          return _buildPowerUpBar(context, context.read<SettingsCubit>());
-                        },
-                      ),
-                      
-                      const SizedBox(height: 8),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-          ),
-          
-          // Achievement notification
-          if (_achievementMessage != null)
-            Positioned(
-              top: 120,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 300),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(
-                        opacity: value,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppConfig.achievementGradientStart,
-                          AppConfig.achievementGradientEnd,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: AppConfig.achievementBorder,
-                        width: 2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: AppConfig.achievementGlow,
-                          blurRadius: 20,
-                          spreadRadius: 5,
+                    ),
+
+                  // Particle effects overlay
+                  ..._activeParticles.map((particle) => Positioned.fill(
+                        child: IgnorePointer(
+                          child: ParticleEffectWidget(
+                            key: ValueKey(particle.id),
+                            position: particle.position,
+                            color: particle.color,
+                            blockSize: 20,
+                            onComplete: () => _removeParticle(particle.id),
+                          ),
                         ),
+                      )),
+
+                  // Floating score popups are handled by FloatingScoreOverlay
+                  // (removed duplicate FloatingScoreWidget system)
+
+                  // Confetti overlay for celebrations
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirection: 3.14 / 2, // Downward
+                      emissionFrequency: 0.05,
+                      numberOfParticles: 20,
+                      gravity: 0.1,
+                      shouldLoop: false,
+                      colors: const [
+                        Color(0xFF9d4edd),
+                        Color(0xFF7b2cbf),
+                        Color(0xFFFFE66D),
+                        Color(0xFFFFD700),
+                        Color(0xFF52b788),
                       ],
                     ),
-                    child: Text(
-                      _achievementMessage!,
-                      style: const TextStyle(
-                        color: AppConfig.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          
-          // Particle effects overlay
-          ..._activeParticles.map((particle) => Positioned.fill(
-            child: IgnorePointer(
-              child: ParticleEffectWidget(
-                key: ValueKey(particle.id),
-                position: particle.position,
-                color: particle.color,
-                blockSize: 20,
-                onComplete: () => _removeParticle(particle.id),
-              ),
-            ),
-          )),
-          
-          // Confetti overlay for celebrations
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirection: 3.14 / 2, // Downward
-              emissionFrequency: 0.05,
-              numberOfParticles: 20,
-              gravity: 0.1,
-              shouldLoop: false,
-              colors: const [
-                Color(0xFF9d4edd),
-                Color(0xFF7b2cbf),
-                Color(0xFFFFE66D),
-                Color(0xFFFFD700),
-                Color(0xFF52b788),
-              ],
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -391,19 +480,19 @@ class _GameScreenState extends State<GameScreen> {
     final settingsCubit = context.read<SettingsCubit>();
     final state = gameCubit.state;
     if (state is! GameOver) return;
-    
+
     final isHighScore = state.finalScore >= settingsCubit.state.highScore;
-    
+
     // Get story mode data from state if available
     final isStoryMode = state.storyLevel != null;
     final starsEarned = state.starsEarned;
     final levelCompleted = state.levelCompleted;
-    
+
     // Trigger confetti for high score or level complete
     if (isHighScore || (isStoryMode && levelCompleted)) {
       _confettiController.play();
     }
-    
+
     // Track game end analytics
     final mode = widget.storyLevel?.gameMode ?? state.gameMode;
     settingsCubit.analyticsService.logGameEnd(
@@ -412,7 +501,7 @@ class _GameScreenState extends State<GameScreen> {
       linesCleared: 0, // We don't track total lines cleared yet
       duration: 0, // We don't track duration yet, could add timer
     );
-    
+
     // Update progress if story level completed
     if (isStoryMode && levelCompleted) {
       settingsCubit.completeStoryLevel(
@@ -421,11 +510,11 @@ class _GameScreenState extends State<GameScreen> {
         state.storyLevel!.coinReward,
       );
     }
-    
+
     if (settingsCubit.state.hapticsEnabled) {
       _safeVibrate(duration: 500);
     }
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -434,9 +523,9 @@ class _GameScreenState extends State<GameScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isStoryMode && levelCompleted 
+            color: isStoryMode && levelCompleted
                 ? AppConfig.accentColor
-                : isHighScore 
+                : isHighScore
                     ? AppConfig.achievementBorder
                     : AppConfig.achievementGradientStart,
             width: 2,
@@ -554,11 +643,14 @@ class _GameScreenState extends State<GameScreen> {
             ),
             child: const Text('MENU'),
           ),
-          if (isStoryMode && levelCompleted && widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
+          if (isStoryMode &&
+              levelCompleted &&
+              widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
             ElevatedButton(
               onPressed: () {
                 final nextLevel = StoryLevel.allLevels.firstWhere(
-                  (level) => level.levelNumber == widget.storyLevel!.levelNumber + 1,
+                  (level) =>
+                      level.levelNumber == widget.storyLevel!.levelNumber + 1,
                 );
                 gameCubit.resetGame();
                 Navigator.pop(dialogContext); // Close dialog
@@ -569,15 +661,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFffd700),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('NEXT LEVEL', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('NEXT LEVEL'),
             )
           else
             ElevatedButton(
@@ -588,7 +672,8 @@ class _GameScreenState extends State<GameScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4ECDC4),
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -617,20 +702,23 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildPowerUpButton(BuildContext context, PowerUpType type, SettingsCubit settingsCubit) {
+  Widget _buildPowerUpButton(
+      BuildContext context, PowerUpType type, SettingsCubit settingsCubit) {
     final count = settingsCubit.getPowerUpCount(type);
     final powerUp = PowerUp.allPowerUps.firstWhere((p) => p.type == type);
-    
+
     return GestureDetector(
-      onTap: count > 0 ? () async {
-        final gameCubit = context.read<GameCubit>();
-        await gameCubit.triggerPowerUp(type);
-        
-        // Show feedback
-        if (mounted && count - 1 == 0) {
-          SharedSnackBars.showPowerUpUsed(context, powerUp.name);
-        }
-      } : null,
+      onTap: count > 0
+          ? () async {
+              final gameCubit = context.read<GameCubit>();
+              await gameCubit.triggerPowerUp(type);
+
+              // Show feedback
+              if (mounted && count - 1 == 0) {
+                SharedSnackBars.showPowerUpUsed(context, powerUp.name);
+              }
+            }
+          : null,
       child: Opacity(
         opacity: count > 0 ? 1.0 : 0.3,
         child: Container(
@@ -675,7 +763,9 @@ class _GameScreenState extends State<GameScreen> {
                 child: Text(
                   '$count',
                   style: TextStyle(
-                    color: count > 0 ? Colors.white : Colors.white.withValues(alpha: 0.3),
+                    color: count > 0
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.3),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
