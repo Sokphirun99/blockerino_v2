@@ -42,7 +42,7 @@ class HandPiecesWidget extends StatelessWidget {
                   child: Center(
                     child: Opacity(
                       opacity: canPlace ? 1.0 : 0.5, // Grey out if can't be placed
-                      child: DraggablePieceWidget(piece: piece),
+                    child: DraggablePieceWidget(piece: piece),
                     ),
                   ),
                 );
