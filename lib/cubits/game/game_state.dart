@@ -27,6 +27,12 @@ class GameInProgress extends GameState {
   final GameMode gameMode;
   final bool showInvalidPreview;
   
+  // Hover preview for ghost piece
+  final Piece? hoverPiece;
+  final int? hoverX;
+  final int? hoverY;
+  final bool? hoverValid;
+  
   // Story mode specific fields
   final StoryLevel? storyLevel;
   final int linesCleared;
@@ -41,6 +47,10 @@ class GameInProgress extends GameState {
     required this.lastBrokenLine,
     required this.gameMode,
     this.showInvalidPreview = false,
+    this.hoverPiece,
+    this.hoverX,
+    this.hoverY,
+    this.hoverValid,
     this.storyLevel,
     this.linesCleared = 0,
     this.timeRemaining = -1,
@@ -56,6 +66,10 @@ class GameInProgress extends GameState {
         lastBrokenLine,
         gameMode,
         showInvalidPreview,
+        hoverPiece,
+        hoverX,
+        hoverY,
+        hoverValid,
         storyLevel,
         linesCleared,
         timeRemaining,
@@ -70,6 +84,10 @@ class GameInProgress extends GameState {
     int? lastBrokenLine,
     GameMode? gameMode,
     bool? showInvalidPreview,
+    Piece? hoverPiece,
+    int? hoverX,
+    int? hoverY,
+    bool? hoverValid,
     StoryLevel? storyLevel,
     int? linesCleared,
     int? timeRemaining,
@@ -83,6 +101,10 @@ class GameInProgress extends GameState {
       lastBrokenLine: lastBrokenLine ?? this.lastBrokenLine,
       gameMode: gameMode ?? this.gameMode,
       showInvalidPreview: showInvalidPreview ?? this.showInvalidPreview,
+      hoverPiece: hoverPiece,
+      hoverX: hoverX ?? this.hoverX,
+      hoverY: hoverY ?? this.hoverY,
+      hoverValid: hoverValid ?? this.hoverValid,
       storyLevel: storyLevel ?? this.storyLevel,
       linesCleared: linesCleared ?? this.linesCleared,
       timeRemaining: timeRemaining ?? this.timeRemaining,

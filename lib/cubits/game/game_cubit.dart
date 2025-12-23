@@ -25,6 +25,8 @@ class _SavedGameState {
   final int combo;
   final int lastBrokenLine;
   final bool gameOver;
+  final List<int> pieceBag; // Save bag state to prevent reroll exploits
+  final int bagIndex; // Save bag index
 
   _SavedGameState({
     required this.board,
@@ -33,6 +35,8 @@ class _SavedGameState {
     required this.combo,
     required this.lastBrokenLine,
     required this.gameOver,
+    required this.pieceBag,
+    required this.bagIndex,
   });
 }
 
@@ -44,8 +48,9 @@ class GameCubit extends Cubit<GameState> {
   final Map<GameMode, _SavedGameState> _savedGames = {};
 
   // Random Bag System (Section 4.1 of technical document)
-  static final List<int> _pieceBag = [];
-  static int _bagIndex = 0;
+  // FIX: Changed from static to instance variables so each game session is independent
+  List<int> _pieceBag = [];
+  int _bagIndex = 0;
 
   // Story mode timer
   Timer? _storyTimer;
@@ -108,6 +113,9 @@ class GameCubit extends Cubit<GameState> {
       _loadSavedGame(mode);
     } else {
       // Start fresh game
+      _pieceBag.clear(); // Reset bag for new game
+      _bagIndex = 0;
+
       final config = GameModeConfig.fromMode(mode);
       final board = Board(size: config.boardSize);
       final hand = _generateRandomHand(config.handSize);
@@ -124,6 +132,9 @@ class GameCubit extends Cubit<GameState> {
   }
 
   void _startStoryGame(StoryLevel level) {
+    _pieceBag.clear(); // Reset bag for new story level
+    _bagIndex = 0;
+
     final config = GameModeConfig.fromMode(GameMode.story);
     final board = Board(size: config.boardSize);
     final hand = _generateRandomHand(config.handSize);
@@ -178,6 +189,8 @@ class GameCubit extends Cubit<GameState> {
       combo: currentState.combo,
       lastBrokenLine: currentState.lastBrokenLine,
       gameOver: false,
+      pieceBag: List.from(_pieceBag), // Save current bag state
+      bagIndex: _bagIndex, // Save current bag index
     );
     _saveToPersistentStorage();
   }
@@ -202,6 +215,9 @@ class GameCubit extends Cubit<GameState> {
           'combo': gameState.combo,
           'lastBrokenLine': gameState.lastBrokenLine,
           'gameOver': gameState.gameOver,
+          'pieceBag':
+              gameState.pieceBag, // Serialize bag to prevent reroll exploits
+          'bagIndex': gameState.bagIndex, // Serialize bag index
         };
       });
 
@@ -237,6 +253,9 @@ class GameCubit extends Cubit<GameState> {
               combo: gameData['combo'] ?? 0,
               lastBrokenLine: gameData['lastBrokenLine'] ?? 0,
               gameOver: gameData['gameOver'] ?? false,
+              pieceBag:
+                  List<int>.from(gameData['pieceBag'] ?? []), // Load bag state
+              bagIndex: gameData['bagIndex'] ?? 0, // Load bag index
             );
           } catch (e) {
             debugPrint('Error loading saved game for mode $modeStr: $e');
@@ -251,6 +270,10 @@ class GameCubit extends Cubit<GameState> {
   void _loadSavedGame(GameMode mode) {
     final savedGame = _savedGames[mode];
     if (savedGame == null) return;
+
+    // Restore bag state to prevent reroll exploits
+    _pieceBag = List.from(savedGame.pieceBag);
+    _bagIndex = savedGame.bagIndex;
 
     if (savedGame.gameOver) {
       emit(GameOver(
@@ -274,8 +297,16 @@ class GameCubit extends Cubit<GameState> {
     final currentState = state;
     if (currentState is! GameInProgress) return;
 
-    currentState.board.clearHoverBlocks();
-    emit(currentState.copyWith());
+    // CRITICAL FIX: Clone board before clearing to avoid mutating state directly
+    final newBoard = currentState.board.clone();
+    newBoard.clearHoverBlocks();
+    emit(currentState.copyWith(
+      board: newBoard,
+      hoverPiece: null,
+      hoverX: null,
+      hoverY: null,
+      hoverValid: null,
+    ));
   }
 
   void showHoverPreview(Piece piece, int x, int y) {
@@ -286,12 +317,19 @@ class GameCubit extends Cubit<GameState> {
     final newBoard = currentState.board.clone();
     newBoard.clearHoverBlocks();
 
-    if (newBoard.canPlacePiece(piece, x, y)) {
+    final canPlace = newBoard.canPlacePiece(piece, x, y);
+    if (canPlace) {
       newBoard.updateHoveredBreaks(piece, x, y);
-      emit(currentState.copyWith(board: newBoard));
-    } else {
-      emit(currentState.copyWith(board: newBoard));
     }
+
+    // Update hover preview for ghost piece
+    emit(currentState.copyWith(
+      board: newBoard,
+      hoverPiece: piece,
+      hoverX: x,
+      hoverY: y,
+      hoverValid: canPlace,
+    ));
   }
 
   bool placePiece(Piece piece, int x, int y) {
@@ -300,12 +338,26 @@ class GameCubit extends Cubit<GameState> {
 
     if (!currentState.board.canPlacePiece(piece, x, y)) {
       _soundService.playError();
+      // CRITICAL FIX: Clear hover blocks even on failed placement
+      // This prevents hover blocks from persisting on screen
+      final newBoard = currentState.board.clone();
+      newBoard.clearHoverBlocks();
+      emit(currentState.copyWith(
+        board: newBoard,
+        hoverPiece: null,
+        hoverX: null,
+        hoverY: null,
+        hoverValid: null,
+      ));
       return false;
     }
 
+    // Clone board before mutation
+    final newBoard = currentState.board.clone();
+
     // Clear hover blocks and place the piece
-    currentState.board.clearHoverBlocks();
-    currentState.board.placePiece(piece, x, y, type: BlockType.filled);
+    newBoard.clearHoverBlocks();
+    newBoard.placePiece(piece, x, y, type: BlockType.filled);
 
     // Play place sound
     _soundService.playPlace();
@@ -314,8 +366,9 @@ class GameCubit extends Cubit<GameState> {
     final pieceBlockCount = piece.getBlockCount();
     int newScore = currentState.score + pieceBlockCount;
 
-    // Break lines and calculate combo
-    final clearResult = currentState.board.breakLinesWithInfo();
+    // CRITICAL FIX: Break lines on the NEW board, not the old one!
+    // This ensures hover blocks are cleared and line breaking works correctly
+    final clearResult = newBoard.breakLinesWithInfo();
     final linesBroken = clearResult.lineCount;
 
     // Track lines cleared for story mode
@@ -423,6 +476,23 @@ class GameCubit extends Cubit<GameState> {
     } else if (currentState is GameOver) {
       _savedGames.remove(currentState.gameMode);
       startGame(currentState.gameMode, storyLevel: currentState.storyLevel);
+    }
+  }
+
+  /// Public method to complete a story level when objectives are met
+  void completeStoryLevel() {
+    final currentState = state;
+    if (currentState is! GameInProgress) return;
+    if (currentState.storyLevel == null) return;
+
+    // Check if objectives are actually met
+    final level = currentState.storyLevel!;
+    final scoreComplete = currentState.score >= level.targetScore;
+    final linesComplete = level.targetLines == null ||
+        currentState.linesCleared >= level.targetLines!;
+
+    if (scoreComplete && linesComplete) {
+      _endStoryLevel(currentState);
     }
   }
 
@@ -668,6 +738,9 @@ class GameCubit extends Cubit<GameState> {
   List<Piece> _generateRandomHand(int count) {
     final hand = <Piece>[];
 
+    // Get theme colors from settings (if available)
+    final themeColors = settingsCubit?.state.currentTheme.blockColors;
+
     for (int i = 0; i < count; i++) {
       // Refill bag if empty
       if (_bagIndex >= _pieceBag.length) {
@@ -677,7 +750,7 @@ class GameCubit extends Cubit<GameState> {
 
       // Draw piece from bag
       final pieceIndex = _pieceBag[_bagIndex++];
-      hand.add(Piece.fromShapeIndex(pieceIndex));
+      hand.add(Piece.fromShapeIndex(pieceIndex, themeColors: themeColors));
     }
 
     return hand;

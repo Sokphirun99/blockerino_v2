@@ -22,31 +22,36 @@ final Logger _logger = Logger();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase with platform-specific options
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     _firebaseInitialized = true;
-    
+
     // Initialize Firebase Crashlytics only if Firebase initialized successfully
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    try {
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+    } catch (crashlyticsError) {
+      _logger.w('Crashlytics setup failed', error: crashlyticsError);
+    }
   } catch (e) {
     _logger.e('Firebase initialization failed', error: e);
     _logger.w('App will run without Firebase features');
     _firebaseInitialized = false;
   }
-  
+
   // Set preferred orientations
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
   // Initialize sound service
   await SoundService().initialize();
-  
+
   runApp(const BlockerinoApp());
 }
 
@@ -57,7 +62,9 @@ class BlockerinoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Firebase Analytics instance (only if initialized)
     final analytics = _firebaseInitialized ? FirebaseAnalytics.instance : null;
-    final observer = analytics != null ? FirebaseAnalyticsObserver(analytics: analytics) : null;
+    final observer = analytics != null
+        ? FirebaseAnalyticsObserver(analytics: analytics)
+        : null;
 
     return MultiBlocProvider(
       providers: [
@@ -74,7 +81,7 @@ class BlockerinoApp extends StatelessWidget {
             title: 'Blockerino',
             debugShowCheckedModeBanner: false,
             navigatorObservers: observer != null ? [observer] : [],
-            
+
             // Localization support
             locale: settingsState.currentLocale,
             supportedLocales: AppConfig.supportedLocales,
@@ -84,7 +91,7 @@ class BlockerinoApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            
+
             theme: ThemeData(
               brightness: Brightness.dark,
               scaffoldBackgroundColor: Colors.black,

@@ -2,11 +2,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// Animated background with floating particles for atmosphere
+/// Speed can be adjusted based on game state (combo, board fullness)
 class AnimatedBackgroundWidget extends StatefulWidget {
-  const AnimatedBackgroundWidget({super.key});
+  final double speedMultiplier; // 1.0 = normal, higher = faster (tension)
+
+  const AnimatedBackgroundWidget({
+    super.key,
+    this.speedMultiplier = 1.0,
+  });
 
   @override
-  State<AnimatedBackgroundWidget> createState() => _AnimatedBackgroundWidgetState();
+  State<AnimatedBackgroundWidget> createState() =>
+      _AnimatedBackgroundWidgetState();
 }
 
 class _AnimatedBackgroundWidgetState extends State<AnimatedBackgroundWidget>
@@ -50,6 +57,7 @@ class _AnimatedBackgroundWidgetState extends State<AnimatedBackgroundWidget>
           painter: _BackgroundPainter(
             particles: _particles,
             animationValue: _controller.value,
+            speedMultiplier: widget.speedMultiplier,
           ),
           child: Container(),
         );
@@ -77,18 +85,20 @@ class _BackgroundParticle {
 class _BackgroundPainter extends CustomPainter {
   final List<_BackgroundParticle> particles;
   final double animationValue;
+  final double speedMultiplier;
 
   _BackgroundPainter({
     required this.particles,
     required this.animationValue,
+    this.speedMultiplier = 1.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     for (var particle in particles) {
-      // Update particle position
-      particle.y = (particle.y + particle.speed * 0.01) % 1.0;
-      
+      // Update particle position with speed multiplier
+      particle.y = (particle.y + particle.speed * 0.01 * speedMultiplier) % 1.0;
+
       final paint = Paint()
         ..color = Colors.purple.withOpacity(particle.opacity)
         ..style = PaintingStyle.fill;
@@ -99,8 +109,10 @@ class _BackgroundPainter extends CustomPainter {
       );
 
       // Draw particle with glow effect
-      canvas.drawCircle(position, particle.size * 2, paint..color = paint.color.withOpacity(particle.opacity * 0.3));
-      canvas.drawCircle(position, particle.size, paint..color = paint.color.withOpacity(particle.opacity));
+      canvas.drawCircle(position, particle.size * 2,
+          paint..color = paint.color.withOpacity(particle.opacity * 0.3));
+      canvas.drawCircle(position, particle.size,
+          paint..color = paint.color.withOpacity(particle.opacity));
     }
   }
 
