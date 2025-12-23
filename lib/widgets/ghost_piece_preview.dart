@@ -33,7 +33,7 @@ class GhostPiecePreview extends StatelessWidget {
 
     final board = currentState.board;
     final blockSize = AppConfig.getBlockSize(context, board.size);
-    final padding =
+    const padding =
         AppConfig.boardContainerPadding + AppConfig.boardBorderWidth;
 
     // Calculate position on the board

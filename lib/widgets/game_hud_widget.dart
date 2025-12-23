@@ -6,6 +6,7 @@ import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../models/game_mode.dart';
+import '../services/app_localizations.dart';
 import 'combo_fire_widget.dart';
 
 class GameHudWidget extends StatefulWidget {
@@ -205,9 +206,9 @@ class _GameHudWidgetState extends State<GameHudWidget>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'OBJECTIVES',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).translate('objectives'),
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
@@ -216,12 +217,12 @@ class _GameHudWidgetState extends State<GameHudWidget>
                     const SizedBox(height: 4),
                     if (gameState.storyLevel!.targetScore > 0)
                       _buildObjective(
-                        '🎯 Score: ${gameState.score}/${gameState.storyLevel!.targetScore}',
+                        '🎯 ${AppLocalizations.of(context).translate('score_label')} ${gameState.score}/${gameState.storyLevel!.targetScore}',
                         gameState.score >= gameState.storyLevel!.targetScore,
                       ),
                     if (gameState.storyLevel!.targetLines != null)
                       _buildObjective(
-                        '📊 Lines: ${gameState.linesCleared}/${gameState.storyLevel!.targetLines}',
+                        '📊 ${AppLocalizations.of(context).translate('lines_label')} ${gameState.linesCleared}/${gameState.storyLevel!.targetLines}',
                         gameState.linesCleared >=
                             gameState.storyLevel!.targetLines!,
                       ),
@@ -242,9 +243,9 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text(
-                            '✓ COMPLETE',
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context).translate('complete'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -285,7 +286,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
             ),
             const Gap(2),
             Text(
-              'SCORE',
+              AppLocalizations.of(context).translate('score').toUpperCase(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.white70,
                     fontSize: 10,
@@ -358,7 +359,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'COMBO',
+                              AppLocalizations.of(context).translate('combo'),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -427,7 +428,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
               SizedBox(
                 width: 80,
                 child: Text(
-                  '$movesLeft moves left',
+                  '$movesLeft ${AppLocalizations.of(context).translate('moves_left')}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white60,
                         fontSize: 8,

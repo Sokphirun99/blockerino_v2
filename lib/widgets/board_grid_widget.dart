@@ -8,6 +8,20 @@ import '../models/piece.dart';
 import '../config/app_config.dart';
 import 'ghost_piece_preview.dart';
 
+/// Helper function to calculate adjusted grid coordinates for piece placement
+/// Adjusts coordinates to center the piece on the finger position
+({int targetCol, int targetRow}) _calculateAdjustedCoordinates(
+  Piece piece,
+  int col,
+  int row,
+) {
+  final adjustX = (piece.width / 2).floor();
+  final adjustY = (piece.height / 2).floor();
+  final targetCol = col - adjustX;
+  final targetRow = row - adjustY;
+  return (targetCol: targetCol, targetRow: targetRow);
+}
+
 class BoardGridWidget extends StatelessWidget {
   final GlobalKey? gridKey;
 
@@ -59,12 +73,13 @@ class BoardGridWidget extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(4.0),
             child: Stack(
+              key:
+                  gridKey, // Key for accurate coordinate conversion (on Stack to include padding)
               clipBehavior: Clip.none,
               children: [
                 CustomPaint(
                   painter: GridLinesPainter(boardSize: board.size),
                   child: Column(
-                    key: gridKey, // Key for accurate coordinate conversion
                     children: List.generate(board.size, (row) {
                       return Expanded(
                         child: Row(
@@ -74,15 +89,12 @@ class BoardGridWidget extends StatelessWidget {
                               child: DragTarget<Piece>(
                                 onWillAcceptWithDetails: (details) {
                                   final piece = details.data;
-                                  // Adjust coordinates to center the piece on the finger
-                                  // col is X (horizontal), row is Y (vertical)
-                                  final adjustX = (piece.width / 2).floor();
-                                  final adjustY = (piece.height / 2).floor();
-                                  final targetCol = col - adjustX;
-                                  final targetRow = row - adjustY;
-
+                                  final coords = _calculateAdjustedCoordinates(
+                                      piece, col, row);
                                   context.read<GameCubit>().showHoverPreview(
-                                      piece, targetCol, targetRow);
+                                      piece,
+                                      coords.targetCol,
+                                      coords.targetRow);
                                   return true;
                                 },
                                 onLeave: (_) {
@@ -90,16 +102,10 @@ class BoardGridWidget extends StatelessWidget {
                                 },
                                 onAcceptWithDetails: (details) {
                                   final piece = details.data;
-                                  // Adjust coordinates to center the piece on the finger
-                                  // col is X (horizontal), row is Y (vertical)
-                                  final adjustX = (piece.width / 2).floor();
-                                  final adjustY = (piece.height / 2).floor();
-                                  final targetCol = col - adjustX;
-                                  final targetRow = row - adjustY;
-
-                                  context
-                                      .read<GameCubit>()
-                                      .placePiece(piece, targetCol, targetRow);
+                                  final coords = _calculateAdjustedCoordinates(
+                                      piece, col, row);
+                                  context.read<GameCubit>().placePiece(piece,
+                                      coords.targetCol, coords.targetRow);
                                 },
                                 builder:
                                     (context, candidateData, rejectedData) {
@@ -180,6 +186,13 @@ class _BlockCellState extends State<_BlockCell>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  /// Helper method to check if block is in glow state
+  bool _isShowingGlow(BlockType blockType) {
+    return blockType == BlockType.hoverBreakFilled ||
+        blockType == BlockType.hoverBreakEmpty ||
+        blockType == BlockType.hoverBreak;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -192,10 +205,7 @@ class _BlockCellState extends State<_BlockCell>
     );
 
     // Start animation if block is already in glow state
-    final isShowingGlow = widget.block.type == BlockType.hoverBreakFilled ||
-        widget.block.type == BlockType.hoverBreakEmpty ||
-        widget.block.type == BlockType.hoverBreak;
-    if (isShowingGlow) {
+    if (_isShowingGlow(widget.block.type)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _pulseController.repeat(reverse: true);
@@ -208,13 +218,8 @@ class _BlockCellState extends State<_BlockCell>
   void didUpdateWidget(_BlockCell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final isShowingGlow = widget.block.type == BlockType.hoverBreakFilled ||
-        widget.block.type == BlockType.hoverBreakEmpty ||
-        widget.block.type == BlockType.hoverBreak;
-
-    final wasShowingGlow = oldWidget.block.type == BlockType.hoverBreakFilled ||
-        oldWidget.block.type == BlockType.hoverBreakEmpty ||
-        oldWidget.block.type == BlockType.hoverBreak;
+    final isShowingGlow = _isShowingGlow(widget.block.type);
+    final wasShowingGlow = _isShowingGlow(oldWidget.block.type);
 
     // Start continuous pulsing when entering glow state
     if (isShowingGlow && !wasShowingGlow) {
@@ -249,7 +254,6 @@ class _BlockCellState extends State<_BlockCell>
   @override
   Widget build(BuildContext context) {
     Color cellColor;
-    bool showGlow = false;
     bool isBreaking = false;
     bool isEmpty = false;
 
@@ -264,7 +268,6 @@ class _BlockCellState extends State<_BlockCell>
         break;
       case BlockType.hoverBreakFilled:
         cellColor = widget.block.color ?? Colors.blue; // Use actual block color
-        showGlow = true;
         isBreaking = true;
         break;
       case BlockType.hoverBreakEmpty:
@@ -298,9 +301,10 @@ class _BlockCellState extends State<_BlockCell>
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
-        final scale = showGlow ? _pulseAnimation.value : 1.0;
+        final isGlowing = _isShowingGlow(widget.block.type);
+        final scale = isGlowing ? _pulseAnimation.value : 1.0;
         final glowIntensity =
-            showGlow ? _pulseAnimation.value - 1.0 : 0.0; // 0.0 to 0.15
+            isGlowing ? _pulseAnimation.value - 1.0 : 0.0; // 0.0 to 0.15
 
         return Transform.scale(
           scale: scale,
@@ -349,7 +353,7 @@ class _BlockCellState extends State<_BlockCell>
                     offset: const Offset(0, 2),
                   ),
                 ],
-                if (showGlow) ...[
+                if (isGlowing) ...[
                   BoxShadow(
                     color:
                         cellColor.withValues(alpha: 0.9 + glowIntensity * 0.1),

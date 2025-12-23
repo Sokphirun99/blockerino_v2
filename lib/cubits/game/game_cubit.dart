@@ -416,8 +416,9 @@ class GameCubit extends Cubit<GameState> {
       _soundService.playRefill();
     }
 
-    // Check for game over
-    final hasValidMove = currentState.board.hasAnyValidMove(newHand);
+    // Check for game over using the NEW board state
+    // CRITICAL FIX: Use newBoard instead of currentState.board
+    final hasValidMove = newBoard.hasAnyValidMove(newHand);
     debugPrint(
         'Game Over Check: hasValidMove=$hasValidMove, hand size=${newHand.length}');
 
@@ -428,6 +429,7 @@ class GameCubit extends Cubit<GameState> {
       if (!hasValidMove) {
         _endStoryLevel(
             currentState.copyWith(
+              board: newBoard, // FIX: Use the modified board
               score: newScore,
               linesCleared: newLinesCleared,
               hand: newHand,
@@ -442,7 +444,7 @@ class GameCubit extends Cubit<GameState> {
       settingsCubit?.updateHighScore(newScore);
 
       emit(GameOver(
-        board: currentState.board,
+        board: newBoard, // FIX: Use the modified board with placed piece
         finalScore: newScore,
         gameMode: currentState.gameMode,
       ));
@@ -451,7 +453,8 @@ class GameCubit extends Cubit<GameState> {
 
     // Continue game
     emit(GameInProgress(
-      board: currentState.board,
+      board:
+          newBoard, // CRITICAL FIX: Use the modified board with placed piece and cleared lines
       hand: newHand,
       score: newScore,
       combo: newCombo,
@@ -606,15 +609,16 @@ class GameCubit extends Cubit<GameState> {
   }
 
   bool _activateRandomLineClear(GameInProgress currentState) {
-    final board = currentState.board;
+    // CRITICAL FIX: Clone board before mutation to ensure state change is detected
+    final newBoard = currentState.board.clone();
 
     // Find all rows and columns that have at least one block
     final filledRows = <int>[];
     final filledCols = <int>[];
 
-    for (int row = 0; row < board.size; row++) {
-      for (int col = 0; col < board.size; col++) {
-        if (board.grid[row][col].type == BlockType.filled) {
+    for (int row = 0; row < newBoard.size; row++) {
+      for (int col = 0; col < newBoard.size; col++) {
+        if (newBoard.grid[row][col].type == BlockType.filled) {
           if (!filledRows.contains(row)) filledRows.add(row);
           if (!filledCols.contains(col)) filledCols.add(col);
         }
@@ -632,33 +636,33 @@ class GameCubit extends Cubit<GameState> {
 
     if (selectedLine >= 0) {
       // Clear row
-      for (int col = 0; col < board.size; col++) {
-        if (board.grid[selectedLine][col].type == BlockType.filled) {
+      for (int col = 0; col < newBoard.size; col++) {
+        if (newBoard.grid[selectedLine][col].type == BlockType.filled) {
           clearedBlocks.add(ClearedBlockInfo(
-            row: selectedLine,
-            col: col,
-            color: board.grid[selectedLine][col].color!,
+              row: selectedLine,
+              col: col,
+            color: newBoard.grid[selectedLine][col].color!,
           ));
-          board.grid[selectedLine][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[selectedLine][col] = BoardBlock(type: BlockType.empty);
         }
       }
     } else {
       // Clear column
       final col = -selectedLine - 1;
-      for (int row = 0; row < board.size; row++) {
-        if (board.grid[row][col].type == BlockType.filled) {
+      for (int row = 0; row < newBoard.size; row++) {
+        if (newBoard.grid[row][col].type == BlockType.filled) {
           clearedBlocks.add(ClearedBlockInfo(
             row: row,
             col: col,
-            color: board.grid[row][col].color!,
+            color: newBoard.grid[row][col].color!,
           ));
-          board.grid[row][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[row][col] = BoardBlock(type: BlockType.empty);
         }
       }
     }
 
     // After modifying the grid, update the bitboard
-    board.updateBitboard();
+    newBoard.updateBitboard();
 
     // Award points
     final newScore = currentState.score + (clearedBlocks.length * 10);
@@ -669,18 +673,23 @@ class GameCubit extends Cubit<GameState> {
       onLinesCleared!(clearedBlocks, 1);
     }
 
-    emit(currentState.copyWith(score: newScore));
+    // CRITICAL FIX: Emit with new board to trigger UI update
+    emit(currentState.copyWith(
+      board: newBoard,
+      score: newScore,
+    ));
     return true;
   }
 
   bool _activateColorBomb(GameInProgress currentState) {
-    final board = currentState.board;
+    // CRITICAL FIX: Clone board before mutation to ensure state change is detected
+    final newBoard = currentState.board.clone();
 
     // Count blocks by color
     final colorCounts = <Color, int>{};
-    for (int row = 0; row < board.size; row++) {
-      for (int col = 0; col < board.size; col++) {
-        final block = board.grid[row][col];
+    for (int row = 0; row < newBoard.size; row++) {
+      for (int col = 0; col < newBoard.size; col++) {
+        final block = newBoard.grid[row][col];
         if (block.type == BlockType.filled && block.color != null) {
           colorCounts[block.color!] = (colorCounts[block.color!] ?? 0) + 1;
         }
@@ -703,33 +712,37 @@ class GameCubit extends Cubit<GameState> {
 
     // Clear all blocks of that color
     final clearedBlocks = <ClearedBlockInfo>[];
-    for (int row = 0; row < board.size; row++) {
-      for (int col = 0; col < board.size; col++) {
-        final block = board.grid[row][col];
+    for (int row = 0; row < newBoard.size; row++) {
+      for (int col = 0; col < newBoard.size; col++) {
+        final block = newBoard.grid[row][col];
         if (block.type == BlockType.filled && block.color == mostCommonColor) {
           clearedBlocks.add(ClearedBlockInfo(
             row: row,
             col: col,
             color: block.color!,
           ));
-          board.grid[row][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[row][col] = BoardBlock(type: BlockType.empty);
         }
       }
     }
 
     // After modifying the grid, update the bitboard
-    board.updateBitboard();
+    newBoard.updateBitboard();
 
     // Award points
     final newScore = currentState.score + (clearedBlocks.length * 15);
-    _soundService.playClear(clearedBlocks.length ~/ board.size);
+    _soundService.playClear(clearedBlocks.length ~/ newBoard.size);
 
     // Trigger particles
     if (onLinesCleared != null && clearedBlocks.isNotEmpty) {
-      onLinesCleared!(clearedBlocks, clearedBlocks.length ~/ board.size);
+      onLinesCleared!(clearedBlocks, clearedBlocks.length ~/ newBoard.size);
     }
 
-    emit(currentState.copyWith(score: newScore));
+    // CRITICAL FIX: Emit with new board to trigger UI update
+    emit(currentState.copyWith(
+      board: newBoard,
+      score: newScore,
+    ));
     return true;
   }
 

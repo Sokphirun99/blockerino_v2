@@ -8,11 +8,11 @@ class SoundService {
   static final SoundService _instance = SoundService._internal();
   factory SoundService() => _instance;
   SoundService._internal();
-
+  
   final Logger _logger = Logger();
   final Map<String, AudioPlayer> _audioPlayers = {};
   final AudioPlayer _bgmPlayer = AudioPlayer();
-
+  
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
   bool _initialized = false;
@@ -23,11 +23,11 @@ class SoundService {
   /// Initialize audio players and preload sounds
   Future<void> initialize() async {
     if (_initialized) return;
-
+    
     try {
       // Set background music to loop
       _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-
+      
       // Preload sound effects
       _audioPlayers['place'] = AudioPlayer();
       _audioPlayers['clear'] = AudioPlayer();
@@ -35,7 +35,7 @@ class SoundService {
       _audioPlayers['gameOver'] = AudioPlayer();
       _audioPlayers['error'] = AudioPlayer();
       _audioPlayers['refill'] = AudioPlayer();
-
+      
       _initialized = true;
       _logger.i('SoundService initialized successfully');
     } catch (e) {
@@ -92,7 +92,7 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.lightImpact();
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         await _audioPlayers['place']?.play(AssetSource('sounds/pop.mp3'));
@@ -118,7 +118,7 @@ class SoundService {
         await HapticFeedback.mediumImpact();
       }
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         await _audioPlayers['clear']?.play(AssetSource('sounds/blast.wav'));
@@ -140,7 +140,7 @@ class SoundService {
         }
       }
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         await _audioPlayers['combo']?.play(AssetSource('sounds/combo.mp3'));
@@ -160,7 +160,7 @@ class SoundService {
       await Future.delayed(const Duration(milliseconds: 150));
       await HapticFeedback.heavyImpact();
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         await _audioPlayers['gameOver']
@@ -176,7 +176,7 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.vibrate();
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
@@ -191,7 +191,7 @@ class SoundService {
     if (_hapticsEnabled) {
       await HapticFeedback.selectionClick();
     }
-
+    
     if (_soundEnabled && _initialized) {
       try {
         // Use pop.mp3 for refill (no dedicated refill sound)

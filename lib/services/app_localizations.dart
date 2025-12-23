@@ -40,9 +40,15 @@ class AppLocalizations {
       'score': 'Score',
       'high_score': 'High Score',
       'moves': 'Moves',
+      'moves_left': 'moves left',
       'level': 'Level',
       'target': 'Target',
       'coins': 'Coins',
+      'combo': 'COMBO',
+      'objectives': 'OBJECTIVES',
+      'complete': '✓ COMPLETE',
+      'score_label': 'Score:',
+      'lines_label': 'Lines:',
       
       // Game Over
       'game_over': 'GAME OVER',
@@ -158,9 +164,15 @@ class AppLocalizations {
       'score': '分数',
       'high_score': '最高分',
       'moves': '步数',
+      'moves_left': '剩余步数',
       'level': '关卡',
       'target': '目标',
       'coins': '金币',
+      'combo': '连击',
+      'objectives': '目标',
+      'complete': '✓ 完成',
+      'score_label': '分数：',
+      'lines_label': '行数：',
       
       // Game Over
       'game_over': '游戏结束',
@@ -276,9 +288,15 @@ class AppLocalizations {
       'score': 'ពិន្ទុ',
       'high_score': 'ពិន្ទុខ្ពស់',
       'moves': 'ចំនួនគូរ',
+      'moves_left': 'ចំនួនគូរនៅសល់',
       'level': 'កម្រិត',
       'target': 'គោលដៅ',
       'coins': 'កាក់',
+      'combo': 'ការបន្ត',
+      'objectives': 'គោលដៅ',
+      'complete': '✓ បញ្ចប់',
+      'score_label': 'ពិន្ទុ៖',
+      'lines_label': 'បន្ទាត់៖',
       
       // Game Over
       'game_over': 'ចប់ហ្គេម',
