@@ -80,7 +80,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"
+  image_path: "assets/icon/app_icon_1.png"  # Use existing file
   min_sdk_android: 21
   adaptive_icon_background: "#7b2cbf"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
@@ -88,9 +88,9 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#1a1a2e"
-  image: assets/icon/app_icon.png
+  image: assets/icon/app_icon_1.png
   color_dark: "#1a1a2e"
-  image_dark: assets/icon/app_icon.png
+  image_dark: assets/icon/app_icon_1.png
   android_12:
     image: assets/icon/app_icon.png
     icon_background_color: "#7b2cbf"
@@ -103,3 +103,4 @@ flutter:
   assets:
     - assets/fonts/
     - assets/sounds/
+    - assets/icon/

@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import '../../models/power_up.dart';
+import '../../models/game_theme.dart';
 
 class SettingsState extends Equatable {
   final bool soundEnabled;
@@ -13,6 +14,8 @@ class SettingsState extends Equatable {
   final Map<int, int> storyLevelStars;
   final int currentStoryLevel;
   final Locale currentLocale;
+  final String selectedThemeId;
+  final List<String> unlockedThemeIds;
 
   const SettingsState({
     required this.soundEnabled,
@@ -25,7 +28,15 @@ class SettingsState extends Equatable {
     required this.storyLevelStars,
     required this.currentStoryLevel,
     required this.currentLocale,
+    required this.selectedThemeId,
+    required this.unlockedThemeIds,
   });
+
+  /// Get the currently selected theme
+  GameTheme get currentTheme => GameTheme.getThemeById(selectedThemeId);
+
+  /// Check if a theme is unlocked
+  bool isThemeUnlocked(String themeId) => unlockedThemeIds.contains(themeId);
 
   factory SettingsState.initial() {
     return const SettingsState(
@@ -39,6 +50,8 @@ class SettingsState extends Equatable {
       storyLevelStars: {},
       currentStoryLevel: 1,
       currentLocale: Locale('en', ''),
+      selectedThemeId: 'classic',
+      unlockedThemeIds: ['classic', 'high_contrast'], // Classic + Accessibility free
     );
   }
 
@@ -57,6 +70,8 @@ class SettingsState extends Equatable {
     Map<int, int>? storyLevelStars,
     int? currentStoryLevel,
     Locale? currentLocale,
+    String? selectedThemeId,
+    List<String>? unlockedThemeIds,
   }) {
     return SettingsState(
       soundEnabled: soundEnabled ?? this.soundEnabled,
@@ -69,6 +84,8 @@ class SettingsState extends Equatable {
       storyLevelStars: storyLevelStars ?? this.storyLevelStars,
       currentStoryLevel: currentStoryLevel ?? this.currentStoryLevel,
       currentLocale: currentLocale ?? this.currentLocale,
+      selectedThemeId: selectedThemeId ?? this.selectedThemeId,
+      unlockedThemeIds: unlockedThemeIds ?? this.unlockedThemeIds,
     );
   }
 
@@ -84,5 +101,7 @@ class SettingsState extends Equatable {
         storyLevelStars,
         currentStoryLevel,
         currentLocale,
+        selectedThemeId,
+        unlockedThemeIds,
       ];
 }
