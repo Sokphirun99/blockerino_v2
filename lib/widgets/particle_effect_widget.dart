@@ -166,6 +166,7 @@ class ParticleOverlayState extends State<ParticleOverlay> {
   int _particleIdCounter = 0;
 
   void addParticles(List<ParticleSpawnInfo> spawns) {
+    if (!mounted) return;
     setState(() {
       for (final spawn in spawns) {
         _activeParticles.add(ParticleData(
@@ -178,6 +179,7 @@ class ParticleOverlayState extends State<ParticleOverlay> {
   }
 
   void _removeParticle(int id) {
+    if (!mounted) return;
     setState(() {
       _activeParticles.removeWhere((p) => p.id == id);
     });

@@ -118,17 +118,32 @@ class Board {
   }
 
   bool canPlacePiece(Piece piece, int x, int y) {
-    // 1. Boundary Checks (O(1))
-    if (x < 0 || y < 0) return false;
-    if (x + piece.width > size || y + piece.height > size) return false;
+    // 1. Boundary Checks (O(1)) - More forgiving for easier placement
+    // Allow slight edge cases (within 1 pixel tolerance)
+    if (x < -1 || y < -1) return false;
+    if (x + piece.width > size + 1 || y + piece.height > size + 1) return false;
+
+    // Clamp coordinates to valid range for actual collision check
+    final clampedX = x.clamp(0, size - piece.width);
+    final clampedY = y.clamp(0, size - piece.height);
+
+    // If clamping changed the position significantly (>1 cell), reject
+    // This allows for slight rounding errors but prevents major misalignment
+    if ((clampedX - x).abs() > 1 || (clampedY - y).abs() > 1) {
+      return false;
+    }
+
+    // Use clamped coordinates for the actual check
+    final checkX = clampedX;
+    final checkY = clampedY;
 
     // 2. Bitwise Collision Check (O(1) effectively)
-    // Construct piece mask shifted to (x, y)
+    // Construct piece mask shifted to (checkX, checkY) - use clamped coordinates
     BigInt pieceMask = BigInt.zero;
     for (int r = 0; r < piece.height; r++) {
       for (int c = 0; c < piece.width; c++) {
         if (piece.shape[r][c]) {
-          pieceMask |= BigInt.one << ((y + r) * size + (x + c));
+          pieceMask |= BigInt.one << ((checkY + r) * size + (checkX + c));
         }
       }
     }
@@ -137,16 +152,24 @@ class Board {
     return (_bitboard & pieceMask) == BigInt.zero;
   }
 
-  void placePiece(Piece piece, int x, int y, {BlockType type = BlockType.filled}) {
+  void placePiece(Piece piece, int x, int y,
+      {BlockType type = BlockType.filled}) {
+    // Clamp coordinates to ensure piece fits within bounds
+    final clampedX = x.clamp(0, size - piece.width);
+    final clampedY = y.clamp(0, size - piece.height);
+
     for (int row = 0; row < piece.height; row++) {
       for (int col = 0; col < piece.width; col++) {
         if (piece.shape[row][col]) {
-          final boardX = x + col;
-          final boardY = y + row;
-          grid[boardY][boardX] = BoardBlock(
-            type: type,
-            color: piece.color,
-          );
+          final boardX = clampedX + col;
+          final boardY = clampedY + row;
+          // Double-check bounds (safety check)
+          if (boardX >= 0 && boardX < size && boardY >= 0 && boardY < size) {
+            grid[boardY][boardX] = BoardBlock(
+              type: type,
+              color: piece.color,
+            );
+          }
         }
       }
     }
@@ -235,14 +258,14 @@ class Board {
           final isPieceCell = tempPieceCells.contains('$row-$col');
           if (grid[row][col].type == BlockType.filled) {
             grid[row][col] = BoardBlock(
-                type: BlockType.hoverBreakFilled,
-                color: grid[row][col].color,
+              type: BlockType.hoverBreakFilled,
+              color: grid[row][col].color,
               hoverBreakColor: piece.color,
             );
           } else if (grid[row][col].type == BlockType.empty || isPieceCell) {
             grid[row][col] = BoardBlock(
-                type: BlockType.hoverBreakEmpty,
-                color: piece.color,
+              type: BlockType.hoverBreakEmpty,
+              color: piece.color,
               hoverBreakColor: piece.color,
             );
           }
@@ -254,14 +277,14 @@ class Board {
           final isPieceCell = tempPieceCells.contains('$row-$col');
           if (grid[row][col].type == BlockType.filled) {
             grid[row][col] = BoardBlock(
-                type: BlockType.hoverBreakFilled,
-                color: grid[row][col].color,
+              type: BlockType.hoverBreakFilled,
+              color: grid[row][col].color,
               hoverBreakColor: piece.color,
             );
           } else if (grid[row][col].type == BlockType.empty || isPieceCell) {
             grid[row][col] = BoardBlock(
-                type: BlockType.hoverBreakEmpty,
-                color: piece.color,
+              type: BlockType.hoverBreakEmpty,
+              color: piece.color,
               hoverBreakColor: piece.color,
             );
           }
@@ -297,7 +320,7 @@ class Board {
     final centerCol = size / 2.0;
     final centerRow = size / 2.0;
     const delayPerUnit = 30; // 30ms delay per unit distance from center
-    
+
     for (int row in rowsToClear) {
       for (int col = 0; col < size; col++) {
         final key = '$row-$col';
@@ -375,9 +398,15 @@ class Board {
   /// Optimized deadlock detection (Section 4.4 of technical document)
   /// Uses early exit and space mapping for O(k*N^2) -> O(k*N) average case
   bool hasAnyValidMove(List<Piece> hand) {
+    // Early exit: If hand is empty, no valid moves
+    if (hand.isEmpty) {
+      return false;
+    }
+
     // Early exit: Calculate largest contiguous empty region
     final maxEmptyRegion = _getLargestEmptyRegion();
-    final minPieceSize = hand.map((p) => p.getBlockCount()).reduce((a, b) => a < b ? a : b);
+    final minPieceSize =
+        hand.map((p) => p.getBlockCount()).reduce((a, b) => a < b ? a : b);
 
     // Fail-fast: If largest empty space < smallest piece, game over
     if (maxEmptyRegion < minPieceSize) {
@@ -417,35 +446,44 @@ class Board {
   int _floodFillCount(int row, int col, List<List<bool>> visited) {
     if (row < 0 || row >= size || col < 0 || col >= size) return 0;
     if (visited[row][col] || grid[row][col].type != BlockType.empty) return 0;
-    
+
     visited[row][col] = true;
     int count = 1;
 
     // Check 4 neighbors (non-recursive for stack safety)
-    final queue = <List<int>>[[row, col]];
+    final queue = <List<int>>[
+      [row, col]
+    ];
     int queueIndex = 0;
-    
+
     while (queueIndex < queue.length) {
       final current = queue[queueIndex++];
       final r = current[0];
       final c = current[1];
-      
+
       final neighbors = [
-        [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
+        [r - 1, c],
+        [r + 1, c],
+        [r, c - 1],
+        [r, c + 1]
       ];
-      
+
       for (final neighbor in neighbors) {
         final nr = neighbor[0];
         final nc = neighbor[1];
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size &&
-            !visited[nr][nc] && grid[nr][nc].type == BlockType.empty) {
+        if (nr >= 0 &&
+            nr < size &&
+            nc >= 0 &&
+            nc < size &&
+            !visited[nr][nc] &&
+            grid[nr][nc].type == BlockType.empty) {
           visited[nr][nc] = true;
           count++;
           queue.add([nr, nc]);
         }
       }
     }
-    
+
     return count;
   }
 
@@ -464,36 +502,39 @@ class Board {
   Map<String, dynamic> toJson() {
     return {
       'size': size,
-      'grid': grid.map((row) => 
-        row.map((block) => {
+      'grid': grid
+          .map((row) => row
+              .map((block) => {
                     'type': block.type.index,
-                    'color': block.color?.value,
-        }).toList()
-      ).toList(),
+                    'color': block.color
+                        ?.toARGB32(), // Use toARGB32() instead of deprecated .value
+                  })
+              .toList())
+          .toList(),
     };
   }
 
   factory Board.fromJson(Map<String, dynamic> json) {
     final size = json['size'] as int;
     final gridData = json['grid'] as List;
-    
+
     final grid = List.generate(
       size,
       (row) => List.generate(
         size,
         (col) {
-              final blockData = gridData[row][col] as Map<String, dynamic>;
-              final typeIndex = blockData['type'] as int;
-              final colorValue = blockData['color'] as int?;
-          
-              return BoardBlock(
-                type: BlockType.values[typeIndex],
-                color: colorValue != null ? Color(colorValue) : null,
-              );
+          final blockData = gridData[row][col] as Map<String, dynamic>;
+          final typeIndex = blockData['type'] as int;
+          final colorValue = blockData['color'] as int?;
+
+          return BoardBlock(
+            type: BlockType.values[typeIndex],
+            color: colorValue != null ? Color(colorValue) : null,
+          );
         },
       ),
     );
-    
+
     return Board.fromGrid(size, grid);
   }
 }

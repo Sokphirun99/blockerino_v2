@@ -54,6 +54,7 @@ class _GameScreenState extends State<GameScreen> {
   int _lastComboLevel = 0;
   int _lastScore = 0; // Track score for floating score popups
   late ConfettiController _confettiController;
+  bool _gameOverDialogShown = false; // Prevent showing dialog multiple times
 
   bool _initialized = false;
 
@@ -108,10 +109,16 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onLinesCleared(List<ClearedBlockInfo> clearedBlocks, int lineCount) {
+    if (!mounted) return; // Safety check
+
     final boardBox = _boardKey.currentContext?.findRenderObject() as RenderBox?;
     if (boardBox == null) return;
 
-    final gameCubit = context.read<GameCubit>();
+    // Capture context and cubit before any async operations
+    final currentContext = context;
+    if (!mounted) return; // Double-check after context access
+
+    final gameCubit = currentContext.read<GameCubit>();
     final gameState = gameCubit.state;
     if (gameState is! GameInProgress) return;
     final board = gameState.board;
@@ -123,9 +130,11 @@ class _GameScreenState extends State<GameScreen> {
 
     // Trigger screen shake for big clears (3+ lines)
     if (lineCount >= 3) {
-      setState(() {
-        _shouldShake = true;
-      });
+      if (mounted) {
+        setState(() {
+          _shouldShake = true;
+        });
+      }
     }
 
     // Show achievement messages
@@ -138,6 +147,7 @@ class _GameScreenState extends State<GameScreen> {
     // Create particles for each cleared block with ripple delay
     for (final blockInfo in clearedBlocks) {
       // Use delay for ripple effect
+      final particleId = _particleIdCounter++;
       Future.delayed(Duration(milliseconds: blockInfo.delayMs), () {
         if (!mounted) return;
 
@@ -150,12 +160,23 @@ class _GameScreenState extends State<GameScreen> {
             (blockInfo.row * blockSize) +
             (blockSize / 2);
 
-        setState(() {
-          _activeParticles.add(ParticleData(
-            id: _particleIdCounter++,
-            position: Offset(particleX, particleY),
-            color: blockInfo.color ?? Colors.white,
-          ));
+        if (mounted) {
+          setState(() {
+            _activeParticles.add(ParticleData(
+              id: particleId,
+              position: Offset(particleX, particleY),
+              color: blockInfo.color ?? Colors.white,
+            ));
+          });
+        }
+
+        // Auto-remove particle after animation duration (prevents memory leak)
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            setState(() {
+              _activeParticles.removeWhere((p) => p.id == particleId);
+            });
+          }
         });
       });
     }
@@ -220,9 +241,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _removeParticle(int id) {
-    setState(() {
-      _activeParticles.removeWhere((p) => p.id == id);
-    });
+    if (mounted) {
+      setState(() {
+        _activeParticles.removeWhere((p) => p.id == id);
+      });
+    }
   }
 
   @override
@@ -281,9 +304,11 @@ class _GameScreenState extends State<GameScreen> {
                     shouldShake: _shouldShake,
                     intensity: 8.0,
                     onShakeComplete: () {
-                      setState(() {
-                        _shouldShake = false;
-                      });
+                      if (mounted) {
+                        setState(() {
+                          _shouldShake = false;
+                        });
+                      }
                     },
                     child: BlocBuilder<SettingsCubit, SettingsState>(
                       builder: (context, settings) {
@@ -295,12 +320,19 @@ class _GameScreenState extends State<GameScreen> {
                           child: SafeArea(
                             child: BlocBuilder<GameCubit, GameState>(
                               builder: (context, state) {
-                                if (state is GameOver) {
+                                if (state is GameOver &&
+                                    !_gameOverDialogShown) {
+                                  _gameOverDialogShown = true;
                                   WidgetsBinding.instance
                                       .addPostFrameCallback((_) {
-                                    _showGameOverDialog(
-                                        context, context.read<GameCubit>());
+                                    if (mounted) {
+                                      _showGameOverDialog(
+                                          context, context.read<GameCubit>());
+                                    }
                                   });
+                                } else if (state is! GameOver) {
+                                  // Reset flag when game is not over
+                                  _gameOverDialogShown = false;
                                 }
 
                                 return Column(
@@ -710,12 +742,18 @@ class _GameScreenState extends State<GameScreen> {
     return GestureDetector(
       onTap: count > 0
           ? () async {
-              final gameCubit = context.read<GameCubit>();
+              // Capture context and cubit before async operations
+              final currentContext = context;
+              final gameCubit = currentContext.read<GameCubit>();
+              final powerUpName = powerUp.name; // Capture name before async
               await gameCubit.triggerPowerUp(type);
 
-              // Show feedback
+              // Show feedback - check mounted before using context
               if (mounted && count - 1 == 0) {
-                SharedSnackBars.showPowerUpUsed(context, powerUp.name);
+                // Only use context if widget is still mounted
+                if (currentContext.mounted) {
+                  SharedSnackBars.showPowerUpUsed(currentContext, powerUpName);
+                }
               }
             }
           : null,

@@ -48,7 +48,7 @@ class Piece {
     return {
       'id': id,
       'shape': shape,
-      'color': color.value,
+      'color': color.toARGB32(), // Use toARGB32() instead of deprecated .value
     };
   }
 

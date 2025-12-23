@@ -119,15 +119,17 @@ class BoardGridWidget extends StatelessWidget {
                     }),
                   ),
                 ),
-                // Ghost piece preview overlay
+                // Ghost piece preview overlay - only show when valid placement
                 if (state.hoverPiece != null &&
                     state.hoverX != null &&
-                    state.hoverY != null)
+                    state.hoverY != null &&
+                    (state.hoverValid ?? false))
                   GhostPiecePreview(
                     piece: state.hoverPiece,
                     gridX: state.hoverX!,
                     gridY: state.hoverY!,
-                    isValid: state.hoverValid ?? false,
+                    isValid:
+                        true, // Always true since we check hoverValid above
                   ),
               ],
             ),

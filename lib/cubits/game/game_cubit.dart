@@ -419,8 +419,6 @@ class GameCubit extends Cubit<GameState> {
     // Check for game over using the NEW board state
     // CRITICAL FIX: Use newBoard instead of currentState.board
     final hasValidMove = newBoard.hasAnyValidMove(newHand);
-    debugPrint(
-        'Game Over Check: hasValidMove=$hasValidMove, hand size=${newHand.length}');
 
     // For story mode, only end on game over (no valid moves)
     if (currentState.storyLevel != null) {
@@ -639,8 +637,8 @@ class GameCubit extends Cubit<GameState> {
       for (int col = 0; col < newBoard.size; col++) {
         if (newBoard.grid[selectedLine][col].type == BlockType.filled) {
           clearedBlocks.add(ClearedBlockInfo(
-              row: selectedLine,
-              col: col,
+            row: selectedLine,
+            col: col,
             color: newBoard.grid[selectedLine][col].color!,
           ));
           newBoard.grid[selectedLine][col] = BoardBlock(type: BlockType.empty);
