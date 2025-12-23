@@ -15,11 +15,13 @@ class ClearedBlockInfo {
   final int row;
   final int col;
   final Color? color;
+  final int delayMs; // Delay for ripple effect animation
 
   ClearedBlockInfo({
     required this.row,
     required this.col,
     this.color,
+    this.delayMs = 0,
   });
 }
 
@@ -155,11 +157,12 @@ class Board {
   }
 
   void clearHoverBlocks() {
+    // Clear hover break indicators (line-clearing preview)
+    // Note: Piece preview is handled by GhostPiecePreview widget, not BlockType.hover
     for (int row = 0; row < size; row++) {
       for (int col = 0; col < size; col++) {
         final blockType = grid[row][col].type;
-        if (blockType == BlockType.hover ||
-            blockType == BlockType.hoverBreakEmpty) {
+        if (blockType == BlockType.hoverBreakEmpty) {
           grid[row][col] = BoardBlock(type: BlockType.empty);
         } else if (blockType == BlockType.hoverBreakFilled) {
           grid[row][col] = BoardBlock(
@@ -169,22 +172,26 @@ class Board {
         } else if (blockType == BlockType.hoverBreak) {
           grid[row][col] = BoardBlock(type: BlockType.empty);
         }
+        // Note: BlockType.hover is no longer used (replaced by GhostPiecePreview widget)
       }
     }
   }
 
   // Update hover blocks to show which lines will be cleared
+  // NOTE: Piece preview is handled by GhostPiecePreview widget, not BlockType.hover
+  // This method only marks which lines will be cleared (hoverBreak types)
   void updateHoveredBreaks(Piece piece, int x, int y) {
-    // First place the piece temporarily as hover
+    // Temporarily mark piece cells to check for line completion
+    // We'll use a temporary marker that won't be rendered
+    final tempPieceCells = <String>{};
     for (int row = 0; row < piece.height; row++) {
       for (int col = 0; col < piece.width; col++) {
         if (piece.shape[row][col]) {
           final boardX = x + col;
           final boardY = y + row;
-          grid[boardY][boardX] = BoardBlock(
-            type: BlockType.hover,
-            color: piece.color,
-          );
+          if (boardX >= 0 && boardX < size && boardY >= 0 && boardY < size) {
+            tempPieceCells.add('$boardY-$boardX');
+          }
         }
       }
     }
@@ -198,7 +205,8 @@ class Board {
       bool isFull = true;
       for (int col = 0; col < size; col++) {
         final blockType = grid[row][col].type;
-        if (blockType != BlockType.filled && blockType != BlockType.hover) {
+        final isPieceCell = tempPieceCells.contains('$row-$col');
+        if (blockType != BlockType.filled && !isPieceCell) {
           isFull = false;
           break;
         }
@@ -211,7 +219,8 @@ class Board {
       bool isFull = true;
       for (int row = 0; row < size; row++) {
         final blockType = grid[row][col].type;
-        if (blockType != BlockType.filled && blockType != BlockType.hover) {
+        final isPieceCell = tempPieceCells.contains('$row-$col');
+        if (blockType != BlockType.filled && !isPieceCell) {
           isFull = false;
           break;
         }
@@ -223,14 +232,14 @@ class Board {
     if (rowsToClear.isNotEmpty || colsToClear.isNotEmpty) {
       for (int row in rowsToClear) {
         for (int col = 0; col < size; col++) {
+          final isPieceCell = tempPieceCells.contains('$row-$col');
           if (grid[row][col].type == BlockType.filled) {
             grid[row][col] = BoardBlock(
               type: BlockType.hoverBreakFilled,
               color: grid[row][col].color,
               hoverBreakColor: piece.color,
             );
-          } else if (grid[row][col].type == BlockType.empty || 
-                     grid[row][col].type == BlockType.hover) {
+          } else if (grid[row][col].type == BlockType.empty || isPieceCell) {
             grid[row][col] = BoardBlock(
               type: BlockType.hoverBreakEmpty,
               color: piece.color,
@@ -242,14 +251,14 @@ class Board {
 
       for (int col in colsToClear) {
         for (int row = 0; row < size; row++) {
+          final isPieceCell = tempPieceCells.contains('$row-$col');
           if (grid[row][col].type == BlockType.filled) {
             grid[row][col] = BoardBlock(
               type: BlockType.hoverBreakFilled,
               color: grid[row][col].color,
               hoverBreakColor: piece.color,
             );
-          } else if (grid[row][col].type == BlockType.empty ||
-                     grid[row][col].type == BlockType.hover) {
+          } else if (grid[row][col].type == BlockType.empty || isPieceCell) {
             grid[row][col] = BoardBlock(
               type: BlockType.hoverBreakEmpty,
               color: piece.color,
@@ -283,17 +292,25 @@ class Board {
     }
 
     // Collect info about blocks to clear (before clearing)
+    // Calculate delays for ripple effect (from center outward)
     Set<String> clearedPositions = {};
+    final centerCol = size / 2.0;
+    final centerRow = size / 2.0;
+    const delayPerUnit = 30; // 30ms delay per unit distance from center
     
     for (int row in rowsToClear) {
       for (int col = 0; col < size; col++) {
         final key = '$row-$col';
         if (!clearedPositions.contains(key)) {
           clearedPositions.add(key);
+          // Calculate distance from center for ripple delay
+          final distanceFromCenter = (col - centerCol).abs();
+          final delay = (distanceFromCenter * delayPerUnit).toInt();
           clearedBlocks.add(ClearedBlockInfo(
             row: row,
             col: col,
             color: grid[row][col].color,
+            delayMs: delay,
           ));
         }
       }
@@ -304,10 +321,14 @@ class Board {
         final key = '$row-$col';
         if (!clearedPositions.contains(key)) {
           clearedPositions.add(key);
+          // Calculate distance from center for ripple delay
+          final distanceFromCenter = (row - centerRow).abs();
+          final delay = (distanceFromCenter * delayPerUnit).toInt();
           clearedBlocks.add(ClearedBlockInfo(
             row: row,
             col: col,
             color: grid[row][col].color,
+            delayMs: delay,
           ));
         }
       }
