@@ -5,6 +5,12 @@ import '../config/app_config.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 
+// #region agent log
+void _ghostDebugLog(String message, Map<String, dynamic> data) {
+  debugPrint('[DEBUG:GHOST] $message: $data');
+}
+// #endregion
+
 /// A semi-transparent ghost preview of a piece that shows where it will be placed
 /// This makes it instantly obvious if a piece fits
 class GhostPiecePreview extends StatelessWidget {
@@ -23,7 +29,23 @@ class GhostPiecePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // #region agent log
+    _ghostDebugLog('build called', {
+      'piece': piece?.id,
+      'gridX': gridX,
+      'gridY': gridY,
+      'isValid': isValid,
+    });
+    // #endregion
+
     if (piece == null || gridX < 0 || gridY < 0) {
+      // #region agent log
+      _ghostDebugLog('early return - invalid params', {
+        'pieceNull': piece == null,
+        'gridX': gridX,
+        'gridY': gridY,
+      });
+      // #endregion
       return const SizedBox.shrink();
     }
 
@@ -32,17 +54,40 @@ class GhostPiecePreview extends StatelessWidget {
     if (currentState is! GameInProgress) return const SizedBox.shrink();
 
     final board = currentState.board;
-    final blockSize = AppConfig.getBlockSize(context, board.size);
 
-    // The GhostPiecePreview is already inside the Stack which is inside Padding(4.0)
-    // So we don't need to add padding. Blocks are positioned using Expanded widgets
-    // Each block has margin: EdgeInsets.all(1), so we need to account for that
-    const blockMargin = 1.0; // Margin on each side of blocks
+    // CRITICAL FIX: Calculate cell size to match actual grid layout
+    // The grid is inside Padding(4.0), so available space is boardSize - 8
+    // Each cell uses Expanded, so cell size = (boardSize - 8) / gridSize
+    // This matches the actual grid cell size, not getBlockSize which accounts for borders
+    final boardSize = AppConfig.getSize(context);
+    final availableSize = boardSize -
+        (AppConfig.boardContainerPadding * 2); // Subtract padding on both sides
+    final cellSize =
+        availableSize / board.size; // Size of each grid cell (including margin)
+    const blockMargin =
+        1.0; // Margin on each side of blocks (matches _BlockCell)
 
-    // Calculate position on the board (relative to the Stack)
-    // Blocks are positioned at (col * blockSize) with 1px margin on each side
-    final offsetX = (gridX * blockSize) + blockMargin;
-    final offsetY = (gridY * blockSize) + blockMargin;
+    // Calculate position on the board (relative to the Stack inside Padding)
+    // The container should start at the cell boundary, blocks inside will have margins
+    final offsetX = gridX * cellSize;
+    final offsetY = gridY * cellSize;
+
+    // Block size for individual blocks (cellSize - 2*margin)
+    final blockSize = cellSize - (blockMargin * 2);
+
+    // #region agent log
+    _ghostDebugLog('positioning', {
+      'boardSize': boardSize,
+      'availableSize': availableSize,
+      'cellSize': cellSize,
+      'blockSize': blockSize,
+      'offsetX': offsetX,
+      'offsetY': offsetY,
+      'gridX': gridX,
+      'gridY': gridY,
+      'gridSize': board.size,
+    });
+    // #endregion
 
     // Store piece in local variable to avoid repeated null checks
     final pieceData = piece!;
@@ -51,8 +96,10 @@ class GhostPiecePreview extends StatelessWidget {
       left: offsetX,
       top: offsetY,
       child: SizedBox(
-        width: pieceData.width * blockSize,
-        height: pieceData.height * blockSize,
+        width: pieceData.width *
+            cellSize, // Use cellSize for total width (includes margins)
+        height: pieceData.height *
+            cellSize, // Use cellSize for total height (includes margins)
         child: Stack(
           children: [
             // Draw the piece shape
@@ -60,11 +107,15 @@ class GhostPiecePreview extends StatelessWidget {
               for (int col = 0; col < pieceData.width; col++)
                 if (pieceData.shape[row][col])
                   Positioned(
-                    left: col * blockSize,
-                    top: row * blockSize,
+                    left: col * cellSize +
+                        blockMargin, // Position within cell, accounting for margin
+                    top: row * cellSize +
+                        blockMargin, // Position within cell, accounting for margin
                     child: Container(
-                      width: blockSize - 2, // Account for margin on both sides
-                      height: blockSize - 2, // Account for margin on both sides
+                      width:
+                          blockSize, // Block size already accounts for margins
+                      height:
+                          blockSize, // Block size already accounts for margins
                       margin:
                           const EdgeInsets.all(1), // Match _BlockCell margin
                       decoration: BoxDecoration(

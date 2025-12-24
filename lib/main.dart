@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -7,6 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:device_preview/device_preview.dart';
 import 'firebase_options.dart';
 import 'screens/main_menu_screen.dart';
 import 'cubits/game/game_cubit.dart';
@@ -49,10 +52,23 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize sound service
-  await SoundService().initialize();
+  // Initialize sound service with timeout to prevent blocking app startup
+  // If initialization takes too long, app will start anyway and sounds will initialize lazily
+  SoundService().initialize().timeout(
+    const Duration(seconds: 2),
+    onTimeout: () {
+      _logger.w('SoundService initialization timed out - sounds may not work');
+    },
+  ).catchError((e) {
+    _logger.e('SoundService initialization failed', error: e);
+  });
 
-  runApp(const BlockerinoApp());
+  runApp(
+    DevicePreview(
+      enabled: kDebugMode, // Only enable in debug mode
+      builder: (context) => const BlockerinoApp(),
+    ),
+  );
 }
 
 class BlockerinoApp extends StatelessWidget {
@@ -68,7 +84,10 @@ class BlockerinoApp extends StatelessWidget {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => SettingsCubit()),
+        BlocProvider(
+          create: (_) =>
+              SettingsCubit()..initialize(), // Initialize settings on creation
+        ),
         BlocProvider(
           create: (context) => GameCubit(
             settingsCubit: context.read<SettingsCubit>(),
@@ -77,30 +96,44 @@ class BlockerinoApp extends StatelessWidget {
       ],
       child: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settingsState) {
-          return MaterialApp(
-            title: 'Blockerino',
-            debugShowCheckedModeBanner: false,
-            navigatorObservers: observer != null ? [observer] : [],
+          return ScreenUtilInit(
+            // Design size - using iPhone 11 Pro as reference (375x812)
+            // This ensures consistent scaling across all devices and aspect ratios
+            designSize: const Size(375, 812),
+            minTextAdapt: true,
+            splitScreenMode: true,
+            builder: (context, child) {
+              return DevicePreview.appBuilder(
+                context,
+                MaterialApp(
+                  title: 'Blockerino',
+                  debugShowCheckedModeBanner: false,
+                  navigatorObservers: observer != null ? [observer] : [],
 
-            // Localization support
-            locale: settingsState.currentLocale,
-            supportedLocales: AppConfig.supportedLocales,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
+                  // Localization support
+                  // Use DevicePreview's locale in debug mode, otherwise use settings
+                  locale: DevicePreview.locale(context) ??
+                      settingsState.currentLocale,
+                  supportedLocales: AppConfig.supportedLocales,
+                  localizationsDelegates: const [
+                    AppLocalizations.delegate,
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
 
-            theme: ThemeData(
-              brightness: Brightness.dark,
-              scaffoldBackgroundColor: Colors.black,
-              primarySwatch: Colors.blue,
-              textTheme: GoogleFonts.pressStart2pTextTheme(
-                ThemeData.dark().textTheme,
-              ),
-            ),
-            home: const MainMenuScreen(),
+                  theme: ThemeData(
+                    brightness: Brightness.dark,
+                    scaffoldBackgroundColor: Colors.black,
+                    primarySwatch: Colors.blue,
+                    textTheme: GoogleFonts.pressStart2pTextTheme(
+                      ThemeData.dark().textTheme,
+                    ),
+                  ),
+                  home: const MainMenuScreen(),
+                ),
+              );
+            },
           );
         },
       ),

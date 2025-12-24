@@ -103,8 +103,17 @@ class GameCubit extends Cubit<GameState> {
     }
 
     // Story mode doesn't support save/load - always start fresh
-    if (storyLevel != null || mode == GameMode.story) {
-      _startStoryGame(storyLevel!);
+    // FIX: Check for storyLevel first, regardless of mode
+    // Some story levels use GameMode.chaos or other modes, not just GameMode.story
+    if (storyLevel != null) {
+      // Use the story level's game mode, not the passed mode parameter
+      _startStoryGame(storyLevel);
+      return;
+    }
+
+    // If mode is story but no level provided, prevent crash
+    if (mode == GameMode.story) {
+      debugPrint('Error: Story Mode started without a level');
       return;
     }
 
@@ -135,7 +144,9 @@ class GameCubit extends Cubit<GameState> {
     _pieceBag.clear(); // Reset bag for new story level
     _bagIndex = 0;
 
-    final config = GameModeConfig.fromMode(GameMode.story);
+    // FIX: Use the story level's game mode, not hardcoded GameMode.story
+    // Some story levels use GameMode.chaos or other modes
+    final config = GameModeConfig.fromMode(level.gameMode);
     final board = Board(size: config.boardSize);
     final hand = _generateRandomHand(config.handSize);
 
@@ -150,7 +161,8 @@ class GameCubit extends Cubit<GameState> {
       score: 0,
       combo: 0,
       lastBrokenLine: 0,
-      gameMode: GameMode.story,
+      gameMode: level
+          .gameMode, // FIX: Use level's game mode, not hardcoded GameMode.story
       storyLevel: level,
       linesCleared: 0,
       timeRemaining: level.timeLimit ?? -1,
@@ -179,6 +191,12 @@ class GameCubit extends Cubit<GameState> {
       emit(
           currentState.copyWith(timeRemaining: currentState.timeRemaining - 1));
     });
+  }
+
+  /// Pause the story mode timer (e.g., when user navigates away)
+  /// This prevents the timer from continuing in the background
+  void pauseTimer() {
+    _storyTimer?.cancel();
   }
 
   void _saveCurrentGame(GameInProgress currentState) {
@@ -313,6 +331,14 @@ class GameCubit extends Cubit<GameState> {
     final currentState = state;
     if (currentState is! GameInProgress) return;
 
+    // OPTIMIZATION: Don't rebuild if the hover position hasn't changed
+    // This prevents unnecessary state emissions and UI rebuilds during drag operations
+    if (currentState.hoverPiece?.id == piece.id &&
+        currentState.hoverX == x &&
+        currentState.hoverY == y) {
+      return; // Position unchanged, skip expensive operations
+    }
+
     // Clone the board before mutation
     final newBoard = currentState.board.clone();
     newBoard.clearHoverBlocks();
@@ -321,6 +347,11 @@ class GameCubit extends Cubit<GameState> {
     if (canPlace) {
       newBoard.updateHoveredBreaks(piece, x, y);
     }
+
+    // #region agent log
+    debugPrint(
+        '[DEBUG:HOVER] showHoverPreview: x=$x, y=$y, canPlace=$canPlace, pieceId=${piece.id}');
+    // #endregion
 
     // Update hover preview for ghost piece
     emit(currentState.copyWith(
@@ -333,10 +364,19 @@ class GameCubit extends Cubit<GameState> {
   }
 
   bool placePiece(Piece piece, int x, int y) {
+    // #region agent log
+    debugPrint(
+        '[DEBUG:B] GameCubit.placePiece: x=$x, y=$y, pieceId=${piece.id}');
+    // #endregion
     final currentState = state;
     if (currentState is! GameInProgress) return false;
 
-    if (!currentState.board.canPlacePiece(piece, x, y)) {
+    final canPlace = currentState.board.canPlacePiece(piece, x, y);
+    // #region agent log
+    debugPrint(
+        '[DEBUG:B] GameCubit.placePiece: canPlace=$canPlace, boardSize=${currentState.board.size}');
+    // #endregion
+    if (!canPlace) {
       _soundService.playError();
       // CRITICAL FIX: Clear hover blocks even on failed placement
       // This prevents hover blocks from persisting on screen
@@ -414,6 +454,27 @@ class GameCubit extends Cubit<GameState> {
       final config = GameModeConfig.fromMode(currentState.gameMode);
       newHand.addAll(_generateRandomHand(config.handSize));
       _soundService.playRefill();
+    }
+
+    // CHECK FOR VICTORY: Story mode level completion
+    if (currentState.storyLevel != null) {
+      final level = currentState.storyLevel!;
+      final scoreComplete = newScore >= level.targetScore;
+      final linesComplete =
+          level.targetLines == null || newLinesCleared >= level.targetLines!;
+
+      if (scoreComplete && linesComplete) {
+        // Victory! Level objectives met
+        _endStoryLevel(
+          currentState.copyWith(
+            board: newBoard,
+            score: newScore,
+            linesCleared: newLinesCleared,
+            hand: newHand,
+          ),
+        );
+        return true;
+      }
     }
 
     // Check for game over using the NEW board state
@@ -641,7 +702,8 @@ class GameCubit extends Cubit<GameState> {
             col: col,
             color: newBoard.grid[selectedLine][col].color!,
           ));
-          newBoard.grid[selectedLine][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[selectedLine][col] =
+              const BoardBlock(type: BlockType.empty);
         }
       }
     } else {
@@ -654,7 +716,7 @@ class GameCubit extends Cubit<GameState> {
             col: col,
             color: newBoard.grid[row][col].color!,
           ));
-          newBoard.grid[row][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[row][col] = const BoardBlock(type: BlockType.empty);
         }
       }
     }
@@ -719,7 +781,7 @@ class GameCubit extends Cubit<GameState> {
             col: col,
             color: block.color!,
           ));
-          newBoard.grid[row][col] = BoardBlock(type: BlockType.empty);
+          newBoard.grid[row][col] = const BoardBlock(type: BlockType.empty);
         }
       }
     }

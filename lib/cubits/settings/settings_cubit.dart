@@ -8,6 +8,7 @@ import '../../services/firebase_auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_helper.dart';
+import '../../services/sound_service.dart';
 import 'settings_state.dart';
 
 class SettingsCubit extends Cubit<SettingsState> {
@@ -252,15 +253,13 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (powerUp == null) return false;
 
     if (state.coins >= powerUp.cost) {
-      final newCoins = state.coins - powerUp.cost;
-      final newInventory = Map<PowerUpType, int>.from(state.powerUpInventory);
-      newInventory[type] = (newInventory[type] ?? 0) + 1;
-      emit(state.copyWith(coins: newCoins, powerUpInventory: newInventory));
-      // Save to DB/Prefs async
-      await addCoins(0); // Triggers DB save only
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('coins', newCoins);
-      await prefs.setInt('powerUp_${type.name}', newInventory[type]!);
+      // FIX: Use spendCoins to ensure server sync
+      // This properly sends the negative amount to Firestore
+      await spendCoins(powerUp.cost);
+
+      // Add to inventory (SQLite + State)
+      await addPowerUp(type, 1);
+
       return true;
     }
     return false;
@@ -349,12 +348,22 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> setSoundEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('soundEnabled', value);
+
+    // FIX: Apply change immediately to SoundService singleton
+    // SoundService() uses factory pattern to return the singleton instance
+    SoundService().setSoundEnabled(value);
+
     emit(state.copyWith(soundEnabled: value));
   }
 
   Future<void> setHapticsEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hapticsEnabled', value);
+
+    // FIX: Apply change immediately to SoundService singleton
+    // SoundService() uses factory pattern to return the singleton instance
+    SoundService().setHapticsEnabled(value);
+
     emit(state.copyWith(hapticsEnabled: value));
   }
 

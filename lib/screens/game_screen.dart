@@ -57,6 +57,8 @@ class _GameScreenState extends State<GameScreen> {
   bool _gameOverDialogShown = false; // Prevent showing dialog multiple times
 
   bool _initialized = false;
+  // FIX: Store reference to cubit early to avoid context access in dispose()
+  GameCubit? _gameCubit;
 
   @override
   void initState() {
@@ -67,6 +69,12 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    // Fix memory leak: Release the callback reference
+    // GameCubit lives longer than GameScreen, so we must clear the callback
+    // to prevent holding a strong reference to this widget state
+    // FIX: Use stored reference instead of context.read() to avoid "deactivated widget" error
+    _gameCubit?.onLinesCleared = null;
+
     _confettiController.dispose();
     super.dispose();
   }
@@ -81,21 +89,26 @@ class _GameScreenState extends State<GameScreen> {
         final gameCubit = context.read<GameCubit>();
         final settingsCubit = context.read<SettingsCubit>();
 
-        // If no active game, start game with appropriate mode
-        if (!gameCubit.hasActiveGame) {
+        // FIX: Store cubit reference for safe access in dispose()
+        _gameCubit = gameCubit;
+
+        // Determine target mode
+        final targetMode = widget.storyLevel?.gameMode ?? GameMode.classic;
+        // Check if we need to start a new game (no game active OR mode mismatch)
+        if (!gameCubit.hasActiveGame ||
+            gameCubit.currentGameMode != targetMode) {
           // Schedule game start after the current frame to avoid setState during build
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Use story level's game mode if provided, otherwise classic
-            final mode = widget.storyLevel?.gameMode ?? GameMode.classic;
-            gameCubit.startGame(mode, storyLevel: widget.storyLevel);
+            gameCubit.startGame(targetMode, storyLevel: widget.storyLevel);
 
             // Track game start
-            settingsCubit.analyticsService.logGameStart(mode.name);
+            settingsCubit.analyticsService.logGameStart(targetMode.name);
             if (widget.storyLevel != null) {
               settingsCubit.analyticsService.logScreenView(
                   'game_story_level_${widget.storyLevel!.levelNumber}');
             } else {
-              settingsCubit.analyticsService.logScreenView('game_${mode.name}');
+              settingsCubit.analyticsService
+                  .logScreenView('game_${targetMode.name}');
             }
           });
         }
@@ -258,6 +271,8 @@ class _GameScreenState extends State<GameScreen> {
         if (didPop) {
           // Save game when back button is pressed
           gameCubit.saveGame();
+          // Stop the timer when leaving to prevent it from running in background
+          gameCubit.pauseTimer();
         }
       },
       child: Scaffold(
@@ -349,10 +364,12 @@ class _GameScreenState extends State<GameScreen> {
                                             icon: const Icon(Icons.arrow_back,
                                                 color: AppConfig.textPrimary),
                                             onPressed: () {
+                                              final gameCubit =
+                                                  context.read<GameCubit>();
                                               // Save game before going back
-                                              context
-                                                  .read<GameCubit>()
-                                                  .saveGame();
+                                              gameCubit.saveGame();
+                                              // Stop the timer when leaving to prevent it from running in background
+                                              gameCubit.pauseTimer();
                                               Navigator.pop(context);
                                             },
                                           ),

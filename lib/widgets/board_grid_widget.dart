@@ -4,23 +4,11 @@ import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../models/board.dart';
-import '../models/piece.dart';
 import '../config/app_config.dart';
 import 'ghost_piece_preview.dart';
 
-/// Helper function to calculate adjusted grid coordinates for piece placement
-/// Adjusts coordinates to center the piece on the finger position
-({int targetCol, int targetRow}) _calculateAdjustedCoordinates(
-  Piece piece,
-  int col,
-  int row,
-) {
-  final adjustX = (piece.width / 2).floor();
-  final adjustY = (piece.height / 2).floor();
-  final targetCol = col - adjustX;
-  final targetRow = row - adjustY;
-  return (targetCol: targetCol, targetRow: targetRow);
-}
+// Debug log function removed - duplicate DragTargets were the issue
+// The _calculateAdjustedCoordinates helper was only used by the removed cell-level DragTargets
 
 class BoardGridWidget extends StatelessWidget {
   final GlobalKey? gridKey;
@@ -77,6 +65,9 @@ class BoardGridWidget extends StatelessWidget {
                   gridKey, // Key for accurate coordinate conversion (on Stack to include padding)
               clipBehavior: Clip.none,
               children: [
+                // FIX: Removed duplicate DragTarget widgets from cells
+                // BoardDragTarget (in game_screen.dart) handles all drag & drop logic
+                // Having DragTargets at both cell and board level caused double placement attempts
                 CustomPaint(
                   painter: GridLinesPainter(boardSize: board.size),
                   child: Column(
@@ -86,32 +77,7 @@ class BoardGridWidget extends StatelessWidget {
                           children: List.generate(board.size, (col) {
                             final block = board.grid[row][col];
                             return Expanded(
-                              child: DragTarget<Piece>(
-                                onWillAcceptWithDetails: (details) {
-                                  final piece = details.data;
-                                  final coords = _calculateAdjustedCoordinates(
-                                      piece, col, row);
-                                  context.read<GameCubit>().showHoverPreview(
-                                      piece,
-                                      coords.targetCol,
-                                      coords.targetRow);
-                                  return true;
-                                },
-                                onLeave: (_) {
-                                  context.read<GameCubit>().clearHoverBlocks();
-                                },
-                                onAcceptWithDetails: (details) {
-                                  final piece = details.data;
-                                  final coords = _calculateAdjustedCoordinates(
-                                      piece, col, row);
-                                  context.read<GameCubit>().placePiece(piece,
-                                      coords.targetCol, coords.targetRow);
-                                },
-                                builder:
-                                    (context, candidateData, rejectedData) {
-                                  return _BlockCell(block: block);
-                                },
-                              ),
+                              child: _BlockCell(block: block),
                             );
                           }),
                         ),

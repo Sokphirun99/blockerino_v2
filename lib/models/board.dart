@@ -41,7 +41,7 @@ class BoardBlock {
   final Color? color;
   final Color? hoverBreakColor; // Color to show for hover break effect
 
-  BoardBlock({
+  const BoardBlock({
     required this.type,
     this.color,
     this.hoverBreakColor,
@@ -54,6 +54,18 @@ class BoardBlock {
       hoverBreakColor: hoverBreakColor ?? this.hoverBreakColor,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BoardBlock &&
+          runtimeType == other.runtimeType &&
+          type == other.type &&
+          color == other.color &&
+          hoverBreakColor == other.hoverBreakColor;
+
+  @override
+  int get hashCode => Object.hash(type, color, hoverBreakColor);
 }
 
 class Board {
@@ -68,7 +80,7 @@ class Board {
       size,
       (i) => List.generate(
         size,
-        (j) => BoardBlock(type: BlockType.empty),
+        (j) => const BoardBlock(type: BlockType.empty),
       ),
     );
     _initializeMasks();
@@ -118,10 +130,29 @@ class Board {
   }
 
   bool canPlacePiece(Piece piece, int x, int y) {
+    // #region agent log - Track validation steps
+    final pieceId = piece.id;
+    // NOTE: Bitboard sync check removed from here for performance
+    // It was running on every canPlacePiece call (hundreds of times per frame)
+    // If bitboard sync issues occur, they should be fixed at the source (placePiece, power-ups, etc.)
+    // #endregion
+
     // 1. Boundary Checks (O(1)) - More forgiving for easier placement
     // Allow slight edge cases (within 1 pixel tolerance)
-    if (x < -1 || y < -1) return false;
-    if (x + piece.width > size + 1 || y + piece.height > size + 1) return false;
+    if (x < -1 || y < -1) {
+      // #region agent log - Boundary check failed (negative)
+      debugPrint(
+          '[DEBUG:BOARD] canPlacePiece: piece=$pieceId at ($x, $y) REJECTED - negative coordinates');
+      // #endregion
+      return false;
+    }
+    if (x + piece.width > size + 1 || y + piece.height > size + 1) {
+      // #region agent log - Boundary check failed (out of bounds)
+      debugPrint(
+          '[DEBUG:BOARD] canPlacePiece: piece=$pieceId at ($x, $y) REJECTED - out of bounds (size=$size, piece=${piece.width}x${piece.height})');
+      // #endregion
+      return false;
+    }
 
     // Clamp coordinates to valid range for actual collision check
     final clampedX = x.clamp(0, size - piece.width);
@@ -130,6 +161,10 @@ class Board {
     // If clamping changed the position significantly (>1 cell), reject
     // This allows for slight rounding errors but prevents major misalignment
     if ((clampedX - x).abs() > 1 || (clampedY - y).abs() > 1) {
+      // #region agent log - Clamping rejection
+      debugPrint(
+          '[DEBUG:BOARD] canPlacePiece: piece=$pieceId at ($x, $y) REJECTED - clamping changed position too much (clamped to $clampedX, $clampedY)');
+      // #endregion
       return false;
     }
 
@@ -149,7 +184,20 @@ class Board {
     }
 
     // Check intersection
-    return (_bitboard & pieceMask) == BigInt.zero;
+    final hasCollision = (_bitboard & pieceMask) != BigInt.zero;
+    if (hasCollision) {
+      // #region agent log - Collision detected
+      debugPrint(
+          '[DEBUG:BOARD] canPlacePiece: piece=$pieceId at ($x, $y) REJECTED - collision detected (checkX=$checkX, checkY=$checkY)');
+      // #endregion
+      return false;
+    }
+
+    // #region agent log - Placement valid
+    debugPrint(
+        '[DEBUG:BOARD] canPlacePiece: piece=$pieceId at ($x, $y) ACCEPTED (checkX=$checkX, checkY=$checkY)');
+    // #endregion
+    return true;
   }
 
   void placePiece(Piece piece, int x, int y,
@@ -186,14 +234,14 @@ class Board {
       for (int col = 0; col < size; col++) {
         final blockType = grid[row][col].type;
         if (blockType == BlockType.hoverBreakEmpty) {
-          grid[row][col] = BoardBlock(type: BlockType.empty);
+          grid[row][col] = const BoardBlock(type: BlockType.empty);
         } else if (blockType == BlockType.hoverBreakFilled) {
           grid[row][col] = BoardBlock(
             type: BlockType.filled,
             color: grid[row][col].color,
           );
         } else if (blockType == BlockType.hoverBreak) {
-          grid[row][col] = BoardBlock(type: BlockType.empty);
+          grid[row][col] = const BoardBlock(type: BlockType.empty);
         }
         // Note: BlockType.hover is no longer used (replaced by GhostPiecePreview widget)
       }
@@ -360,13 +408,13 @@ class Board {
     // Clear lines
     for (int row in rowsToClear) {
       for (int col = 0; col < size; col++) {
-        grid[row][col] = BoardBlock(type: BlockType.empty);
+        grid[row][col] = const BoardBlock(type: BlockType.empty);
       }
     }
 
     for (int col in colsToClear) {
       for (int row = 0; row < size; row++) {
-        grid[row][col] = BoardBlock(type: BlockType.empty);
+        grid[row][col] = const BoardBlock(type: BlockType.empty);
       }
     }
 

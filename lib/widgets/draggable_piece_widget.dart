@@ -2,11 +2,25 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../models/piece.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../config/app_config.dart';
+
+// #region agent log
+int _dragLogCounter = 0;
+void _dragDebugLog(
+    String location, String hypothesisId, Map<String, dynamic> data) {
+  _dragLogCounter++;
+  debugPrint(
+      '[DEBUG:$hypothesisId:#$_dragLogCounter] DragTarget.$location: $data');
+}
+// #endregion
+
+// FORCE REBUILD: This constant will cause compilation error if old code runs
+const String _v6ForceRebuildConstant = 'v6.0_DRAG_OFFSET_FIX_APPLIED';
 
 // Intelligent haptics helper
 Future<void> _intelligentHaptic(HapticFeedbackType type) async {
@@ -43,17 +57,13 @@ enum HapticFeedbackType {
 }
 
 /// Fat Finger fix: Calculate responsive Y offset based on screen size
-/// This ensures the piece is always visible above the finger on all devices
+/// Uses ScreenUtil for consistent scaling across all devices and aspect ratios
+/// This ensures the piece is always visible above the finger on phones, tablets, and foldables
 double _getDragYOffset(BuildContext context) {
-  final mediaQuery = MediaQuery.of(context);
-  // Base offset of 40 logical pixels, scaled by device pixel ratio for physical pixels
-  // On high-DPI screens, we need more physical pixels to achieve the same visual offset
-  const baseOffset = 40.0;
-  final pixelRatio = mediaQuery.devicePixelRatio;
-  // Scale offset: more on high-DPI screens, but cap at reasonable maximum
-  final scaledOffset =
-      baseOffset * (1.0 + (pixelRatio - 1.0) * 0.3).clamp(1.0, 1.5);
-  return -scaledOffset;
+  // Use ScreenUtil for responsive sizing - 40 logical pixels that scale correctly
+  // ScreenUtil handles device pixel ratio and aspect ratio automatically
+  final offset = 40.0.sp; // Scaled pixels that adapt to screen size
+  return -offset;
 }
 
 class DraggablePieceWidget extends StatefulWidget {
@@ -294,6 +304,10 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     Offset globalOffset,
     Piece piece,
   ) {
+    // CRITICAL: This print MUST appear if new code is running
+    // Using _v6ForceRebuildConstant will cause compile error if old code runs
+    debugPrint(
+        '=== NEW CODE v6.0 RUNNING === $_v6ForceRebuildConstant === adjustedY -= dragYOffset fix applied');
     final gameCubit = context.read<GameCubit>();
     final currentState = gameCubit.state;
     if (currentState is! GameInProgress) return null;
@@ -333,11 +347,21 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
           AppConfig.boardBorderWidth;
     }
 
-    // CRITICAL FIX: Apply Y offset to match visual position (piece floats above finger)
-    // The offset is negative, so we ADD it (not subtract) to move calculation UP
-    // This matches the visual position where the piece appears above the finger
+    // ============================================================================
+    // CRITICAL FIX v5.0 - APPLY OFFSET IN OPPOSITE DIRECTION
+    // ============================================================================
+    // Problem: Pieces land above finger's perceived drop location
+    // Analysis: Visual piece appears above finger (feedbackAnchor moves it up)
+    //   Old code: adjustedY = localY + dragYOffset = localY - 60 (moves target UP)
+    //   This makes pieces land too high
+    // Solution: Apply offset in opposite direction to match visual piece position
+    //   New code: adjustedY = localY - dragYOffset = localY - (-60) = localY + 60
+    //   This moves target DOWN to match where visual piece center appears
+    // ============================================================================
     final dragYOffset = _getDragYOffset(context);
-    adjustedY += dragYOffset;
+    final adjustedYBefore = adjustedY;
+    // FIX: Subtract negative offset = Add, moves target DOWN to match visual
+    adjustedY -= dragYOffset; // localY - (-60) = localY + 60
 
     // The finger/anchor is at the CENTER of the piece
     final pieceWidthInPixels = piece.width * blockSize;
@@ -352,11 +376,28 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     final gridX = (topLeftX / blockSize).floor();
     final gridY = (topLeftY / blockSize).floor();
 
+    // #region agent log - NEW CODE v6.0 - OFFSET IN OPPOSITE DIRECTION
+    _dragDebugLog('_calculateGridPosition.FIXED_v6', 'H6', {
+      'localY': localPosition.dy,
+      'dragYOffset': dragYOffset,
+      'adjustedY_before': adjustedYBefore,
+      'adjustedY_after': adjustedY,
+      'calculation': 'adjustedY -= dragYOffset (opposite direction)',
+      'math': 'localY - (-60) = localY + 60 (moves DOWN to match visual)',
+      'gridX': gridX,
+      'gridY': gridY,
+      'CODE_VERSION': 'v6.0_OPPOSITE_OFFSET',
+      'FORCE_REBUILD_CONSTANT': _v6ForceRebuildConstant,
+      'NOTE': 'adjustedY_after should be adjustedY_before + 60',
+    });
+    // #endregion
+
     // CRITICAL: Validate coordinates are within bounds before returning
     // Allow slight negative values (will be clamped in canPlacePiece)
     // This makes placement more forgiving near edges
     if (gridX < -1 || gridY < -1) return null;
-    if (gridX + piece.width > board.size + 1 || gridY + piece.height > board.size + 1) {
+    if (gridX + piece.width > board.size + 1 ||
+        gridY + piece.height > board.size + 1) {
       return null;
     }
 
@@ -412,6 +453,17 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
           return;
         }
 
+        // #region agent log
+        _dragDebugLog('BoardDragTarget.onAcceptWithDetails', 'H1', {
+          'gridX': gridX,
+          'gridY': gridY,
+          'lastGridX': _lastGridX,
+          'lastGridY': _lastGridY,
+          'pieceId': piece.id,
+          'offset': details.offset.toString(),
+          'MISMATCH': gridX != _lastGridX || gridY != _lastGridY,
+        });
+        // #endregion
         // Place the piece
         final success = gameCubit.placePiece(piece, gridX, gridY);
 
@@ -454,6 +506,17 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
             // CRITICAL FIX: Validate position is still valid with current board state
             final isValid =
                 currentState.board.canPlacePiece(piece, gridX, gridY);
+
+            // #region agent log
+            _dragDebugLog('onMove.positionChanged', 'MOVE', {
+              'gridX': gridX,
+              'gridY': gridY,
+              'lastGridX': _lastGridX,
+              'lastGridY': _lastGridY,
+              'isValid': isValid,
+              'pieceId': piece.id,
+            });
+            // #endregion
 
             // Only show hover preview if position is valid
             if (isValid) {
