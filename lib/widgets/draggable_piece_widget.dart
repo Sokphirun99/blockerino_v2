@@ -53,14 +53,15 @@ enum HapticFeedbackType {
   error,
 }
 
-/// Fat Finger fix: Calculate responsive Y offset based on screen size
+/// Fat Finger fix: Calculate responsive Y offset to make piece float above finger
 /// Uses ScreenUtil for consistent scaling across all devices and aspect ratios
 /// This ensures the piece is always visible above the finger on phones, tablets, and foldables
+/// Returns a positive value representing how many pixels the piece should float above the finger
 double _getDragYOffset(BuildContext context) {
-  // Use ScreenUtil for responsive sizing - 40 logical pixels that scale correctly
+  // Use ScreenUtil for responsive sizing - 50 logical pixels that scale correctly
   // ScreenUtil handles device pixel ratio and aspect ratio automatically
-  final offset = 40.0.sp; // Scaled pixels that adapt to screen size
-  return -offset;
+  // Increased from 40 to 50 for better visibility (like Block Blast, Candy Crush)
+  return 50.0.sp; // Scaled pixels that adapt to screen size
 }
 
 class DraggablePieceWidget extends StatefulWidget {
@@ -114,12 +115,17 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
       maxSimultaneousDrags: 1,
       hitTestBehavior: HitTestBehavior.opaque, // Makes entire area tappable
       dragAnchorStrategy: (draggable, context, position) {
-        // This makes the piece center on the finger with Y offset for visibility
+        // Fat Finger fix: Make piece float above finger for better visibility
+        // The anchor point is set to piece center, but shifted upward so piece appears above finger
         // For even-sized pieces, we need to offset by 0.5 block size to align with grid
         final widthOffset = (widget.piece.width % 2 == 0) ? 0.5 : 0.0;
         final heightOffset = (widget.piece.height % 2 == 0) ? 0.5 : 0.0;
-        final dragYOffset = _getDragYOffset(context);
+        final dragYOffset =
+            _getDragYOffset(context); // Positive value (e.g., 50.0.sp)
 
+        // Return offset from piece top-left to anchor point (finger position)
+        // X: piece center (horizontal alignment)
+        // Y: piece center minus Y offset (makes piece appear above finger)
         return Offset(
             (widget.piece.width / 2 + widthOffset) * feedbackBlockSize,
             (widget.piece.height / 2 + heightOffset) * feedbackBlockSize -
@@ -316,32 +322,28 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     if (renderBox == null) return null;
 
     // 2. Convert Global Drop Coordinate to Local Grid Coordinate
-    // globalOffset (details.offset) is the Top-Left corner of the piece visual
+    // CRITICAL FIX: details.offset represents the top-left corner of the dragged piece (visual feedback)
+    // NOT the anchor point. The dragAnchorStrategy sets where the anchor is relative to the feedback widget,
+    // but details.offset gives us the global position of the feedback widget's top-left corner.
     final localPosition = renderBox.globalToLocal(globalOffset);
 
     final board = currentState.board;
     final blockSize = AppConfig.getBlockSize(context, board.size);
 
+    // details.offset is already the top-left corner of the feedback widget
+    // So we can use it directly after converting to local coordinates
     double adjustedX = localPosition.dx;
     double adjustedY = localPosition.dy;
 
-    // 3. Fallback padding correction
-    // Only applied if we couldn't get the inner grid widget directly
+    // 3. Padding correction only needed if using fallback render box
+    // When using gridRenderBox, we're already inside the padding, so no correction needed
     if (gridRenderBox == null) {
+      // Fallback: subtract padding to get position relative to grid
       adjustedX -= AppConfig.boardContainerPadding;
       adjustedY -= AppConfig.boardContainerPadding;
     }
 
-    // 4. CRITICAL FIX: Removed the extra offsets
-    // Previous code subtracted (width/2) and (height/2) here.
-    // That is NOT needed because 'adjustedX/Y' is already the Top-Left
-    // of the piece (because globalOffset is the Top-Left of the feedback).
-
-    // Previous code also modified adjustedY based on dragYOffset.
-    // That is also NOT needed because the user aligns the *visual* piece
-    // with the grid. If the visual matches the grid, the coordinates match.
-
-    // 5. Calculate Grid Coordinates
+    // 4. Calculate Grid Coordinates
     // Using round() instead of floor() provides a better "magnetic" snap feel
     // when the piece is slightly off-center.
     final gridX = (adjustedX / blockSize).round();
@@ -459,19 +461,19 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
           // showHoverPreview already validates the position internally
           // This eliminates duplicate expensive collision detection calls
           gameCubit.showHoverPreview(piece, gridX, gridY);
-          
+
           // Haptic feedback when entering a new valid spot
           final currentState = gameCubit.state;
           if (currentState is GameInProgress) {
             final settings = context.read<SettingsCubit>().state;
-            if (settings.hapticsEnabled && 
+            if (settings.hapticsEnabled &&
                 currentState.hoverValid == true &&
                 (_lastGridX == -1 || _lastGridY == -1)) {
               // Only vibrate when entering a new valid spot for the first time
               _intelligentHaptic(HapticFeedbackType.hoverValid);
             }
           }
-          
+
           // Track last position for change detection
           _lastGridX = gridX;
           _lastGridY = gridY;
