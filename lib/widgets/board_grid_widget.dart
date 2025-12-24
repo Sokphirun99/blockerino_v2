@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubits/game/game_cubit.dart';
@@ -20,21 +19,10 @@ class BoardGridWidget extends StatelessWidget {
     // Use BlocBuilder to react to game state changes (mode changes)
     return BlocBuilder<GameCubit, GameState>(
       builder: (context, gameState) {
-        // Get the actual board to determine grid size
-        int gridSize = 8; // Default to 8 for initial state
-        if (gameState is GameInProgress) {
-          gridSize = gameState.board.size;
-        } else if (gameState is GameOver) {
-          gridSize = gameState.board.size;
-        }
-
-        // Scale container size based on grid size
-        // 8x8 uses base size (320.w), 10x10 uses larger size (400.w = 1.25x) for clear visual difference
-        final baseSize = AppConfig.getSize(context);
-        final containerSize = gridSize == 10 ? baseSize * 1.25 : baseSize;
-
-        debugPrint(
-            'BoardGridWidget: gridSize=$gridSize, containerSize=$containerSize, baseSize=$baseSize');
+        // Use consistent container size for both modes
+        // The visual difference comes from the number of cells (8x8 vs 10x10)
+        // Blocks will naturally be smaller in chaos mode due to more cells
+        final containerSize = AppConfig.getSize(context);
 
         return Container(
           width: containerSize,
@@ -107,30 +95,34 @@ class _StaticBoardLayer extends StatelessWidget {
         return RepaintBoundary(
           child: Stack(
             children: [
-              CustomPaint(
-                painter: GridLinesPainter(
-                  boardSize: board.size,
-                  lineColor: theme.blockColors.first.withValues(alpha: 0.15),
+              // Grid lines layer - must fill the available space
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: GridLinesPainter(
+                    boardSize: board.size,
+                    lineColor: theme.blockColors.first.withValues(alpha: 0.15),
+                  ),
                 ),
-                child: Column(
-                  children: List.generate(board.size, (row) {
-                    return Expanded(
-                      child: Row(
-                        children: List.generate(board.size, (col) {
-                          final block = board.grid[row][col];
-                          return Expanded(
-                            // We use a const constructor where possible
-                            child: _BlockCell(
-                              block: block,
-                              row: row,
-                              col: col,
-                            ),
-                          );
-                        }),
-                      ),
-                    );
-                  }),
-                ),
+              ),
+              // Grid cells layer
+              Column(
+                children: List.generate(board.size, (row) {
+                  return Expanded(
+                    child: Row(
+                      children: List.generate(board.size, (col) {
+                        final block = board.grid[row][col];
+                        return Expanded(
+                          // We use a const constructor where possible
+                          child: _BlockCell(
+                            block: block,
+                            row: row,
+                            col: col,
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                }),
               ),
             ],
           ),

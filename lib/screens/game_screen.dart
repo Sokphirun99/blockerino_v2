@@ -94,39 +94,37 @@ class _GameScreenState extends State<GameScreen> {
         // FIX: Store cubit reference for safe access in dispose()
         _gameCubit = gameCubit;
 
-        // Determine target mode
-        final targetMode = widget.storyLevel?.gameMode ?? GameMode.classic;
+        // Only handle story mode logic here - regular modes are handled by main menu
+        if (widget.storyLevel != null) {
+          // Story mode: Determine target mode from story level
+          final targetMode = widget.storyLevel!.gameMode;
 
-        // CRITICAL FIX: Also check if story level changed, not just game mode
-        // This prevents the bug where Classic mode game continues when opening a Story level
-        // that also uses Classic mode (e.g., Story Level 1 uses Classic mode)
-        final currentState = gameCubit.state;
-        final currentLevelNumber = (currentState is GameInProgress)
-            ? currentState.storyLevel?.levelNumber
-            : null;
-        final targetLevelNumber = widget.storyLevel?.levelNumber;
+          // CRITICAL FIX: Also check if story level changed, not just game mode
+          // This prevents the bug where Classic mode game continues when opening a Story level
+          // that also uses Classic mode (e.g., Story Level 1 uses Classic mode)
+          final currentState = gameCubit.state;
+          final currentLevelNumber = (currentState is GameInProgress)
+              ? currentState.storyLevel?.levelNumber
+              : null;
+          final targetLevelNumber = widget.storyLevel?.levelNumber;
 
-        // Check if we need to start a new game (no game active OR mode mismatch OR level mismatch)
-        if (!gameCubit.hasActiveGame ||
-            gameCubit.currentGameMode != targetMode ||
-            currentLevelNumber != targetLevelNumber) {
-          // Schedule game start after the current frame to avoid setState during build
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            gameCubit.startGame(targetMode, storyLevel: widget.storyLevel);
+          // Check if we need to start a new game (no game active OR mode mismatch OR level mismatch)
+          if (!gameCubit.hasActiveGame ||
+              gameCubit.currentGameMode != targetMode ||
+              currentLevelNumber != targetLevelNumber) {
+            // Schedule game start after the current frame to avoid setState during build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              gameCubit.startGame(targetMode, storyLevel: widget.storyLevel);
 
-            // Track game start
-            settingsCubit.analyticsService.logGameStart(targetMode.name);
-            if (widget.storyLevel != null) {
+              // Track game start
+              settingsCubit.analyticsService.logGameStart(targetMode.name);
               settingsCubit.analyticsService.logScreenView(
                   'game_story_level_${widget.storyLevel!.levelNumber}');
-            } else {
-              settingsCubit.analyticsService
-                  .logScreenView('game_${targetMode.name}');
-            }
-          });
+            });
+          }
         }
 
-        // Set up line clear callback
+        // Set up line clear callback (for both story mode and regular modes)
         gameCubit.onLinesCleared = _onLinesCleared;
       } catch (e) {
         debugPrint('Error initializing game: $e');
@@ -365,7 +363,7 @@ class _GameScreenState extends State<GameScreen> {
 
                                 return Column(
                                   children: [
-                                    // Header with back button and centered score/combo
+                                    // Header with back button, centered score/combo, and game mode name
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 16.0, vertical: 8.0),
@@ -392,6 +390,56 @@ class _GameScreenState extends State<GameScreen> {
                                           // Score and combo centered in the middle
                                           const Center(
                                             child: GameHudWidget(),
+                                          ),
+                                          // Game mode name on the right
+                                          Builder(
+                                            builder: (context) {
+                                              if (state is! GameInProgress) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              final gameState = state;
+                                              final config =
+                                                  GameModeConfig.fromMode(
+                                                      gameState.gameMode);
+                                              final isChaos =
+                                                  gameState.gameMode ==
+                                                      GameMode.chaos;
+                                              final modeColor = isChaos
+                                                  ? const Color(0xFFFF6B6B)
+                                                  : const Color(0xFF4ECDC4);
+
+                                              return Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: modeColor.withValues(
+                                                        alpha: 0.2),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                    border: Border.all(
+                                                      color: modeColor,
+                                                      width: 1.5,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    config.name,
+                                                    style: TextStyle(
+                                                      color: modeColor,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
