@@ -121,9 +121,11 @@ class GameCubit extends Cubit<GameState> {
       return;
     }
 
-    // If mode is story but no level provided, prevent crash
+    // BUG FIX #7: If mode is story but no level provided, reset to initial state
     if (mode == GameMode.story) {
       debugPrint('Error: Story Mode started without a level');
+      emit(
+          const GameInitial()); // Reset to initial state instead of leaving inconsistent
       return;
     }
 
@@ -322,14 +324,16 @@ class GameCubit extends Cubit<GameState> {
     final savedGame = _savedGames[mode];
     if (savedGame == null) return;
 
-    // CRITICAL FIX: Validate board size matches mode configuration
-    // If saved game has wrong board size (corruption or mode mismatch), create fresh game
+    // Validate board size matches mode configuration
+    // CRITICAL FIX: Prevents loading 8x8 board for Chaos mode (expects 10x10) or vice versa
+    // This can happen if saved game data is corrupted or from a different version
     final config = GameModeConfig.fromMode(mode);
     if (savedGame.board.size != config.boardSize) {
       debugPrint(
-          'WARNING: Saved game for $mode has wrong board size (${savedGame.board.size} vs ${config.boardSize}). Creating fresh game.');
-      // Remove corrupted save
+          'Saved game has wrong board size (${savedGame.board.size} vs ${config.boardSize}). Creating fresh game.');
+      // Remove corrupted save from memory and persistent storage
       _savedGames.remove(mode);
+      _saveToPersistentStorage(); // Persist the removal so it's not reloaded on next app start
       // Start fresh game with correct size
       _pieceBag.clear();
       _bagIndex = 0;
@@ -361,7 +365,7 @@ class GameCubit extends Cubit<GameState> {
     // will use the correct saved bag state
     if (savedGame.hand.length != config.handSize) {
       debugPrint(
-          'WARNING: Saved game for $mode has wrong hand size (${savedGame.hand.length} vs ${config.handSize}). Regenerating hand.');
+          'Regenerating hand with correct size (${savedGame.hand.length} vs ${config.handSize}).');
       // Regenerate hand with correct size using the restored piece bag
       final hand = _generateRandomHand(config.handSize);
       if (savedGame.gameOver) {
@@ -371,14 +375,17 @@ class GameCubit extends Cubit<GameState> {
           gameMode: mode,
         ));
       } else {
-        emit(GameInProgress(
+        final correctedState = GameInProgress(
           board: savedGame.board,
-          hand: hand,
+          hand: hand, // Use regenerated hand with correct size
           score: savedGame.score,
           combo: savedGame.combo,
           lastBrokenLine: savedGame.lastBrokenLine,
           gameMode: mode,
-        ));
+        );
+        emit(correctedState);
+        // Save corrected game state to persistent storage
+        _saveCurrentGame(correctedState);
       }
       return;
     }
@@ -405,11 +412,13 @@ class GameCubit extends Cubit<GameState> {
     final currentState = state;
     if (currentState is! GameInProgress) return;
 
-    // CRITICAL PERFORMANCE FIX: Don't clone the board when clearing hover
-    // Just clear hover state fields. The board doesn't store hover blocks anymore
-    // (they're calculated in the widget layer), so no need to mutate the board.
+    // CRITICAL FIX: Clone board and clear hover breaks to remove line clear preview
+    // We need to clear the hoverBreak block types from the board when dragging stops
+    final newBoard = currentState.board.clone();
+    newBoard.clearHoverBlocks(); // This clears hoverBreak types from the board
+
     emit(currentState.copyWith(
-      // DO NOT pass board here - keep the same board reference
+      board: newBoard,
       hoverPiece: null,
       hoverX: null,
       hoverY: null,
@@ -421,29 +430,53 @@ class GameCubit extends Cubit<GameState> {
     final currentState = state;
     if (currentState is! GameInProgress) return;
 
-    // OPTIMIZATION: Don't rebuild if the hover position hasn't changed
-    // This prevents unnecessary state emissions and UI rebuilds during drag operations
+    // BUG FIX #4: Don't skip update if board has hover blocks from previous state
+    // This ensures hover preview is recalculated after piece placement
+    // OPTIMIZATION: Don't rebuild if the hover position hasn't changed AND board is clean
     if (currentState.hoverPiece?.id == piece.id &&
         currentState.hoverX == x &&
-        currentState.hoverY == y) {
-      return; // Position unchanged, skip expensive operations
+        currentState.hoverY == y &&
+        !_boardHasHoverBlocks(currentState.board)) {
+      return; // Position unchanged and board is clean, skip expensive operations
     }
 
-    // CRITICAL PERFORMANCE FIX: Don't clone the board during hover preview
-    // Cloning the board changes its reference, causing BlocSelector to rebuild
-    // the entire static board layer even though only hover visualization changed.
-    // Instead, only update hover state fields. Hover break visualization is
-    // calculated in the widget layer based on hover state.
+    // Check if piece can be placed
     final canPlace = currentState.board.canPlacePiece(piece, x, y);
 
-    // Update hover preview for ghost piece WITHOUT cloning the board
+    // CRITICAL FIX: Clone board and update hover breaks to show which lines will be cleared
+    // This visualization is important for user experience - users need to see which lines
+    // will be cleared when placing a piece. The performance cost is acceptable for this feature.
+    final newBoard = currentState.board.clone();
+    newBoard.clearHoverBlocks(); // Clear any previous hover breaks
+
+    if (canPlace) {
+      // Only show hover breaks if the piece can actually be placed
+      newBoard.updateHoveredBreaks(piece, x, y);
+    }
+
+    // Update hover preview with board that includes hover break visualization
     emit(currentState.copyWith(
-      // DO NOT pass board here - keep the same board reference
+      board: newBoard,
       hoverPiece: piece,
       hoverX: x,
       hoverY: y,
       hoverValid: canPlace,
     ));
+  }
+
+  // BUG FIX #4: Helper method to check if board has hover blocks
+  bool _boardHasHoverBlocks(Board board) {
+    for (int row = 0; row < board.size; row++) {
+      for (int col = 0; col < board.size; col++) {
+        final blockType = board.grid[row][col].type;
+        if (blockType == BlockType.hoverBreakFilled ||
+            blockType == BlockType.hoverBreakEmpty ||
+            blockType == BlockType.hoverBreak) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   bool placePiece(Piece piece, int x, int y) {
@@ -641,6 +674,9 @@ class GameCubit extends Cubit<GameState> {
 
   void _endStoryLevel(GameInProgress currentState,
       {bool failed = false, bool timeUp = false}) {
+    // BUG FIX #6: Prevent duplicate calls if game is already over
+    if (state is GameOver) return;
+
     _storyTimer?.cancel();
 
     final level = currentState.storyLevel!;
@@ -671,10 +707,12 @@ class GameCubit extends Cubit<GameState> {
       _soundService.playGameOver();
     }
 
+    // BUG FIX #1: Use currentState.gameMode instead of hardcoded GameMode.story
+    // Story levels can use different game modes (chaos, classic, etc.)
     emit(GameOver(
       board: currentState.board,
       finalScore: score,
-      gameMode: GameMode.story,
+      gameMode: currentState.gameMode, // FIX: Use level's actual game mode
       storyLevel: level,
       starsEarned: stars,
       levelCompleted: completed,

@@ -62,6 +62,10 @@ class _GameScreenState extends State<GameScreen> {
   // FIX: Store reference to cubit early to avoid context access in dispose()
   GameCubit? _gameCubit;
 
+  // BUG FIX #4 & #5: Track timers for proper cleanup
+  final List<Timer> _particleTimers = [];
+  Timer? _achievementTimer;
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +82,16 @@ class _GameScreenState extends State<GameScreen> {
     _gameCubit?.onLinesCleared = null;
 
     _confettiController.dispose();
+
+    // BUG FIX #4: Cancel all particle timers to prevent memory leaks
+    for (final timer in _particleTimers) {
+      timer.cancel();
+    }
+    _particleTimers.clear();
+
+    // BUG FIX #5: Cancel achievement timer
+    _achievementTimer?.cancel();
+
     super.dispose();
   }
 
@@ -94,6 +108,18 @@ class _GameScreenState extends State<GameScreen> {
         // FIX: Store cubit reference for safe access in dispose()
         _gameCubit = gameCubit;
 
+        // BUG FIX #1: Initialize _lastScore from current game state
+        final currentState = gameCubit.state;
+        if (currentState is GameInProgress) {
+          _lastScore = currentState.score;
+        }
+
+        // BUG FIX #2: Reset combo level tracking for new games
+        _lastComboLevel = 0;
+
+        // BUG FIX #3: Reset game over dialog flag for new games
+        _gameOverDialogShown = false;
+
         // Only handle story mode logic here - regular modes are handled by main menu
         if (widget.storyLevel != null) {
           // Story mode: Determine target mode from story level
@@ -102,7 +128,6 @@ class _GameScreenState extends State<GameScreen> {
           // CRITICAL FIX: Also check if story level changed, not just game mode
           // This prevents the bug where Classic mode game continues when opening a Story level
           // that also uses Classic mode (e.g., Story Level 1 uses Classic mode)
-          final currentState = gameCubit.state;
           final currentLevelNumber = (currentState is GameInProgress)
               ? currentState.storyLevel?.levelNumber
               : null;
@@ -172,7 +197,9 @@ class _GameScreenState extends State<GameScreen> {
     for (final blockInfo in clearedBlocks) {
       // Use delay for ripple effect
       final particleId = _particleIdCounter++;
-      Future.delayed(Duration(milliseconds: blockInfo.delayMs), () {
+
+      // BUG FIX #4: Use Timer instead of Future.delayed for proper cancellation
+      final delayTimer = Timer(Duration(milliseconds: blockInfo.delayMs), () {
         if (!mounted) return;
 
         final particleX = boardPosition.dx +
@@ -195,14 +222,20 @@ class _GameScreenState extends State<GameScreen> {
         }
 
         // Auto-remove particle after animation duration (prevents memory leak)
-        Future.delayed(const Duration(milliseconds: 1000), () {
-          if (mounted) {
-            setState(() {
-              _activeParticles.removeWhere((p) => p.id == particleId);
-            });
-          }
-        });
+        // BUG FIX #4: Track timer for proper cleanup
+        // CRITICAL: Check mounted before creating timer to prevent memory leak
+        if (mounted) {
+          final removeTimer = Timer(const Duration(milliseconds: 1000), () {
+            if (mounted) {
+              setState(() {
+                _activeParticles.removeWhere((p) => p.id == particleId);
+              });
+            }
+          });
+          _particleTimers.add(removeTimer);
+        }
       });
+      _particleTimers.add(delayTimer);
     }
 
     // Add floating score popup at the center of cleared area
@@ -252,8 +285,9 @@ class _GameScreenState extends State<GameScreen> {
           _achievementMessage = message;
         });
 
-        // Hide message after 2 seconds
-        Future.delayed(const Duration(seconds: 2), () {
+        // BUG FIX #5: Cancel previous timer and track new one
+        _achievementTimer?.cancel();
+        _achievementTimer = Timer(const Duration(seconds: 2), () {
           if (mounted) {
             setState(() {
               _achievementMessage = null;
@@ -270,6 +304,31 @@ class _GameScreenState extends State<GameScreen> {
         _activeParticles.removeWhere((p) => p.id == id);
       });
     }
+  }
+
+  // BUG FIX #7: Extract expensive calculation to separate method
+  double _calculateSpeedMultiplier(GameState gameState) {
+    if (gameState is! GameInProgress) return 1.0;
+
+    // Speed up with combo (max 2.5x at combo 5+)
+    final comboSpeed = 1.0 + (gameState.combo.clamp(0, 5) * 0.3);
+
+    // Speed up when board is getting full (calculate filled percentage)
+    int filledBlocks = 0;
+    for (int row = 0; row < gameState.board.size; row++) {
+      for (int col = 0; col < gameState.board.size; col++) {
+        if (gameState.board.grid[row][col].type == BlockType.filled) {
+          filledBlocks++;
+        }
+      }
+    }
+    final boardFullness =
+        filledBlocks / (gameState.board.size * gameState.board.size);
+    final fullnessSpeed =
+        1.0 + (boardFullness * 1.5); // Max 2.5x when 100% full
+
+    // Use the higher of the two multipliers
+    return comboSpeed > fullnessSpeed ? comboSpeed : fullnessSpeed;
   }
 
   @override
@@ -289,30 +348,8 @@ class _GameScreenState extends State<GameScreen> {
       child: Scaffold(
         body: BlocBuilder<GameCubit, GameState>(
           builder: (context, gameState) {
-            // Calculate background speed multiplier based on game state
-            double speedMultiplier = 1.0;
-            if (gameState is GameInProgress) {
-              // Speed up with combo (max 2.5x at combo 5+)
-              final comboSpeed = 1.0 + (gameState.combo.clamp(0, 5) * 0.3);
-
-              // Speed up when board is getting full (calculate filled percentage)
-              int filledBlocks = 0;
-              for (int row = 0; row < gameState.board.size; row++) {
-                for (int col = 0; col < gameState.board.size; col++) {
-                  if (gameState.board.grid[row][col].type == BlockType.filled) {
-                    filledBlocks++;
-                  }
-                }
-              }
-              final boardFullness =
-                  filledBlocks / (gameState.board.size * gameState.board.size);
-              final fullnessSpeed =
-                  1.0 + (boardFullness * 1.5); // Max 2.5x when 100% full
-
-              // Use the higher of the two multipliers
-              speedMultiplier =
-                  comboSpeed > fullnessSpeed ? comboSpeed : fullnessSpeed;
-            }
+            // BUG FIX #7: Use extracted method for speed calculation
+            final speedMultiplier = _calculateSpeedMultiplier(gameState);
 
             return FloatingScoreOverlay(
               key: _scoreOverlayKey,
@@ -345,6 +382,15 @@ class _GameScreenState extends State<GameScreen> {
                           ),
                           child: SafeArea(
                             child: BlocBuilder<GameCubit, GameState>(
+                              buildWhen: (previous, current) {
+                                // CRITICAL FIX: Reset combo level when transitioning from GameOver to GameInProgress
+                                // This ensures achievement messages show on replay (e.g., "PLAY AGAIN")
+                                if (previous is GameOver &&
+                                    current is GameInProgress) {
+                                  _lastComboLevel = 0;
+                                }
+                                return true; // Always rebuild
+                              },
                               builder: (context, state) {
                                 if (state is GameOver &&
                                     !_gameOverDialogShown) {
@@ -771,12 +817,15 @@ class _GameScreenState extends State<GameScreen> {
                 );
                 gameCubit.resetGame();
                 Navigator.pop(dialogContext); // Close dialog
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => GameScreen(storyLevel: nextLevel),
-                  ),
-                );
+                // BUG FIX #6: Check context.mounted before navigation
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GameScreen(storyLevel: nextLevel),
+                    ),
+                  );
+                }
               },
               child: const Text('NEXT LEVEL'),
             )

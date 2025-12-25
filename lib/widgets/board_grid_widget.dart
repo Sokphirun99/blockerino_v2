@@ -27,6 +27,8 @@ class BoardGridWidget extends StatelessWidget {
         return Container(
           width: containerSize,
           height: containerSize,
+          clipBehavior: Clip
+              .none, // CRITICAL FIX: Allow ghost preview to show at board edges
           decoration: BoxDecoration(
             color: theme.boardColor,
             borderRadius: BorderRadius.circular(12),
@@ -104,25 +106,31 @@ class _StaticBoardLayer extends StatelessWidget {
                   ),
                 ),
               ),
-              // Grid cells layer
-              Column(
-                children: List.generate(board.size, (row) {
-                  return Expanded(
-                    child: Row(
-                      children: List.generate(board.size, (col) {
-                        final block = board.grid[row][col];
-                        return Expanded(
-                          // We use a const constructor where possible
-                          child: _BlockCell(
-                            block: block,
-                            row: row,
-                            col: col,
-                          ),
-                        );
-                      }),
-                    ),
-                  );
-                }),
+              // Grid cells layer - must fill the Stack to align with ghost preview
+              Positioned.fill(
+                child: Column(
+                  children: List.generate(board.size, (row) {
+                    return Expanded(
+                      child: Row(
+                        children: List.generate(board.size, (col) {
+                          final block = board.grid[row][col];
+                          return Expanded(
+                            // Use RepaintBoundary to isolate cell repaints for better performance
+                            // Add key for stable widget tree and efficient diffing
+                            child: RepaintBoundary(
+                              key: ValueKey('cell-$row-$col'),
+                              child: _BlockCell(
+                                block: block,
+                                row: row,
+                                col: col,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    );
+                  }),
+                ),
               ),
             ],
           ),
@@ -140,10 +148,16 @@ class _GhostOverlayLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<GameCubit, GameState>(
       buildWhen: (previous, current) {
-        // Only rebuild if hover properties change
+        // Rebuild if state type changes
         if (previous is! GameInProgress || current is! GameInProgress) {
           return true;
         }
+        // CRITICAL FIX: Also rebuild when board size changes (mode switch 8x8 ↔ 10x10)
+        // This ensures ghost preview recalculates position correctly after board size change
+        if (previous.board.size != current.board.size) {
+          return true;
+        }
+        // Rebuild if hover properties change
         return previous.hoverX != current.hoverX ||
             previous.hoverY != current.hoverY ||
             previous.hoverPiece != current.hoverPiece ||
@@ -169,9 +183,6 @@ class _GhostOverlayLayer extends StatelessWidget {
   }
 }
 
-// ... COPY PASTE THE REST OF YOUR EXISTING CLASSES BELOW ...
-// (GridLinesPainter, _BlockCell, and _BlockCellState from your previous file)
-// They were fine, just needed to be inside the Optimized Structure above.
 class GridLinesPainter extends CustomPainter {
   final int boardSize;
   final Color lineColor;
@@ -245,12 +256,9 @@ class _BlockCellState extends State<_BlockCell>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    // Direct call in initState is fine for this use case
     if (_isShowingGlow(widget.block.type)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _pulseController.repeat(reverse: true);
-        }
-      });
+      _pulseController.repeat(reverse: true);
     }
   }
 
@@ -290,7 +298,8 @@ class _BlockCellState extends State<_BlockCell>
 
   @override
   Widget build(BuildContext context) {
-    Color cellColor;
+    // FIX 3: Initialize with default value for better null safety
+    Color cellColor = Colors.blue;
     bool isBreaking = false;
     bool isEmpty = false;
 
@@ -319,7 +328,10 @@ class _BlockCellState extends State<_BlockCell>
         isEmpty = true;
     }
 
-    final theme = context.watch<SettingsCubit>().state.currentTheme;
+    // FIX 2: Use select instead of watch to only rebuild when theme actually changes
+    final theme = context.select<SettingsCubit, dynamic>(
+      (cubit) => cubit.state.currentTheme,
+    );
 
     if (isEmpty) {
       final isAlternate = (widget.row + widget.col) % 2 == 0;
