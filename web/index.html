@@ -32,10 +32,59 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>blockerino_v2</title>
+  <title>Blockerino - Puzzle Game</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Preload critical resources -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- Performance optimizations -->
+  <style>
+    /* Prevent layout shift during loading */
+    body {
+      margin: 0;
+      background-color: #000000;
+    }
+    
+    /* Loading indicator */
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffffff;
+      font-family: sans-serif;
+    }
+  </style>
 </head>
 <body>
+  <div id="loading">Loading Blockerino...</div>
+  
+  <!-- Register service worker for offline support and caching -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('flutter_service_worker.js')
+          .then((registration) => {
+            console.log('ServiceWorker registered:', registration);
+          })
+          .catch((error) => {
+            console.log('ServiceWorker registration failed:', error);
+          });
+      });
+    }
+  </script>
+  
   <script src="flutter_bootstrap.js" async></script>
+  
+  <!-- Remove loading indicator when app loads -->
+  <script>
+    window.addEventListener('flutter-first-frame', () => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    });
+  </script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
+// Removed google_fonts - using asset fonts directly for better performance
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -171,9 +171,10 @@ class BlockerinoApp extends StatelessWidget {
                   brightness: Brightness.dark,
                   scaffoldBackgroundColor: Colors.black,
                   primarySwatch: Colors.blue,
-                  textTheme: GoogleFonts.pressStart2pTextTheme(
-                    ThemeData.dark().textTheme,
+                  textTheme: ThemeData.dark().textTheme.apply(
+                    fontFamily: 'PressStart2P',
                   ),
+                  fontFamily: 'PressStart2P',
                 ),
                 home: const MainMenuScreen(),
               );

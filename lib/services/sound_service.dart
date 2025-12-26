@@ -121,7 +121,7 @@ class SoundService {
     
     if (_soundEnabled && _initialized) {
       try {
-        await _audioPlayers['clear']?.play(AssetSource('sounds/blast.wav'));
+        await _audioPlayers['clear']?.play(AssetSource('sounds/blast.mp3'));
       } catch (e) {
         _logger.e('Failed to play clear sound', error: e);
       }

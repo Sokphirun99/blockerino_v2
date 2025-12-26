@@ -1,13 +1,14 @@
 {
-    "name": "blockerino_v2",
-    "short_name": "blockerino_v2",
+    "name": "Blockerino - Puzzle Game",
+    "short_name": "Blockerino",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1a1a2e",
+    "theme_color": "#7b2cbf",
+    "description": "A Block Blast-style puzzle game built with Flutter. Place pieces strategically to clear rows and columns!",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["games", "entertainment"],
     "icons": [
         {
             "src": "icons/Icon-192.png",
