@@ -8,9 +8,9 @@ import '../config/app_config.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
-import '../cubits/settings/settings_state.dart';
 import '../models/board.dart';
 import '../models/game_mode.dart';
+import '../models/game_theme.dart';
 import '../models/story_level.dart';
 // DISABLED: Power-up bar hidden
 // import '../models/power_up.dart';
@@ -24,6 +24,7 @@ import '../widgets/screen_shake_widget.dart';
 // DISABLED: Power-up bar hidden
 // import '../widgets/shared_ui_components.dart';
 import '../widgets/floating_score_overlay.dart';
+import '../widgets/loading_screen_widget.dart';
 
 // Safe vibration helper for web compatibility
 void _safeVibrate({int duration = 50, int amplitude = 128}) {
@@ -44,7 +45,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final GlobalKey _boardKey = GlobalKey();
   final GlobalKey _gridKey =
       GlobalKey(); // Key for inner grid widget (accurate coordinates)
@@ -71,15 +72,28 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 3));
+    // CRITICAL FIX: Listen to app lifecycle to auto-save game when app goes to background
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    // CRITICAL FIX: Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+
     // Fix memory leak: Release the callback reference
     // GameCubit lives longer than GameScreen, so we must clear the callback
     // to prevent holding a strong reference to this widget state
     // FIX: Use stored reference instead of context.read() to avoid "deactivated widget" error
     _gameCubit?.onLinesCleared = null;
+
+    // CRITICAL FIX: Auto-save game before disposing (when navigating away)
+    if (_gameCubit != null) {
+      final currentState = _gameCubit!.state;
+      if (currentState is GameInProgress) {
+        _gameCubit!.saveGame();
+      }
+    }
 
     _confettiController.dispose();
 
@@ -93,6 +107,24 @@ class _GameScreenState extends State<GameScreen> {
     _achievementTimer?.cancel();
 
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // CRITICAL FIX: Auto-save game when app goes to background or is paused
+    // This ensures the game is saved even if the user force-closes the app
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      final gameCubit = _gameCubit ?? context.read<GameCubit>();
+      final currentState = gameCubit.state;
+      if (currentState is GameInProgress) {
+        gameCubit.saveGame();
+        debugPrint('Auto-saved game on app lifecycle change: $state');
+      }
+    }
   }
 
   @override
@@ -334,306 +366,296 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final gameCubit = context.read<GameCubit>();
+    // HIGH PRIORITY FIX: Extract theme at top level to reduce unnecessary rebuilds
+    // Select on selectedThemeId (String) for proper equality comparison
+    // This only rebuilds when theme ID changes, not on every GameCubit state change
+    final selectedThemeId = context.select<SettingsCubit, String>(
+      (cubit) => cubit.state.selectedThemeId,
+    );
+    final theme = GameTheme.getThemeById(selectedThemeId);
 
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          // Save game when back button is pressed
           gameCubit.saveGame();
-          // Stop the timer when leaving to prevent it from running in background
           gameCubit.pauseTimer();
         }
       },
       child: Scaffold(
-        body: BlocBuilder<GameCubit, GameState>(
-          builder: (context, gameState) {
-            // BUG FIX #7: Use extracted method for speed calculation
-            final speedMultiplier = _calculateSpeedMultiplier(gameState);
+        body: BlocListener<GameCubit, GameState>(
+          listener: (context, state) {
+            // CRITICAL FIX: Reset combo tracking when game restarts
+            // Check if this is a new game by checking combo == 0 (more reliable than state transitions)
+            // This ensures achievement messages show on replay (e.g., "PLAY AGAIN")
+            if (state is GameInProgress && state.combo == 0) {
+              _lastComboLevel = 0;
+            }
+          },
+          child: BlocBuilder<GameCubit, GameState>(
+            builder: (context, gameState) {
+              final speedMultiplier = _calculateSpeedMultiplier(gameState);
 
-            return FloatingScoreOverlay(
-              key: _scoreOverlayKey,
-              child: Stack(
-                children: [
-                  // Animated background with dynamic speed
-                  Positioned.fill(
-                    child: AnimatedBackgroundWidget(
-                      speedMultiplier: speedMultiplier,
+              return FloatingScoreOverlay(
+                key: _scoreOverlayKey,
+                child: Stack(
+                  children: [
+                    // Animated background
+                    Positioned.fill(
+                      child: AnimatedBackgroundWidget(
+                        speedMultiplier: speedMultiplier,
+                      ),
                     ),
-                  ),
 
-                  // Main game content with screen shake
-                  ScreenShakeWidget(
-                    shouldShake: _shouldShake,
-                    intensity: 8.0,
-                    onShakeComplete: () {
-                      if (mounted) {
-                        setState(() {
-                          _shouldShake = false;
-                        });
-                      }
-                    },
-                    child: BlocBuilder<SettingsCubit, SettingsState>(
-                      builder: (context, settings) {
-                        final theme = settings.currentTheme;
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: theme.getBackgroundGradient(),
-                          ),
-                          child: SafeArea(
-                            child: BlocBuilder<GameCubit, GameState>(
-                              buildWhen: (previous, current) {
-                                // CRITICAL FIX: Reset combo level when transitioning from GameOver to GameInProgress
-                                // This ensures achievement messages show on replay (e.g., "PLAY AGAIN")
-                                if (previous is GameOver &&
-                                    current is GameInProgress) {
-                                  _lastComboLevel = 0;
-                                }
-                                return true; // Always rebuild
-                              },
-                              builder: (context, state) {
-                                if (state is GameOver &&
-                                    !_gameOverDialogShown) {
-                                  _gameOverDialogShown = true;
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      _showGameOverDialog(
-                                          context, context.read<GameCubit>());
-                                    }
-                                  });
-                                } else if (state is! GameOver) {
-                                  // Reset flag when game is not over
-                                  _gameOverDialogShown = false;
-                                }
+                    // Main game content with screen shake
+                    ScreenShakeWidget(
+                      shouldShake: _shouldShake,
+                      intensity: 8.0,
+                      onShakeComplete: () {
+                        if (mounted) {
+                          setState(() {
+                            _shouldShake = false;
+                          });
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: theme.getBackgroundGradient(),
+                        ),
+                        child: SafeArea(
+                          child: Builder(
+                            builder: (context) {
+                              // Show loading screen
+                              if (gameState is GameInitial ||
+                                  gameState is GameLoading) {
+                                return const LoadingScreenWidget(
+                                  message: 'Loading game...',
+                                );
+                              }
 
-                                return Column(
-                                  children: [
-                                    // Header with back button, centered score/combo, and game mode name
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16.0, vertical: 8.0),
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Back button on the left
-                                          Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: IconButton(
-                                              icon: const Icon(Icons.arrow_back,
-                                                  color: AppConfig.textPrimary),
-                                              onPressed: () {
-                                                final gameCubit =
-                                                    context.read<GameCubit>();
-                                                // Save game before going back
-                                                gameCubit.saveGame();
-                                                // Stop the timer when leaving to prevent it from running in background
-                                                gameCubit.pauseTimer();
-                                                Navigator.pop(context);
-                                              },
+                              // Game over dialog
+                              if (gameState is GameOver &&
+                                  !_gameOverDialogShown) {
+                                _gameOverDialogShown = true;
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    _showGameOverDialog(context, gameCubit);
+                                  }
+                                });
+                              } else if (gameState is! GameOver) {
+                                _gameOverDialogShown = false;
+                              }
+
+                              return Column(
+                                children: [
+                                  // Header with back button, score, mode
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                      vertical: 8.0,
+                                    ),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        // Back button
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.arrow_back,
+                                              color: AppConfig.textPrimary,
                                             ),
-                                          ),
-                                          // Score and combo centered in the middle
-                                          const Center(
-                                            child: GameHudWidget(),
-                                          ),
-                                          // Game mode name on the right
-                                          Builder(
-                                            builder: (context) {
-                                              if (state is! GameInProgress) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              final gameState = state;
-                                              final config =
-                                                  GameModeConfig.fromMode(
-                                                      gameState.gameMode);
-                                              final isChaos =
-                                                  gameState.gameMode ==
-                                                      GameMode.chaos;
-                                              final modeColor = isChaos
-                                                  ? const Color(0xFFFF6B6B)
-                                                  : const Color(0xFF4ECDC4);
-
-                                              return Align(
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6),
-                                                  decoration: BoxDecoration(
-                                                    color: modeColor.withValues(
-                                                        alpha: 0.2),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                    border: Border.all(
-                                                      color: modeColor,
-                                                      width: 1.5,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    config.name,
-                                                    style: TextStyle(
-                                                      color: modeColor,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      letterSpacing: 0.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
+                                            onPressed: () {
+                                              gameCubit.saveGame();
+                                              gameCubit.pauseTimer();
+                                              Navigator.pop(context);
                                             },
                                           ),
-                                        ],
-                                      ),
-                                    ),
+                                        ),
 
-                                    // Game Board with DragTarget - wrapped in Expanded to constrain size
-                                    Expanded(
-                                      flex: 3,
-                                      child: Center(
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12.0),
-                                          child: BoardDragTarget(
-                                            gridKey:
-                                                _gridKey, // Pass grid key for accurate coordinates
-                                            child: KeyedSubtree(
-                                              key: _boardKey,
-                                              child: BoardGridWidget(
-                                                  gridKey: _gridKey),
-                                            ),
+                                        // Score and combo
+                                        const Center(
+                                          child: GameHudWidget(),
+                                        ),
+
+                                        // Game mode badge
+                                        if (gameState is GameInProgress)
+                                          Align(
+                                            alignment: Alignment.centerRight,
+                                            child: _buildModeBadge(gameState),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Board
+                                  Expanded(
+                                    flex: 3,
+                                    child: Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12.0,
+                                        ),
+                                        child: BoardDragTarget(
+                                          gridKey: _gridKey,
+                                          child: KeyedSubtree(
+                                            key: _boardKey,
+                                            child: BoardGridWidget(
+                                                gridKey: _gridKey),
                                           ),
                                         ),
                                       ),
                                     ),
+                                  ),
 
-                                    // Hand Pieces - more space like Block Blast
-                                    const Expanded(
-                                      flex: 1,
-                                      child: HandPiecesWidget(),
-                                    ),
+                                  // Hand pieces
+                                  const Expanded(
+                                    flex: 1,
+                                    child: HandPiecesWidget(),
+                                  ),
 
-                                    // DISABLED: Power-Up Bar
-                                    /*
-                                    BlocBuilder<SettingsCubit, SettingsState>(
-                                      builder: (context, settingsState) {
-                                        return _buildPowerUpBar(context,
-                                            context.read<SettingsCubit>());
-                                      },
-                                    ),
-
-                                    const SizedBox(height: 8),
-                                    */
-                                    const SizedBox(height: 8),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Achievement notification
-                  if (_achievementMessage != null)
-                    Positioned(
-                      top: 120,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: const Duration(milliseconds: 300),
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              child: Opacity(
-                                opacity: value,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppConfig.achievementGradientStart,
-                                  AppConfig.achievementGradientEnd,
+                                  const SizedBox(height: 8),
                                 ],
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: AppConfig.achievementBorder,
-                                width: 2,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: AppConfig.achievementGlow,
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              _achievementMessage!,
-                              style: const TextStyle(
-                                color: AppConfig.textPrimary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ),
                       ),
                     ),
 
-                  // Particle effects overlay
-                  ..._activeParticles.map((particle) => Positioned.fill(
-                        child: IgnorePointer(
-                          child: ParticleEffectWidget(
-                            key: ValueKey(particle.id),
-                            position: particle.position,
-                            color: particle.color,
-                            blockSize: 20,
-                            onComplete: () => _removeParticle(particle.id),
+                    // Achievement notification - CENTERED
+                    if (_achievementMessage != null)
+                      Positioned.fill(
+                        child: Center(
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 300),
+                            builder: (context, value, child) {
+                              return Transform.scale(
+                                scale: 0.8 + (value * 0.2),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 200,
+                                maxWidth: double.infinity,
+                              ),
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 32),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppConfig.achievementGradientStart,
+                                    AppConfig.achievementGradientEnd,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: AppConfig.achievementBorder,
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: AppConfig.achievementGlow,
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _achievementMessage!,
+                                  style: const TextStyle(
+                                    color: AppConfig.textPrimary,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      )),
+                      ),
 
-                  // Floating score popups are handled by FloatingScoreOverlay
-                  // (removed duplicate FloatingScoreWidget system)
+                    // Particle effects overlay
+                    ..._activeParticles.map((particle) => Positioned.fill(
+                          child: IgnorePointer(
+                            child: ParticleEffectWidget(
+                              key: ValueKey(particle.id),
+                              position: particle.position,
+                              color: particle.color,
+                              blockSize: 20,
+                              onComplete: () => _removeParticle(particle.id),
+                            ),
+                          ),
+                        )),
 
-                  // Confetti overlay for celebrations
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirection: 3.14 / 2, // Downward
-                      emissionFrequency: 0.05,
-                      numberOfParticles: 20,
-                      gravity: 0.1,
-                      shouldLoop: false,
-                      colors: const [
-                        Color(0xFF9d4edd),
-                        Color(0xFF7b2cbf),
-                        Color(0xFFFFE66D),
-                        Color(0xFFFFD700),
-                        Color(0xFF52b788),
-                      ],
+                    // Floating score popups are handled by FloatingScoreOverlay
+                    // (removed duplicate FloatingScoreWidget system)
+
+                    // Confetti overlay for celebrations
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirection: 3.14 / 2, // Downward
+                        emissionFrequency: 0.05,
+                        numberOfParticles: 20,
+                        gravity: 0.1,
+                        shouldLoop: false,
+                        colors: const [
+                          Color(0xFF9d4edd),
+                          Color(0xFF7b2cbf),
+                          Color(0xFFFFE66D),
+                          Color(0xFFFFD700),
+                          Color(0xFF52b788),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Extract mode badge to helper method
+  Widget _buildModeBadge(GameInProgress gameState) {
+    final config = GameModeConfig.fromMode(gameState.gameMode);
+    final isChaos = gameState.gameMode == GameMode.chaos;
+    final modeColor =
+        isChaos ? const Color(0xFFFF6B6B) : const Color(0xFF4ECDC4);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: modeColor.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: modeColor,
+          width: 1.5,
+        ),
+      ),
+      child: Text(
+        config.name,
+        style: TextStyle(
+          color: modeColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
     );

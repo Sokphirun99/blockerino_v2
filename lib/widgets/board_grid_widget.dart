@@ -6,6 +6,7 @@ import '../cubits/settings/settings_cubit.dart';
 import '../models/board.dart';
 import '../config/app_config.dart';
 import 'ghost_piece_preview.dart';
+import 'loading_screen_widget.dart';
 
 class BoardGridWidget extends StatelessWidget {
   final GlobalKey? gridKey;
@@ -87,8 +88,9 @@ class _StaticBoardLayer extends StatelessWidget {
       },
       builder: (context, board) {
         if (board == null) {
-          return const Center(
-              child: Text('Loading...', style: TextStyle(color: Colors.white)));
+          return const LoadingScreenWidget(
+            message: 'Loading game...',
+          );
         }
 
         final theme = context.read<SettingsCubit>().state.currentTheme;

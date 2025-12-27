@@ -63,6 +63,10 @@ class GameCubit extends Cubit<GameState> {
   /// Callback for when lines are cleared (for particle effects)
   LineClearCallback? onLinesCleared;
 
+  // CRITICAL FIX: Track if saved games are still loading
+  bool _savedGamesLoaded = false;
+  final Completer<void> _savedGamesLoadCompleter = Completer<void>();
+
   GameCubit({this.settingsCubit}) : super(const GameInitial()) {
     // Sync sound service with settings
     if (settingsCubit != null) {
@@ -71,7 +75,19 @@ class GameCubit extends Cubit<GameState> {
       _soundService.setSoundEnabled(settingsState.soundEnabled);
     }
     // Load saved games from persistent storage
-    loadSavedGames();
+    // CRITICAL FIX: Load saved games asynchronously and mark when complete
+    loadSavedGames().then((_) {
+      _savedGamesLoaded = true;
+      if (!_savedGamesLoadCompleter.isCompleted) {
+        _savedGamesLoadCompleter.complete();
+      }
+    }).catchError((e) {
+      debugPrint('Error loading saved games: $e');
+      _savedGamesLoaded = true;
+      if (!_savedGamesLoadCompleter.isCompleted) {
+        _savedGamesLoadCompleter.complete();
+      }
+    });
   }
 
   // Check if there's an active game in progress
@@ -89,7 +105,13 @@ class GameCubit extends Cubit<GameState> {
     return null;
   }
 
-  void startGame(GameMode mode, {StoryLevel? storyLevel}) {
+  Future<void> startGame(GameMode mode, {StoryLevel? storyLevel}) async {
+    // CRITICAL FIX: Wait for saved games to load before starting game
+    // This ensures saved games are available when checking if a saved game exists
+    if (!_savedGamesLoaded) {
+      await _savedGamesLoadCompleter.future;
+    }
+
     // Cancel any existing timer
     _storyTimer?.cancel();
 
@@ -111,6 +133,7 @@ class GameCubit extends Cubit<GameState> {
     // If coming from GameOver, clear the saved game for this mode
     if (currentState is GameOver && currentState.gameMode == targetMode) {
       _savedGames.remove(targetMode);
+      _saveToPersistentStorage(); // Persist the removal
     }
 
     // Story mode doesn't support save/load - always start fresh
@@ -131,8 +154,10 @@ class GameCubit extends Cubit<GameState> {
 
     // Check if this mode has a saved game (and we're not in GameOver state)
     if (_savedGames.containsKey(mode) && currentState is! GameOver) {
+      debugPrint('Loading saved game for $mode');
       _loadSavedGame(mode);
     } else {
+      debugPrint('No saved game found for $mode, starting fresh game');
       // Start fresh game
       _pieceBag.clear(); // Reset bag for new game
       _bagIndex = 0;
@@ -273,6 +298,7 @@ class GameCubit extends Cubit<GameState> {
       });
 
       await prefs.setString('savedGames', jsonEncode(savedGamesData));
+      debugPrint('Saved games to persistent storage: ${_savedGames.keys}');
     } catch (e) {
       debugPrint('Error saving games: $e');
     }
@@ -283,8 +309,9 @@ class GameCubit extends Cubit<GameState> {
       final prefs = await SharedPreferences.getInstance();
       final savedGamesJson = prefs.getString('savedGames');
 
-      if (savedGamesJson != null) {
+      if (savedGamesJson != null && savedGamesJson.isNotEmpty) {
         final Map<String, dynamic> savedGamesData = jsonDecode(savedGamesJson);
+        debugPrint('Loading saved games from storage: ${savedGamesData.keys}');
 
         savedGamesData.forEach((modeStr, gameData) {
           try {
@@ -310,10 +337,15 @@ class GameCubit extends Cubit<GameState> {
               bagRefillCount: gameData['bagRefillCount'] ??
                   0, // CRITICAL FIX: Load refill count (default to 0 for old saves)
             );
+            debugPrint(
+                'Successfully loaded saved game for $mode (score: ${gameData['score'] ?? 0})');
           } catch (e) {
             debugPrint('Error loading saved game for mode $modeStr: $e');
           }
         });
+        debugPrint('Loaded ${_savedGames.length} saved game(s)');
+      } else {
+        debugPrint('No saved games found in storage');
       }
     } catch (e) {
       debugPrint('Error loading saved games: $e');
@@ -624,7 +656,7 @@ class GameCubit extends Cubit<GameState> {
     }
 
     // Continue game
-    emit(GameInProgress(
+    final newState = GameInProgress(
       board:
           newBoard, // CRITICAL FIX: Use the modified board with placed piece and cleared lines
       hand: newHand,
@@ -637,7 +669,17 @@ class GameCubit extends Cubit<GameState> {
       timeRemaining: currentState.timeRemaining,
       powerUpsDisabled: currentState.powerUpsDisabled,
       levelEndTime: currentState.levelEndTime,
-    ));
+    );
+
+    emit(newState);
+
+    // CRITICAL FIX: Auto-save game after each piece placement
+    // This ensures the game is saved continuously, not just when navigating away
+    // Prevents losing progress if app is closed unexpectedly
+    // Only save for non-story modes (story mode doesn't support save/load)
+    if (currentState.storyLevel == null) {
+      _saveCurrentGame(newState);
+    }
 
     return true;
   }
