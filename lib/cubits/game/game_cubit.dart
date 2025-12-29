@@ -401,25 +401,28 @@ class GameCubit extends Cubit<GameState> {
         .bagRefillCount; // CRITICAL FIX: Restore refill count for correct rotation pattern
 
     // CRITICAL FIX: Validate hand size matches mode configuration
-    // If saved game has wrong hand size, fix it by adjusting the hand
-    // BUG FIX: Preserve saved hand pieces instead of regenerating to prevent piece reset
+    // BUG FIX: Preserve partial hands - only refill when hand is completely empty (0 pieces)
+    // Hand should stay partial (e.g., 2/3 pieces) until all pieces are used
     List<Piece> hand = savedGame.hand;
     if (hand.length != config.handSize) {
       debugPrint(
           'Hand size mismatch (${hand.length} vs ${config.handSize}). Adjusting hand size.');
 
-      if (hand.length < config.handSize) {
-        // Hand is too small - add pieces from the restored bag
-        // This maintains the saved pieces and only adds what's needed
-        final additionalPieces =
-            _generateRandomHand(config.handSize - hand.length);
-        hand = [...hand, ...additionalPieces];
-        debugPrint('Added ${additionalPieces.length} pieces to hand');
-      } else {
+      if (hand.isEmpty) {
+        // Hand is completely empty - refill to full size (normal game behavior)
+        hand = _generateRandomHand(config.handSize);
+        debugPrint('Hand was empty, refilled with ${config.handSize} pieces');
+      } else if (hand.length > config.handSize) {
         // Hand is too large - trim to correct size (keep first N pieces)
         hand = hand.take(config.handSize).toList();
         debugPrint(
             'Trimmed hand from ${savedGame.hand.length} to ${hand.length} pieces');
+      } else {
+        // Hand is partial (e.g., 2/3 pieces) - preserve it as-is!
+        // This is correct behavior - hand only refills when ALL pieces are used
+        debugPrint(
+            'Preserving partial hand with ${hand.length} pieces (expected ${config.handSize})');
+        // Keep hand as-is, no changes needed
       }
 
       if (savedGame.gameOver) {
