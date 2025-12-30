@@ -17,6 +17,7 @@ import 'cubits/settings/settings_state.dart';
 import 'services/app_localizations.dart';
 import 'services/sound_service.dart';
 import 'config/app_config.dart';
+import 'widgets/loading_screen_widget.dart';
 
 // Global flag to track Firebase initialization
 bool _firebaseInitialized = false;
@@ -53,14 +54,16 @@ void main() async {
 
   // Initialize sound service with timeout to prevent blocking app startup
   // If initialization takes too long, app will start anyway and sounds will initialize lazily
-  SoundService().initialize().timeout(
-    const Duration(seconds: 2),
-    onTimeout: () {
-      _logger.w('SoundService initialization timed out - sounds may not work');
-    },
-  ).catchError((e) {
+  try {
+    await SoundService().initialize().timeout(
+      const Duration(seconds: 2),
+    );
+    _logger.i('SoundService initialized successfully');
+  } on TimeoutException {
+    _logger.e('SoundService initialization timed out - sounds may not work');
+  } catch (e) {
     _logger.e('SoundService initialization failed', error: e);
-  });
+  }
 
   // CRITICAL FIX: Initialize SettingsCubit before running app to ensure state is ready
   // This prevents GameCubit from accessing uninitialized settings
@@ -175,12 +178,51 @@ class BlockerinoApp extends StatelessWidget {
                     ThemeData.dark().textTheme,
                   ),
                 ),
-                home: const MainMenuScreen(),
+                // Show loading screen initially, then transition to main menu
+                home: const _InitialLoadingScreen(),
               );
             },
           );
         },
       ),
     );
+  }
+}
+
+/// Initial loading screen that shows during app startup
+/// Displays KR Studio logo while app initializes
+class _InitialLoadingScreen extends StatefulWidget {
+  const _InitialLoadingScreen();
+
+  @override
+  State<_InitialLoadingScreen> createState() => _InitialLoadingScreenState();
+}
+
+class _InitialLoadingScreenState extends State<_InitialLoadingScreen> {
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show loading screen for a minimum duration for better UX
+    // This ensures users see the KR Studio logo
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const LoadingScreenWidget(
+        message: 'Starting Blockerino...',
+      );
+    }
+
+    return const MainMenuScreen();
   }
 }

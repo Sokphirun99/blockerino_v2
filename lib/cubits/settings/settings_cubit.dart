@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,27 +49,82 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _initializeFirebase() async {
     try {
       // Sign in anonymously if not signed in
+      // CRITICAL FIX: Handle network errors gracefully - app should work offline
       if (_authService.currentUser == null) {
-        await _authService.signInAnonymously();
+        // Add timeout to prevent hanging on slow/poor network connections
+        try {
+          await _authService.signInAnonymously().timeout(
+                const Duration(seconds: 10),
+              );
+        } on TimeoutException {
+          debugPrint('Firebase sign-in timeout - continuing offline');
+        } catch (e) {
+          // Handle CONFIGURATION_NOT_FOUND and other Firebase errors gracefully
+          debugPrint('Firebase anonymous sign-in failed: $e');
+          debugPrint('App will continue without Firebase authentication');
+          // Check if it's a configuration error
+          if (e.toString().contains('CONFIGURATION_NOT_FOUND') ||
+              e.toString().contains('configuration')) {
+            debugPrint(
+                '⚠️ Firebase Configuration Error: Make sure Anonymous Authentication is enabled in Firebase Console');
+            debugPrint(
+                '   Firebase Console → Authentication → Sign-in method → Enable Anonymous');
+          }
+        }
       }
 
-      // Set user ID for analytics
+      // Set user ID for analytics only if sign-in succeeded
       final uid = _authService.currentUser?.uid;
       if (uid != null) {
-        await _analyticsService.setUserId(uid);
-        // Restore cloud data before syncing
-        await _restoreFromFirestore(uid);
-        await _syncToFirestore();
+        try {
+          await _analyticsService.setUserId(uid);
+          // Restore cloud data before syncing (with timeout)
+          await _restoreFromFirestore(uid).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint(
+                  'Firestore restore timeout - continuing with local data');
+            },
+          );
+          // Sync to Firestore (with timeout, don't block)
+          _syncToFirestore().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('Firestore sync timeout - will retry later');
+            },
+          ).catchError((e) {
+            debugPrint('Firestore sync error (non-fatal): $e');
+          });
+        } catch (e) {
+          // Non-fatal: Log error but continue - app works offline
+          debugPrint('Firebase initialization error (non-fatal): $e');
+        }
+      } else {
+        // No user signed in - app continues in offline mode
+        debugPrint('No Firebase user - app running in offline mode');
       }
 
-      // Listen to auth state changes
-      _authService.authStateChanges.listen((user) {
-        if (user != null) {
-          _restoreFromFirestore(user.uid);
-          _syncToFirestore();
-          _analyticsService.setUserId(user.uid);
-        }
-      });
+      // Listen to auth state changes (with error handling)
+      _authService.authStateChanges.listen(
+        (user) {
+          if (user != null) {
+            // Handle auth state changes asynchronously with error handling
+            _restoreFromFirestore(user.uid).catchError((e) {
+              debugPrint('Error restoring from Firestore (non-fatal): $e');
+            });
+            _syncToFirestore().catchError((e) {
+              debugPrint('Error syncing to Firestore (non-fatal): $e');
+            });
+            _analyticsService.setUserId(user.uid).catchError((e) {
+              debugPrint('Error setting analytics user ID (non-fatal): $e');
+            });
+          }
+        },
+        onError: (error) {
+          // Handle stream errors gracefully
+          debugPrint('Auth state stream error (non-fatal): $error');
+        },
+      );
     } catch (e) {
       debugPrint('Firebase initialization error: $e');
       // Continue without Firebase features
@@ -217,7 +273,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       // This prevents rapid taps from passing the coin check multiple times
       final oldCoins = state.coins;
       final newCoins = state.coins - amount;
-      
+
       // 1. Optimistic Update: Update UI immediately
       emit(state.copyWith(coins: newCoins));
 
@@ -480,6 +536,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     // CRITICAL FIX: Use optimistic update to prevent double-spend exploit
     // Update UI state immediately, then sync to database in background
     final oldCoins = state.coins;
+    final oldUnlockedThemeIds =
+        List<String>.from(state.unlockedThemeIds); // Save original for rollback
     final newCoins = state.coins - theme.cost;
     final newUnlockedThemes = List<String>.from(state.unlockedThemeIds)
       ..add(themeId);
@@ -509,11 +567,13 @@ class SettingsCubit extends Cubit<SettingsState> {
         coinCost: theme.cost,
       );
     } catch (e) {
-      // Rollback on error to maintain data consistency
+      // CRITICAL FIX: Rollback to original state (before optimistic update)
+      // Must use oldUnlockedThemeIds, not state.unlockedThemeIds, because state
+      // has already been updated by the optimistic emit above
       debugPrint('Error purchasing theme, rolling back: $e');
       emit(state.copyWith(
         coins: oldCoins,
-        unlockedThemeIds: state.unlockedThemeIds,
+        unlockedThemeIds: oldUnlockedThemeIds,
       ));
       return false;
     }
