@@ -598,8 +598,11 @@ class GameCubit extends Cubit<GameState> {
       newScore += lineBonus;
 
       // Play clear and combo sounds
-      _soundService.playClear(linesBroken);
-      if (newCombo > 1) {
+      // CRITICAL FIX: Pass hasCombo parameter to prevent double sound
+      // If there's a combo, only play combo sound (not clear sound)
+      final hasCombo = newCombo > 1;
+      _soundService.playClear(linesBroken, hasCombo: hasCombo);
+      if (hasCombo) {
         _soundService.playCombo(newCombo);
       }
 

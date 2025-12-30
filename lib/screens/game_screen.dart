@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vibration/vibration.dart';
 import 'package:confetti/confetti.dart';
@@ -433,91 +434,121 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                 );
                               }
 
-                              // Game over dialog
+                              // Game over dialog - RELEASE MODE FIX
                               if (gameState is GameOver &&
                                   !_gameOverDialogShown) {
                                 _gameOverDialogShown = true;
+                                // CRITICAL FIX: Use WidgetsBinding for better release mode compatibility
+                                // Multiple safety checks and longer delay for release builds
                                 WidgetsBinding.instance
                                     .addPostFrameCallback((_) {
-                                  if (mounted) {
-                                    _showGameOverDialog(context, gameCubit);
+                                  if (mounted && context.mounted) {
+                                    // Longer delay for release mode to ensure widget tree is fully stable
+                                    // This prevents gray screen issues in production builds
+                                    Future.delayed(
+                                        const Duration(milliseconds: 300), () {
+                                      if (mounted && context.mounted) {
+                                        // Double-check state is still GameOver before showing dialog
+                                        final currentState = gameCubit.state;
+                                        if (currentState is GameOver) {
+                                          _showGameOverDialog(
+                                              context, gameCubit);
+                                        } else {
+                                          // Reset flag if state changed
+                                          _gameOverDialogShown = false;
+                                        }
+                                      }
+                                    });
                                   }
                                 });
                               } else if (gameState is! GameOver) {
                                 _gameOverDialogShown = false;
                               }
 
-                              return Column(
-                                children: [
-                                  // Header with back button, score, mode
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
-                                      vertical: 8.0,
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        // Back button
-                                        Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: IconButton(
-                                            icon: const Icon(
-                                              Icons.arrow_back,
-                                              color: AppConfig.textPrimary,
-                                            ),
-                                            onPressed: () {
-                                              gameCubit.saveGame();
-                                              gameCubit.pauseTimer();
-                                              Navigator.pop(context);
-                                            },
-                                          ),
-                                        ),
-
-                                        // Score and combo
-                                        const Center(
-                                          child: GameHudWidget(),
-                                        ),
-
-                                        // Game mode badge
-                                        if (gameState is GameInProgress)
+                              // CRITICAL FIX: Use Opacity to hide UI during game over (works in release mode)
+                              return Opacity(
+                                opacity: gameState is GameOver ? 0.0 : 1.0,
+                                child: Column(
+                                  children: [
+                                    // Header with back button, score, mode
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0,
+                                        vertical: 8.0,
+                                      ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          // Back button
                                           Align(
-                                            alignment: Alignment.centerRight,
-                                            child: _buildModeBadge(gameState),
+                                            alignment: Alignment.centerLeft,
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                Icons.arrow_back,
+                                                color: AppConfig.textPrimary,
+                                              ),
+                                              onPressed: () {
+                                                gameCubit.saveGame();
+                                                gameCubit.pauseTimer();
+                                                Navigator.pop(context);
+                                              },
+                                            ),
                                           ),
-                                      ],
-                                    ),
-                                  ),
 
-                                  // Board
-                                  Expanded(
-                                    flex: 3,
-                                    child: Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12.0,
-                                        ),
-                                        child: BoardDragTarget(
-                                          gridKey: _gridKey,
-                                          child: KeyedSubtree(
-                                            key: _boardKey,
-                                            child: BoardGridWidget(
-                                                gridKey: _gridKey),
+                                          // Score and combo
+                                          const Center(
+                                            child: GameHudWidget(),
+                                          ),
+
+                                          // Game mode badge
+                                          if (gameState is GameInProgress)
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: _buildModeBadge(gameState),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Board - Hide during game over to prevent grid lines showing through
+                                    if (gameState is! GameOver)
+                                      Expanded(
+                                        flex: 3,
+                                        child: Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12.0,
+                                            ),
+                                            child: BoardDragTarget(
+                                              gridKey: _gridKey,
+                                              child: KeyedSubtree(
+                                                key: _boardKey,
+                                                child: BoardGridWidget(
+                                                    gridKey: _gridKey),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
 
-                                  // Hand pieces
-                                  const Expanded(
-                                    flex: 1,
-                                    child: HandPiecesWidget(),
-                                  ),
+                                    // Show spacer during game over to maintain layout
+                                    if (gameState is GameOver)
+                                      const Expanded(
+                                        flex: 3,
+                                        child: SizedBox(),
+                                      ),
 
-                                  const SizedBox(height: 8),
-                                ],
-                              );
+                                    // Hand pieces - Hide during game over
+                                    if (gameState is! GameOver)
+                                      const Expanded(
+                                        flex: 1,
+                                        child: HandPiecesWidget(),
+                                      ),
+
+                                    const SizedBox(height: 8),
+                                  ],
+                                ), // ← Closes Column
+                              ); // ← Closes Opacity
                             },
                           ),
                         ),
@@ -662,9 +693,21 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _showGameOverDialog(BuildContext context, GameCubit gameCubit) {
+    debugPrint('🎮 _showGameOverDialog called'); // Debug log
+
+    // CRITICAL FIX: Verify context is still valid (release mode safety)
+    if (!context.mounted) {
+      debugPrint('⚠️ Context not mounted, cannot show dialog');
+      return;
+    }
+
     final settingsCubit = context.read<SettingsCubit>();
     final state = gameCubit.state;
-    if (state is! GameOver) return;
+    if (state is! GameOver) {
+      debugPrint('⚠️ State is not GameOver, returning early');
+      return;
+    }
+    debugPrint('✅ GameOver state confirmed, showing dialog');
 
     final isHighScore = state.finalScore >= settingsCubit.state.highScore;
 
@@ -700,176 +743,187 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _safeVibrate(duration: 500);
     }
 
+    // CRITICAL FIX: Use rootNavigator for release mode compatibility
+    // RELEASE MODE FIX: Ensure dialog appears immediately with proper barrier
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppConfig.dialogBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: isStoryMode && levelCompleted
-                ? AppConfig.accentColor
-                : isHighScore
-                    ? AppConfig.achievementBorder
-                    : AppConfig.achievementGradientStart,
-            width: 2,
+      barrierColor:
+          Colors.black.withOpacity(0.85), // Visible barrier in release mode
+      useRootNavigator: true, // RELEASE MODE FIX: Ensure dialog appears on top
+      builder: (dialogContext) {
+        debugPrint('🎮 Building Game Over Dialog'); // Debug log
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1a1a2e),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isStoryMode && levelCompleted
+                  ? AppConfig.accentColor
+                  : isHighScore
+                      ? AppConfig.achievementBorder
+                      : AppConfig.achievementGradientStart,
+              width: 2,
+            ),
           ),
-        ),
-        title: Column(
-          children: [
-            if (isStoryMode && levelCompleted) ...[
-              const Icon(
-                Icons.emoji_events,
-                color: AppConfig.accentColor,
-                size: 48,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'LEVEL COMPLETE!',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          title: Column(
+            children: [
+              if (isStoryMode && levelCompleted) ...[
+                const Icon(
+                  Icons.emoji_events,
+                  color: AppConfig.accentColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'LEVEL COMPLETE!',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppConfig.accentColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(3, (index) {
+                    return Icon(
+                      index < starsEarned ? Icons.star : Icons.star_border,
                       color: AppConfig.accentColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (index) {
-                  return Icon(
-                    index < starsEarned ? Icons.star : Icons.star_border,
-                    color: AppConfig.accentColor,
-                    size: 32,
-                  );
-                }),
-              ),
-              const SizedBox(height: 4),
-            ] else if (isHighScore) ...[
-              const Icon(
-                Icons.emoji_events,
-                color: AppConfig.achievementBorder,
-                size: 48,
-              ),
-              const SizedBox(height: 8),
+                      size: 32,
+                    );
+                  }),
+                ),
+                const SizedBox(height: 4),
+              ] else if (isHighScore) ...[
+                const Icon(
+                  Icons.emoji_events,
+                  color: AppConfig.achievementBorder,
+                  size: 48,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'NEW HIGH SCORE!',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppConfig.achievementBorder,
+                        fontSize: 14,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+              ],
+              if (!isStoryMode || !levelCompleted)
+                Text(
+                  'GAME OVER',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppConfig.gameOverColor,
+                        fontSize: 28,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                'NEW HIGH SCORE!',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConfig.achievementBorder,
+                'Final Score',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppConfig.textSecondary,
                       fontSize: 14,
                     ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
-            ],
-            if (!isStoryMode || !levelCompleted)
+              const SizedBox(height: 8),
               Text(
-                'GAME OVER',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppConfig.gameOverColor,
-                      fontSize: 28,
+                '${state.finalScore}',
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      color: Colors.white,
+                      fontSize: 56,
                     ),
-                textAlign: TextAlign.center,
               ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Final Score',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppConfig.textSecondary,
-                    fontSize: 14,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${state.finalScore}',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: Colors.white,
-                    fontSize: 56,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.star, color: Color(0xFFFFE66D), size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Best: ${settingsCubit.state.highScore}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext); // Close dialog
-              Navigator.pop(context); // Return to menu
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white70,
-            ),
-            child: const Text('MENU'),
-          ),
-          if (isStoryMode &&
-              levelCompleted &&
-              widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
-            ElevatedButton(
-              onPressed: () {
-                final nextLevel = StoryLevel.allLevels.firstWhere(
-                  (level) =>
-                      level.levelNumber == widget.storyLevel!.levelNumber + 1,
-                );
-                gameCubit.resetGame();
-                Navigator.pop(dialogContext); // Close dialog
-                // BUG FIX #6: Check context.mounted before navigation
-                if (context.mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => GameScreen(storyLevel: nextLevel),
-                    ),
-                  );
-                }
-              },
-              child: const Text('NEXT LEVEL'),
-            )
-          else
-            ElevatedButton(
-              onPressed: () {
-                gameCubit.resetGame();
-                Navigator.pop(dialogContext);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4ECDC4),
-                foregroundColor: Colors.black,
+              const SizedBox(height: 16),
+              Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star, color: Color(0xFFFFE66D), size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Best: ${settingsCubit.state.highScore}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                    ),
+                  ],
+                ),
               ),
-              child: const Text('PLAY AGAIN'),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            // ✅ Direct child, no Flexible
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.pop(context);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white70,
+              ),
+              child: const Text('MENU'),
             ),
-        ],
-      ),
+            if (isStoryMode &&
+                levelCompleted &&
+                widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
+              // ✅ Direct child, no Flexible
+              ElevatedButton(
+                onPressed: () {
+                  final nextLevel = StoryLevel.allLevels.firstWhere(
+                    (level) =>
+                        level.levelNumber == widget.storyLevel!.levelNumber + 1,
+                  );
+                  gameCubit.resetGame();
+                  Navigator.pop(dialogContext);
+                  if (context.mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GameScreen(storyLevel: nextLevel),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('NEXT LEVEL'),
+              )
+            else
+              // ✅ Direct child, no Flexible
+              ElevatedButton(
+                onPressed: () {
+                  gameCubit.resetGame();
+                  Navigator.pop(dialogContext);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4ECDC4),
+                  foregroundColor: Colors.black,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('PLAY AGAIN'),
+              ),
+          ],
+        );
+      },
     );
   }
 

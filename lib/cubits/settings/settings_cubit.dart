@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,13 +52,25 @@ class SettingsCubit extends Cubit<SettingsState> {
       // CRITICAL FIX: Handle network errors gracefully - app should work offline
       if (_authService.currentUser == null) {
         // Add timeout to prevent hanging on slow/poor network connections
-        await _authService.signInAnonymously().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            debugPrint('Firebase sign-in timeout - continuing offline');
-            return null;
-          },
-        );
+        try {
+          await _authService.signInAnonymously().timeout(
+                const Duration(seconds: 10),
+              );
+        } on TimeoutException {
+          debugPrint('Firebase sign-in timeout - continuing offline');
+        } catch (e) {
+          // Handle CONFIGURATION_NOT_FOUND and other Firebase errors gracefully
+          debugPrint('Firebase anonymous sign-in failed: $e');
+          debugPrint('App will continue without Firebase authentication');
+          // Check if it's a configuration error
+          if (e.toString().contains('CONFIGURATION_NOT_FOUND') ||
+              e.toString().contains('configuration')) {
+            debugPrint(
+                '⚠️ Firebase Configuration Error: Make sure Anonymous Authentication is enabled in Firebase Console');
+            debugPrint(
+                '   Firebase Console → Authentication → Sign-in method → Enable Anonymous');
+          }
+        }
       }
 
       // Set user ID for analytics only if sign-in succeeded

@@ -54,14 +54,16 @@ void main() async {
 
   // Initialize sound service with timeout to prevent blocking app startup
   // If initialization takes too long, app will start anyway and sounds will initialize lazily
-  SoundService().initialize().timeout(
-    const Duration(seconds: 2),
-    onTimeout: () {
-      _logger.w('SoundService initialization timed out - sounds may not work');
-    },
-  ).catchError((e) {
+  try {
+    await SoundService().initialize().timeout(
+      const Duration(seconds: 2),
+    );
+    _logger.i('SoundService initialized successfully');
+  } on TimeoutException {
+    _logger.e('SoundService initialization timed out - sounds may not work');
+  } catch (e) {
     _logger.e('SoundService initialization failed', error: e);
-  });
+  }
 
   // CRITICAL FIX: Initialize SettingsCubit before running app to ensure state is ready
   // This prevents GameCubit from accessing uninitialized settings
