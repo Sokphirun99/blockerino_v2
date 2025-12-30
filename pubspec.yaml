@@ -25,6 +25,8 @@ dependencies:
   confetti: ^0.8.0
   flutter_svg: ^2.0.14
   lottie: ^3.2.1
+  shimmer: ^3.0.0
+  flame: ^1.19.0
   
   # UI Improvements
   gap: ^3.0.1
@@ -89,12 +91,12 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#1a1a2e"
-  image: assets/icon/app_icon_1.png
+  image: assets/loading/loading_screen-removebg-preview.png
   color_dark: "#1a1a2e"
-  image_dark: assets/icon/app_icon_1.png
+  image_dark: assets/loading/loading_screen-removebg-preview.png
   android_12:
-    image: assets/icon/app_icon.png
-    icon_background_color: "#7b2cbf"
+    image: assets/loading/loading_screen-removebg-preview.png
+    icon_background_color: "#1a1a2e"
   android: true
   ios: true
   web: false
@@ -105,3 +107,4 @@ flutter:
     - assets/fonts/
     - assets/sounds/
     - assets/icon/
+    - assets/loading/

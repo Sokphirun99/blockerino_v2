@@ -252,7 +252,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
               ),
               const SizedBox(height: 12),
             ],
-            
+
             // Main Score & Combo Card
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -279,7 +279,8 @@ class _GameHudWidgetState extends State<GameHudWidget>
                   ),
                   if (hasCombo)
                     BoxShadow(
-                      color: _getComboColor(gameState.combo).withValues(alpha: 0.3),
+                      color: _getComboColor(gameState.combo)
+                          .withValues(alpha: 0.3),
                       blurRadius: 16,
                       spreadRadius: 4,
                     ),
@@ -312,10 +313,12 @@ class _GameHudWidgetState extends State<GameHudWidget>
                     ),
                     const SizedBox(height: 6),
                   ],
-                  
+
                   // Score Label
                   Text(
-                    AppLocalizations.of(context).translate('score').toUpperCase(),
+                    AppLocalizations.of(context)
+                        .translate('score')
+                        .toUpperCase(),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 10,
@@ -324,37 +327,69 @@ class _GameHudWidgetState extends State<GameHudWidget>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  
-                  // Score Value
+
+                  // Score Value - IMPROVED FOR VISIBILITY
                   ComboFireWidget(
                     combo: gameState.combo,
                     child: ComboGlowWidget(
                       comboLevel: gameState.combo,
-                      child: AutoSizeText(
-                        '${gameState.score}',
-                        style: TextStyle(
-                          color: hasCombo
-                              ? _getComboColor(gameState.combo)
-                              : Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
-                          shadows: hasCombo
-                              ? [
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // STRONG BLACK OUTLINE for visibility against fire
+                          AutoSizeText(
+                            '${gameState.score}',
+                            style: TextStyle(
+                              foreground: Paint()
+                                ..style = PaintingStyle.stroke
+                                ..strokeWidth = 6
+                                ..color = Colors.black,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                            ),
+                            maxLines: 1,
+                            minFontSize: 24,
+                            textAlign: TextAlign.center,
+                          ),
+                          // MAIN TEXT with enhanced shadows
+                          AutoSizeText(
+                            '${gameState.score}',
+                            style: TextStyle(
+                              color: hasCombo
+                                  ? _getComboColor(gameState.combo)
+                                  : Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                              shadows: [
+                                // Multiple shadows for depth
+                                const Shadow(
+                                  color: Colors.black,
+                                  offset: Offset(2, 2),
+                                  blurRadius: 4,
+                                ),
+                                const Shadow(
+                                  color: Colors.black,
+                                  offset: Offset(-1, -1),
+                                  blurRadius: 2,
+                                ),
+                                if (hasCombo)
                                   Shadow(
-                                    color: _getComboColor(gameState.combo).withValues(alpha: 0.5),
-                                    blurRadius: 8,
+                                    color: _getComboColor(gameState.combo),
+                                    blurRadius: 12,
                                   ),
-                                ]
-                              : null,
-                        ),
-                        maxLines: 1,
-                        minFontSize: 24,
-                        textAlign: TextAlign.center,
+                              ],
+                            ),
+                            maxLines: 1,
+                            minFontSize: 24,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  
+
                   // Combo Display
                   if (hasCombo) ...[
                     const SizedBox(height: 8),
@@ -370,23 +405,29 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               gradient: LinearGradient(
                                 colors: [
                                   _getComboColor(gameState.combo),
-                                  _getComboColor(gameState.combo).withValues(alpha: 0.8),
+                                  _getComboColor(gameState.combo)
+                                      .withValues(alpha: 0.8),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: Colors.white.withValues(
-                                  alpha: 0.4 + (_comboGlowAnimation.value * 0.4),
+                                  alpha:
+                                      0.4 + (_comboGlowAnimation.value * 0.4),
                                 ),
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _getComboColor(gameState.combo).withValues(
-                                    alpha: 0.4 + (_comboGlowAnimation.value * 0.4),
+                                  color: _getComboColor(gameState.combo)
+                                      .withValues(
+                                    alpha:
+                                        0.4 + (_comboGlowAnimation.value * 0.4),
                                   ),
-                                  blurRadius: 12 + (_comboGlowAnimation.value * 8),
-                                  spreadRadius: 2 + (_comboGlowAnimation.value * 2),
+                                  blurRadius:
+                                      12 + (_comboGlowAnimation.value * 8),
+                                  spreadRadius:
+                                      2 + (_comboGlowAnimation.value * 2),
                                 ),
                               ],
                             ),
@@ -396,7 +437,8 @@ class _GameHudWidgetState extends State<GameHudWidget>
                                 Text(
                                   '🔥',
                                   style: TextStyle(
-                                    fontSize: 16 + (_comboScaleAnimation.value * 2),
+                                    fontSize:
+                                        16 + (_comboScaleAnimation.value * 2),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -432,7 +474,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                         );
                       },
                     ),
-                    
+
                     // Combo Timer Progress
                     const SizedBox(height: 8),
                     Container(
