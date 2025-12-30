@@ -33,6 +33,24 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Firebase generated files (contains sensitive API keys)
+lib/firebase_options.dart
+
+# Google Services configuration files (contains sensitive API keys)
+# Android
+android/app/google-services.json
+**/google-services.json
+
+# iOS
+ios/Runner/GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Web
+web/firebase-config.js
+web/firebase-messaging-sw.js
+**/firebase-config.js
+**/firebase-messaging-sw.js
+
 # Symbolication related
 app.*.symbols
 
@@ -43,3 +61,134 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================================
+# SECURITY: Sensitive Data & Credentials
+# ============================================
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.env
+secrets.json
+config.json
+credentials.json
+api-keys.json
+
+# Android signing keys and certificates (CRITICAL - Never commit!)
+android/key.properties
+android/app/keystore.properties
+*.jks
+*.keystore
+*.key
+*.p12
+*.pfx
+android/app/release.keystore
+android/app/debug.keystore
+**/keystore/
+**/keys/
+
+# iOS certificates and provisioning profiles (CRITICAL - Never commit!)
+ios/*.mobileprovision
+ios/*.provisionprofile
+ios/*.certSigningRequest
+ios/*.p12
+ios/*.cer
+ios/*.cert
+ios/DistributionSummary.plist
+ios/ExportOptions.plist
+ios/Runner.xcarchive
+*.xcuserdata
+ios/Pods/
+ios/.symlinks/
+
+# API keys and tokens
+**/api_keys.dart
+**/secrets.dart
+**/credentials.dart
+**/*_secret.*
+**/*_key.*
+**/*_token.*
+
+# Database files (may contain user data)
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+**/*.db
+**/*.sqlite
+
+# Log files (may contain sensitive data)
+*.log
+logs/
+**/logs/
+*.log.*
+crash.log
+error.log
+debug.log
+
+# Backup files (may contain sensitive data)
+*.bak
+*.backup
+*.old
+*.tmp
+*~
+.#*
+\#*#
+
+# Crash reports and analytics data
+crash_reports/
+analytics/
+**/crashlytics/
+**/firebase_crashlytics/
+
+# Local configuration overrides
+local.properties
+local_config.dart
+local_settings.json
+
+# IDE and editor files (may contain paths or settings)
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries/
+.idea/shelf/
+*.swp
+*.swo
+*~
+
+# Temporary and cache files
+tmp/
+temp/
+cache/
+.cache/
+*.cache
+
+# Package manager lock files (optional - some teams ignore these)
+# pubspec.lock  # Uncomment if you want to ignore pubspec.lock
+
+# Build outputs (may contain embedded keys)
+build/
+dist/
+out/
+*.apk
+*.aab
+*.ipa
+*.app
+*.dSYM.zip
+
+# Test coverage (may contain code paths)
+coverage/
+.nyc_output/
+*.lcov
+
+# Documentation that might contain sensitive info
+docs/secrets.md
+docs/credentials.md
+**/SECRETS.md
+**/CREDENTIALS.md
