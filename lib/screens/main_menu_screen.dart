@@ -326,35 +326,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ), // Expanded
 
                     // Banner ad at the bottom (always visible)
-                    // TEST: Add a visible container to verify layout
-                    Container(
-                      height: AdSize.banner.height.toDouble(),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(
-                            0.3), // TEMPORARY: Make it very visible
-                        border: Border.all(color: Colors.red, width: 2),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Test text to verify container is visible
-                          const Center(
-                            child: Text(
-                              'AD AREA',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          // Actual ad widget
-                          BannerAdWidget(
-                            adService: _adService,
-                            adSize: AdSize.banner,
-                          ),
-                        ],
-                      ),
+                    // ✅ Use responsive sizing - BannerAdWidget handles its own height
+                    BannerAdWidget(
+                      adService: _adService,
+                      adSize: AdSize.banner, // Standard banner, but widget will make it responsive
                     ),
                   ],
                 ), // Column

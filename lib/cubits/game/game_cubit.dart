@@ -60,6 +60,9 @@ class GameCubit extends Cubit<GameState> {
   // Story mode timer
   Timer? _storyTimer;
 
+  // Flag to prevent duplicate story level completion
+  bool _isEndingStoryLevel = false;
+
   /// Callback for when lines are cleared (for particle effects)
   LineClearCallback? onLinesCleared;
 
@@ -180,6 +183,9 @@ class GameCubit extends Cubit<GameState> {
   }
 
   void _startStoryGame(StoryLevel level) {
+    // Reset flag for new story level
+    _isEndingStoryLevel = false;
+
     _pieceBag.clear(); // Reset bag for new story level
     _bagIndex = 0;
     _bagRefillCount =
@@ -612,8 +618,12 @@ class GameCubit extends Cubit<GameState> {
       }
     } else {
       newLastBrokenLine++;
-      // FIX: Use constant 3-move buffer instead of handSize
-      // This ensures consistent combo behavior across all game modes
+      // ✅ DESIGN DECISION: Use constant 3-move buffer instead of scaling with handSize
+      // This is INTENTIONAL game balance design, not a bug:
+      // - Classic mode: 3 pieces in hand, 3-move buffer
+      // - Chaos mode: 5 pieces in hand, 3-move buffer (same buffer despite more pieces)
+      // This makes combos harder to maintain in Chaos mode, which balances the game
+      // since Chaos mode already has more pieces available (5 vs 3).
       // Combo resets after 4 moves without clearing (allows 3 moves buffer)
       if (newLastBrokenLine > 3) {
         newCombo = 0;
@@ -717,13 +727,23 @@ class GameCubit extends Cubit<GameState> {
   void resetGame() {
     _storyTimer?.cancel();
     final currentState = state;
-    if (currentState is GameInProgress) {
-      // Fix: Remove saved game before starting a new one
-      _savedGames.remove(currentState.gameMode);
-      startGame(currentState.gameMode, storyLevel: currentState.storyLevel);
-    } else if (currentState is GameOver) {
-      _savedGames.remove(currentState.gameMode);
-      startGame(currentState.gameMode, storyLevel: currentState.storyLevel);
+    if (currentState is GameInProgress || currentState is GameOver) {
+      // ✅ Clear saved game first
+      final gameMode = currentState is GameInProgress
+          ? currentState.gameMode
+          : (currentState as GameOver).gameMode;
+      final storyLevel =
+          currentState is GameInProgress ? currentState.storyLevel : null;
+
+      _savedGames.remove(gameMode);
+      _saveToPersistentStorage();
+
+      // ✅ CRITICAL: Reset bag system
+      _pieceBag.clear();
+      _bagIndex = 0;
+      _bagRefillCount = 0;
+
+      startGame(gameMode, storyLevel: storyLevel);
     }
   }
 
@@ -746,8 +766,20 @@ class GameCubit extends Cubit<GameState> {
 
   void _endStoryLevel(GameInProgress currentState,
       {bool failed = false, bool timeUp = false}) {
-    // BUG FIX #6: Prevent duplicate calls if game is already over
-    if (state is GameOver) return;
+    // ✅ Prevent duplicate calls - check both state and flag
+    if (state is GameOver) {
+      debugPrint(
+          'Level already ended (GameOver state), ignoring duplicate call');
+      return;
+    }
+
+    if (_isEndingStoryLevel) {
+      debugPrint('Level ending already in progress, ignoring duplicate call');
+      return;
+    }
+
+    // Set flag to prevent duplicate calls
+    _isEndingStoryLevel = true;
 
     _storyTimer?.cancel();
 
@@ -789,6 +821,9 @@ class GameCubit extends Cubit<GameState> {
       starsEarned: stars,
       levelCompleted: completed,
     ));
+
+    // Reset flag after emitting (in case of future reuse)
+    _isEndingStoryLevel = false;
   }
 
   // ========== Power-Up Methods ==========

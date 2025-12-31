@@ -52,6 +52,10 @@ class GhostPiecePreview extends StatelessWidget {
     // The Stack (gridKey) is inside Padding(4.0) which is inside Container with border(2.0)
     // So available space = boardSize - (border * 2) - (padding * 2) = boardSize - 12
     // Use getEffectiveSize to get the correct Stack size, then divide by grid size
+    // ✅ VERIFIED: Uses same calculation as draggable_piece_widget.dart
+    // Both use: effectiveSize = AppConfig.getEffectiveSize(context)
+    // Both use: cellSize = effectiveSize / board.size
+    // This ensures ghost preview positioning matches actual placement - NOT a bug
     // This matches exactly how the Expanded widgets divide the space
     final effectiveSize = AppConfig.getEffectiveSize(context);
     final cellSize = effectiveSize /
