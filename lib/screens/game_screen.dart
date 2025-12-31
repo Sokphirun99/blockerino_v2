@@ -403,36 +403,36 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             }
           },
           child: BlocBuilder<GameCubit, GameState>(
-            builder: (context, gameState) {
-              final speedMultiplier = _calculateSpeedMultiplier(gameState);
+          builder: (context, gameState) {
+            final speedMultiplier = _calculateSpeedMultiplier(gameState);
 
-              return FloatingScoreOverlay(
-                key: _scoreOverlayKey,
-                child: Stack(
-                  children: [
+            return FloatingScoreOverlay(
+              key: _scoreOverlayKey,
+              child: Stack(
+                children: [
                     // Animated background
-                    Positioned.fill(
-                      child: AnimatedBackgroundWidget(
-                        speedMultiplier: speedMultiplier,
-                      ),
+                  Positioned.fill(
+                    child: AnimatedBackgroundWidget(
+                      speedMultiplier: speedMultiplier,
                     ),
+                  ),
 
-                    // Main game content with screen shake
-                    ScreenShakeWidget(
-                      shouldShake: _shouldShake,
-                      intensity: 8.0,
-                      onShakeComplete: () {
-                        if (mounted) {
-                          setState(() {
-                            _shouldShake = false;
-                          });
-                        }
-                      },
+                  // Main game content with screen shake
+                  ScreenShakeWidget(
+                    shouldShake: _shouldShake,
+                    intensity: 8.0,
+                    onShakeComplete: () {
+                      if (mounted) {
+                        setState(() {
+                          _shouldShake = false;
+                        });
+                      }
+                    },
                       child: Container(
-                        decoration: BoxDecoration(
-                          gradient: theme.getBackgroundGradient(),
-                        ),
-                        child: SafeArea(
+                          decoration: BoxDecoration(
+                            gradient: theme.getBackgroundGradient(),
+                          ),
+                          child: SafeArea(
                           child: Builder(
                             builder: (context) {
                               // Show loading screen
@@ -445,12 +445,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
                               // Game over dialog - RELEASE MODE FIX
                               if (gameState is GameOver &&
-                                  !_gameOverDialogShown) {
-                                _gameOverDialogShown = true;
+                                    !_gameOverDialogShown) {
+                                  _gameOverDialogShown = true;
                                 // CRITICAL FIX: Use WidgetsBinding for better release mode compatibility
                                 // Multiple safety checks and longer delay for release builds
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
                                   if (mounted && context.mounted) {
                                     // Longer delay for release mode to ensure widget tree is fully stable
                                     // This prevents gray screen issues in production builds
@@ -460,7 +460,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                         // Double-check state is still GameOver before showing dialog
                                         final currentState = gameCubit.state;
                                         if (currentState is GameOver) {
-                                          _showGameOverDialog(
+                                      _showGameOverDialog(
                                               context, gameCubit);
                                         } else {
                                           // Reset flag if state changed
@@ -468,11 +468,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                         }
                                       }
                                     });
-                                  }
-                                });
+                                    }
+                                  });
                               } else if (gameState is! GameOver) {
-                                _gameOverDialogShown = false;
-                              }
+                                  _gameOverDialogShown = false;
+                                }
 
                               // CRITICAL FIX: Use Opacity to hide UI during game over (works in release mode)
                               return Opacity(
@@ -514,31 +514,31 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                             Align(
                                               alignment: Alignment.centerRight,
                                               child: _buildModeBadge(gameState),
-                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
 
                                     // Board - Hide during game over to prevent grid lines showing through
                                     if (gameState is! GameOver)
-                                      Expanded(
-                                        flex: 3,
-                                        child: Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
+                                    Expanded(
+                                      flex: 3,
+                                      child: Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
                                               horizontal: 12.0,
                                             ),
-                                            child: BoardDragTarget(
+                                          child: BoardDragTarget(
                                               gridKey: _gridKey,
-                                              child: KeyedSubtree(
-                                                key: _boardKey,
-                                                child: BoardGridWidget(
-                                                    gridKey: _gridKey),
-                                              ),
+                                            child: KeyedSubtree(
+                                              key: _boardKey,
+                                              child: BoardGridWidget(
+                                                  gridKey: _gridKey),
                                             ),
                                           ),
                                         ),
                                       ),
+                                    ),
 
                                     // Show spacer during game over to maintain layout
                                     if (gameState is GameOver)
@@ -549,10 +549,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
                                     // Hand pieces - Hide during game over
                                     if (gameState is! GameOver)
-                                      const Expanded(
-                                        flex: 1,
-                                        child: HandPiecesWidget(),
-                                      ),
+                                    const Expanded(
+                                      flex: 1,
+                                      child: HandPiecesWidget(),
+                                    ),
 
                                     // Banner ad at the bottom
                                     if (gameState is! GameOver)
@@ -568,114 +568,114 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                   ],
                                 ), // ← Closes Column
                               ); // ← Closes Opacity
-                            },
+                              },
+                            ),
                           ),
-                        ),
-                      ),
                     ),
+                  ),
 
                     // Achievement notification - CENTERED
-                    if (_achievementMessage != null)
+                  if (_achievementMessage != null)
                       Positioned.fill(
-                        child: Center(
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: const Duration(milliseconds: 300),
-                            builder: (context, value, child) {
-                              return Transform.scale(
+                      child: Center(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 300),
+                          builder: (context, value, child) {
+                            return Transform.scale(
                                 scale: 0.8 + (value * 0.2),
-                                child: Opacity(
-                                  opacity: value,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: Container(
+                              child: Opacity(
+                                opacity: value,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Container(
                               constraints: const BoxConstraints(
                                 minWidth: 200,
                                 maxWidth: double.infinity,
                               ),
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 32),
-                              padding: const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                                   horizontal: 24, vertical: 16),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppConfig.achievementGradientStart,
-                                    AppConfig.achievementGradientEnd,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: AppConfig.achievementBorder,
-                                  width: 2,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: AppConfig.achievementGlow,
-                                    blurRadius: 20,
-                                    spreadRadius: 5,
-                                  ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppConfig.achievementGradientStart,
+                                  AppConfig.achievementGradientEnd,
                                 ],
                               ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: AppConfig.achievementBorder,
+                                width: 2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: AppConfig.achievementGlow,
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
+                              ],
+                            ),
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _achievementMessage!,
-                                  style: const TextStyle(
-                                    color: AppConfig.textPrimary,
+                            child: Text(
+                              _achievementMessage!,
+                              style: const TextStyle(
+                                color: AppConfig.textPrimary,
                                     fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                                     letterSpacing: 1.2,
                                   ),
                                   textAlign: TextAlign.center,
-                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-
-                    // Particle effects overlay
-                    ..._activeParticles.map((particle) => Positioned.fill(
-                          child: IgnorePointer(
-                            child: ParticleEffectWidget(
-                              key: ValueKey(particle.id),
-                              position: particle.position,
-                              color: particle.color,
-                              blockSize: 20,
-                              onComplete: () => _removeParticle(particle.id),
-                            ),
-                          ),
-                        )),
-
-                    // Floating score popups are handled by FloatingScoreOverlay
-                    // (removed duplicate FloatingScoreWidget system)
-
-                    // Confetti overlay for celebrations
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ConfettiWidget(
-                        confettiController: _confettiController,
-                        blastDirection: 3.14 / 2, // Downward
-                        emissionFrequency: 0.05,
-                        numberOfParticles: 20,
-                        gravity: 0.1,
-                        shouldLoop: false,
-                        colors: const [
-                          Color(0xFF9d4edd),
-                          Color(0xFF7b2cbf),
-                          Color(0xFFFFE66D),
-                          Color(0xFFFFD700),
-                          Color(0xFF52b788),
-                        ],
-                      ),
                     ),
-                  ],
-                ),
-              );
-            },
+
+                  // Particle effects overlay
+                  ..._activeParticles.map((particle) => Positioned.fill(
+                        child: IgnorePointer(
+                          child: ParticleEffectWidget(
+                            key: ValueKey(particle.id),
+                            position: particle.position,
+                            color: particle.color,
+                            blockSize: 20,
+                            onComplete: () => _removeParticle(particle.id),
+                          ),
+                        ),
+                      )),
+
+                  // Floating score popups are handled by FloatingScoreOverlay
+                  // (removed duplicate FloatingScoreWidget system)
+
+                  // Confetti overlay for celebrations
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirection: 3.14 / 2, // Downward
+                      emissionFrequency: 0.05,
+                      numberOfParticles: 20,
+                      gravity: 0.1,
+                      shouldLoop: false,
+                      colors: const [
+                        Color(0xFF9d4edd),
+                        Color(0xFF7b2cbf),
+                        Color(0xFFFFE66D),
+                        Color(0xFFFFD700),
+                        Color(0xFF52b788),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
           ),
         ),
       ),
@@ -774,173 +774,173 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         debugPrint('🎮 Building Game Over Dialog'); // Debug log
         return AlertDialog(
           backgroundColor: const Color(0xFF1a1a2e),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: isStoryMode && levelCompleted
-                  ? AppConfig.accentColor
-                  : isHighScore
-                      ? AppConfig.achievementBorder
-                      : AppConfig.achievementGradientStart,
-              width: 2,
-            ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isStoryMode && levelCompleted
+                ? AppConfig.accentColor
+                : isHighScore
+                    ? AppConfig.achievementBorder
+                    : AppConfig.achievementGradientStart,
+            width: 2,
           ),
-          title: Column(
-            children: [
-              if (isStoryMode && levelCompleted) ...[
-                const Icon(
-                  Icons.emoji_events,
-                  color: AppConfig.accentColor,
-                  size: 48,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'LEVEL COMPLETE!',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppConfig.accentColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (index) {
-                    return Icon(
-                      index < starsEarned ? Icons.star : Icons.star_border,
-                      color: AppConfig.accentColor,
-                      size: 32,
-                    );
-                  }),
-                ),
-                const SizedBox(height: 4),
-              ] else if (isHighScore) ...[
-                const Icon(
-                  Icons.emoji_events,
-                  color: AppConfig.achievementBorder,
-                  size: 48,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'NEW HIGH SCORE!',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppConfig.achievementBorder,
-                        fontSize: 14,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-              ],
-              if (!isStoryMode || !levelCompleted)
-                Text(
-                  'GAME OVER',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppConfig.gameOverColor,
-                        fontSize: 28,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Final Score',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppConfig.textSecondary,
-                      fontSize: 14,
-                    ),
+        ),
+        title: Column(
+          children: [
+            if (isStoryMode && levelCompleted) ...[
+              const Icon(
+                Icons.emoji_events,
+                color: AppConfig.accentColor,
+                size: 48,
               ),
               const SizedBox(height: 8),
               Text(
-                '${state.finalScore}',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                      color: Colors.white,
-                      fontSize: 56,
+                'LEVEL COMPLETE!',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppConfig.accentColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Color(0xFFFFE66D), size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Best: ${settingsCubit.state.highScore}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            // ✅ Direct child, no Flexible
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white70,
-              ),
-              child: const Text('MENU'),
-            ),
-            if (isStoryMode &&
-                levelCompleted &&
-                widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
-              // ✅ Direct child, no Flexible
-              ElevatedButton(
-                onPressed: () {
-                  final nextLevel = StoryLevel.allLevels.firstWhere(
-                    (level) =>
-                        level.levelNumber == widget.storyLevel!.levelNumber + 1,
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (index) {
+                  return Icon(
+                    index < starsEarned ? Icons.star : Icons.star_border,
+                    color: AppConfig.accentColor,
+                    size: 32,
                   );
-                  gameCubit.resetGame();
-                  Navigator.pop(dialogContext);
-                  if (context.mounted) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => GameScreen(storyLevel: nextLevel),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('NEXT LEVEL'),
-              )
-            else
-              // ✅ Direct child, no Flexible
-              ElevatedButton(
-                onPressed: () {
-                  gameCubit.resetGame();
-                  Navigator.pop(dialogContext);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4ECDC4),
-                  foregroundColor: Colors.black,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('PLAY AGAIN'),
+                }),
+              ),
+              const SizedBox(height: 4),
+            ] else if (isHighScore) ...[
+              const Icon(
+                Icons.emoji_events,
+                color: AppConfig.achievementBorder,
+                size: 48,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'NEW HIGH SCORE!',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppConfig.achievementBorder,
+                      fontSize: 14,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+            ],
+            if (!isStoryMode || !levelCompleted)
+              Text(
+                'GAME OVER',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppConfig.gameOverColor,
+                      fontSize: 28,
+                    ),
+                textAlign: TextAlign.center,
               ),
           ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Final Score',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppConfig.textSecondary,
+                    fontSize: 14,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${state.finalScore}',
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                    color: Colors.white,
+                    fontSize: 56,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Color(0xFFFFE66D), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Best: ${settingsCubit.state.highScore}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+            // ✅ Direct child, no Flexible
+          TextButton(
+            onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            child: const Text('MENU'),
+          ),
+          if (isStoryMode &&
+              levelCompleted &&
+              widget.storyLevel!.levelNumber < StoryLevel.allLevels.length)
+              // ✅ Direct child, no Flexible
+            ElevatedButton(
+              onPressed: () {
+                final nextLevel = StoryLevel.allLevels.firstWhere(
+                  (level) =>
+                      level.levelNumber == widget.storyLevel!.levelNumber + 1,
+                );
+                gameCubit.resetGame();
+                  Navigator.pop(dialogContext);
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GameScreen(storyLevel: nextLevel),
+                    ),
+                  );
+                }
+              },
+              child: const Text('NEXT LEVEL'),
+            )
+          else
+              // ✅ Direct child, no Flexible
+            ElevatedButton(
+              onPressed: () {
+                gameCubit.resetGame();
+                Navigator.pop(dialogContext);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4ECDC4),
+                foregroundColor: Colors.black,
+                padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('PLAY AGAIN'),
+            ),
+        ],
         );
       },
     );

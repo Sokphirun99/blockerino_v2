@@ -210,15 +210,74 @@ class SoundService {
 
   /// Play feedback when piece cannot be placed
   Future<void> playError() async {
+    debugPrint('🔊 playError() called');
+    debugPrint('   soundEnabled: $_soundEnabled');
+    debugPrint('   initialized: $_initialized');
+    debugPrint('   hapticsEnabled: $_hapticsEnabled');
+
     if (_hapticsEnabled) {
-      await HapticFeedback.vibrate();
+      try {
+        await HapticFeedback.vibrate();
+        debugPrint('   ✅ Haptic feedback triggered');
+      } catch (e) {
+        debugPrint('   ❌ Haptic feedback failed: $e');
+      }
+    } else {
+      debugPrint('   ⏭️  Haptic feedback skipped (disabled)');
     }
 
     if (_soundEnabled && _initialized) {
+      debugPrint('   🎵 Attempting to play error sound...');
       try {
-        await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
-      } catch (e) {
-        _logger.e('Failed to play error sound', error: e);
+        final player = _audioPlayers['error'];
+        if (player != null) {
+          debugPrint('   ✅ Error audio player found');
+          // Stop any currently playing error sound first to prevent conflicts
+          await player.stop();
+          await player.play(AssetSource('sounds/error.mp3'));
+          debugPrint('   ✅ Error sound play() called successfully');
+        } else {
+          debugPrint('   ❌ ERROR: Error audio player is null!');
+          _logger.e('Error audio player not initialized');
+          // Fallback: try to reinitialize the player
+          try {
+            debugPrint('   🔄 Attempting to reinitialize error player...');
+            _audioPlayers['error'] = AudioPlayer();
+            await _audioPlayers['error']?.stop(); // Stop before playing
+            await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
+            debugPrint(
+                '   ✅ Error sound played successfully after reinitialization!');
+          } catch (e2) {
+            debugPrint('   ❌ ERROR: Failed to reinitialize error player: $e2');
+            _logger.e('Failed to reinitialize error player: $e2');
+          }
+        }
+      } catch (e, stackTrace) {
+        debugPrint('   ❌ ERROR: Failed to play error sound');
+        debugPrint('   Error: $e');
+        debugPrint('   Stack trace: $stackTrace');
+        _logger.e('Failed to play error sound',
+            error: e, stackTrace: stackTrace);
+        // Fallback: try to reinitialize the player
+        try {
+          debugPrint(
+              '   🔄 Attempting to reinitialize error player after error...');
+          _audioPlayers['error'] = AudioPlayer();
+          await _audioPlayers['error']?.stop(); // Stop before playing
+          await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
+          debugPrint(
+              '   ✅ Error sound played successfully after reinitialization!');
+        } catch (e2) {
+          debugPrint('   ❌ ERROR: Failed to reinitialize error player: $e2');
+          _logger.e('Failed to reinitialize error player: $e2');
+        }
+      }
+    } else {
+      if (!_soundEnabled) {
+        debugPrint('   ⏭️  Sound skipped: sound is disabled');
+      }
+      if (!_initialized) {
+        debugPrint('   ⏭️  Sound skipped: SoundService not initialized');
       }
     }
   }

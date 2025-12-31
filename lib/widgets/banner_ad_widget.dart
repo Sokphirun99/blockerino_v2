@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -25,13 +26,18 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   int _retryCount = 0;
   static const int _maxRetries = 3;
 
+  // Timer references for proper cleanup
+  Timer? _initTimer;
+  Timer? _retryTimer;
+  Timer? _loadingTimer;
+
   @override
   void initState() {
     super.initState();
     debugPrint('🎯 BannerAdWidget: initState() called');
     debugPrint('🎯 BannerAdWidget: Widget is being created');
     // Wait a bit for AdMob to be fully initialized
-    Future.delayed(const Duration(milliseconds: 500), () {
+    _initTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
         debugPrint('🎯 BannerAdWidget: Starting to load ad after delay');
         _loadAd();
@@ -41,7 +47,20 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     });
   }
 
+  @override
+  void dispose() {
+    // ✅ Cancel all timers to prevent memory leaks and infinite loops
+    _initTimer?.cancel();
+    _retryTimer?.cancel();
+    _loadingTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadAd() async {
+    // ✅ Cancel any existing retry timer before starting a new load
+    _retryTimer?.cancel();
+    _loadingTimer?.cancel();
+
     debugPrint('🎯 BannerAdWidget: Loading ad... (attempt ${_retryCount + 1})');
     setState(() {
       _isLoading = true;
@@ -75,7 +94,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
           debugPrint(
               '🔄 BannerAdWidget: Retrying ad load (attempt $_retryCount/$_maxRetries)...');
           // Wait a bit before retrying (exponential backoff)
-          Future.delayed(Duration(seconds: _retryCount * 2), () {
+          // ✅ Use Timer instead of Future.delayed so it can be cancelled
+          _retryTimer = Timer(Duration(seconds: _retryCount * 2), () {
             if (mounted) {
               _loadAd();
             }
@@ -102,7 +122,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
     // Set loading to false after a short delay if ad hasn't loaded yet
     // (The actual loading happens asynchronously via callbacks)
-    Future.delayed(const Duration(seconds: 1), () {
+    // ✅ Use Timer instead of Future.delayed so it can be cancelled
+    _loadingTimer = Timer(const Duration(seconds: 1), () {
       if (mounted && !_adLoaded && _isLoading) {
         setState(() {
           _isLoading = false;
@@ -113,20 +134,20 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Always reserve space for the ad (50px height for banner)
-    const double adHeight = 50.0;
+    // ✅ Get responsive ad size - use the actual ad size height
+    // This ensures the banner adapts to different screen sizes
+    final adSize = widget.adSize ?? AdSize.banner;
+    final adHeight = adSize.height.toDouble();
 
-    debugPrint('🎨 BannerAdWidget: Building widget');
-    debugPrint('   _isLoading: $_isLoading');
-    debugPrint('   _adLoaded: $_adLoaded');
-    debugPrint('   _errorMessage: $_errorMessage');
+    // For very small screens, ensure minimum height
+    const minHeight = 50.0;
+    final finalHeight = adHeight < minHeight ? minHeight : adHeight;
 
     // ALWAYS show something - never return empty widget
     // Show loading indicator while ad is loading
     if (_isLoading) {
-      debugPrint('🎨 BannerAdWidget: Showing loading indicator');
       return Container(
-        height: adHeight,
+        height: finalHeight,
         width: double.infinity,
         color: Colors.purple.withOpacity(0.3), // Make it very visible
         child: const Center(
@@ -157,9 +178,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
     // Show error message - ALWAYS show something
     if (_errorMessage != null) {
-      debugPrint('🎨 BannerAdWidget: Showing error placeholder');
       return Container(
-        height: adHeight,
+        height: finalHeight,
         width: double.infinity,
         color: Colors.red.withOpacity(0.4), // Make it very visible
         child: Center(
@@ -192,9 +212,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
     // Show ad if loaded
     if (!_adLoaded) {
-      debugPrint('🎨 BannerAdWidget: Ad not loaded, showing placeholder');
       return Container(
-        height: adHeight,
+        height: finalHeight,
         width: double.infinity,
         color: Colors.blue.withOpacity(0.4), // Make it very visible
         child: const Center(
@@ -212,9 +231,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
     final adWidget = widget.adService.getBannerAdWidget();
     if (adWidget == null) {
-      debugPrint('🎨 BannerAdWidget: Ad widget is null, showing placeholder');
       return Container(
-        height: adHeight,
+        height: finalHeight,
         width: double.infinity,
         color: Colors.yellow.withOpacity(0.4), // Make it very visible
         child: const Center(
@@ -230,9 +248,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       );
     }
 
-    debugPrint('✅ BannerAdWidget: Rendering actual ad widget');
     return Container(
-      height: adHeight,
+      height: finalHeight,
       width: double.infinity,
       color: Colors.green.withOpacity(0.2), // Temporary: make it visible
       alignment: Alignment.center,
