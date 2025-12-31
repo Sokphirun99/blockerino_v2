@@ -529,16 +529,16 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
         // Only update if position changed (prevents unnecessary rebuilds)
         if (gridX != _lastGridX || gridY != _lastGridY) {
           // Now call showHoverPreview only for valid grid positions
-          // OPTIMIZATION: showHoverPreview validates placement internally
-          gameCubit.showHoverPreview(piece, gridX, gridY);
+              // OPTIMIZATION: showHoverPreview validates placement internally
+              gameCubit.showHoverPreview(piece, gridX, gridY);
 
-          // Haptic feedback when entering a new valid spot
-          final settings = context.read<SettingsCubit>().state;
-          if (settings.hapticsEnabled &&
-              currentState.hoverValid == true &&
-              (_lastGridX == -1 || _lastGridY == -1)) {
-            // Only vibrate when entering a new valid spot for the first time
-            _intelligentHaptic(HapticFeedbackType.hoverValid);
+              // Haptic feedback when entering a new valid spot
+              final settings = context.read<SettingsCubit>().state;
+              if (settings.hapticsEnabled &&
+                  currentState.hoverValid == true &&
+                  (_lastGridX == -1 || _lastGridY == -1)) {
+                // Only vibrate when entering a new valid spot for the first time
+                _intelligentHaptic(HapticFeedbackType.hoverValid);
           }
 
           // Track last position for change detection

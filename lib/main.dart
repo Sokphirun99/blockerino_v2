@@ -7,9 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'firebase_options.dart';
+import 'config/firebase_options.dart';
 import 'screens/main_menu_screen.dart';
 import 'cubits/game/game_cubit.dart';
 import 'cubits/settings/settings_cubit.dart';
@@ -52,12 +53,21 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Initialize AdMob
+  try {
+    await MobileAds.instance.initialize();
+    _logger.i('AdMob initialized successfully');
+  } catch (e) {
+    _logger.e('AdMob initialization failed', error: e);
+    _logger.w('App will run without ads');
+  }
+
   // Initialize sound service with timeout to prevent blocking app startup
   // If initialization takes too long, app will start anyway and sounds will initialize lazily
   try {
     await SoundService().initialize().timeout(
-      const Duration(seconds: 2),
-    );
+          const Duration(seconds: 2),
+        );
     _logger.i('SoundService initialized successfully');
   } on TimeoutException {
     _logger.e('SoundService initialization timed out - sounds may not work');

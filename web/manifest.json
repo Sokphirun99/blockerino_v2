@@ -1,6 +1,6 @@
 {
-    "name": "blockerino_v2",
-    "short_name": "blockerino_v2",
+    "name": "Blockerino",
+    "short_name": "Blockerino",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

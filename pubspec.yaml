@@ -1,4 +1,4 @@
-name: blockerinov2
+name: blockerino
 description: A Block Blast-style puzzle game built with Flutter
 publish_to: 'none'
 version: 1.0.0+1
@@ -70,6 +70,11 @@ dependencies:
   
   # Remote Config
   firebase_remote_config: ^5.1.5
+  
+  # AdMob
+  google_mobile_ads: ^5.1.0
+  
+  # State Management
   flutter_bloc: ^9.1.1
   equatable: ^2.0.7
 

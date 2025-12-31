@@ -35,6 +35,10 @@ migrate_working_dir/
 
 # Firebase generated files (contains sensitive API keys)
 lib/firebase_options.dart
+lib/config/firebase_options.dart
+
+# App configuration files (contains sensitive AdMob IDs and API keys)
+lib/config/app_config.dart
 
 # Google Services configuration files (contains sensitive API keys)
 # Android

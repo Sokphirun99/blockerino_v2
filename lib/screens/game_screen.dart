@@ -26,6 +26,9 @@ import '../widgets/screen_shake_widget.dart';
 // import '../widgets/shared_ui_components.dart';
 import '../widgets/floating_score_overlay.dart';
 import '../widgets/loading_screen_widget.dart';
+import '../widgets/banner_ad_widget.dart';
+import '../services/admob_service.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 // Safe vibration helper for web compatibility
 void _safeVibrate({int duration = 50, int amplitude = 128}) {
@@ -68,6 +71,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   final List<Timer> _particleTimers = [];
   Timer? _achievementTimer;
 
+  // AdMob service
+  final AdMobService _adService = AdMobService();
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +108,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     for (final timer in _particleTimers) {
       timer.cancel();
     }
+
+    // Dispose AdMob ads
+    _adService.dispose();
     _particleTimers.clear();
 
     // BUG FIX #5: Cancel achievement timer
@@ -543,6 +552,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                       const Expanded(
                                         flex: 1,
                                         child: HandPiecesWidget(),
+                                      ),
+
+                                    // Banner ad at the bottom
+                                    if (gameState is! GameOver)
+                                      SizedBox(
+                                        height: AdSize.banner.height.toDouble(),
+                                        child: BannerAdWidget(
+                                          adService: _adService,
+                                          adSize: AdSize.banner,
+                                        ),
                                       ),
 
                                     const SizedBox(height: 8),

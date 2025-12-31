@@ -1,4 +1,4 @@
-package com.blockerinov2
+package com.company.blockerino
 
 import io.flutter.embedding.android.FlutterActivity
 

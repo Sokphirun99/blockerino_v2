@@ -94,7 +94,7 @@ lib/
 
 1. **Navigate to the project directory**:
 ```bash
-cd blockerino_v2
+cd blockerino
 ```
 
 2. **Install dependencies**:
@@ -282,7 +282,7 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 
 ## Build Information
 
-- **Package Name**: com.blockerinov2
+- **Package Name**: com.company.blockerino
 - **Build Tools**: Gradle 8.3.0, AGP 8.2.1, Kotlin 2.1.0
 - **Target SDK**: Android 34 (API Level 34)
 - **Min SDK**: Android 23 (API Level 23)
