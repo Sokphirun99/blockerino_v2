@@ -132,16 +132,14 @@ class RewardDisplay extends StatelessWidget {
       children: [
         const Text('🪙', style: TextStyle(fontSize: 18)),
         const SizedBox(width: 2),
-        Flexible(
-          child: Text(
-            '+$coins',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFffd700),
-            ),
-            overflow: TextOverflow.ellipsis,
+        Text(
+          '+$coins',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFffd700),
           ),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

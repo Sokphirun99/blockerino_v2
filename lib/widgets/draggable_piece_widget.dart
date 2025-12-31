@@ -346,6 +346,10 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
     // CRITICAL FIX: Use cell size (effectiveSize / gridSize) for grid coordinate calculation
     // This matches exactly how the ghost preview calculates positions
     // The effectiveSize accounts for border + padding, and cell size matches Expanded widget division
+    // ✅ VERIFIED: Uses same calculation as ghost_piece_preview.dart
+    // Both use: effectiveSize = AppConfig.getEffectiveSize(context)
+    // Both use: cellSize = effectiveSize / board.size
+    // This ensures ghost preview positioning matches actual placement - NOT a bug
     final effectiveSize = AppConfig.getEffectiveSize(context);
     final cellSize = effectiveSize /
         board.size; // Full cell size (matches Expanded division)
@@ -529,16 +533,16 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
         // Only update if position changed (prevents unnecessary rebuilds)
         if (gridX != _lastGridX || gridY != _lastGridY) {
           // Now call showHoverPreview only for valid grid positions
-              // OPTIMIZATION: showHoverPreview validates placement internally
-              gameCubit.showHoverPreview(piece, gridX, gridY);
+          // OPTIMIZATION: showHoverPreview validates placement internally
+          gameCubit.showHoverPreview(piece, gridX, gridY);
 
-              // Haptic feedback when entering a new valid spot
-              final settings = context.read<SettingsCubit>().state;
-              if (settings.hapticsEnabled &&
-                  currentState.hoverValid == true &&
-                  (_lastGridX == -1 || _lastGridY == -1)) {
-                // Only vibrate when entering a new valid spot for the first time
-                _intelligentHaptic(HapticFeedbackType.hoverValid);
+          // Haptic feedback when entering a new valid spot
+          final settings = context.read<SettingsCubit>().state;
+          if (settings.hapticsEnabled &&
+              currentState.hoverValid == true &&
+              (_lastGridX == -1 || _lastGridY == -1)) {
+            // Only vibrate when entering a new valid spot for the first time
+            _intelligentHaptic(HapticFeedbackType.hoverValid);
           }
 
           // Track last position for change detection

@@ -101,18 +101,16 @@ class _GameHudWidgetState extends State<GameHudWidget>
             Icon(Icons.circle_outlined,
                 color: Colors.white.withValues(alpha: 0.5), size: 12),
           const SizedBox(width: 4),
-          Flexible(
-            child: AutoSizeText(
-              text,
-              style: TextStyle(
-                color: completed ? const Color(0xFF52b788) : Colors.white,
-                fontSize: 10,
-                fontWeight: completed ? FontWeight.bold : FontWeight.normal,
-              ),
-              maxLines: 1,
-              minFontSize: 6,
-              overflow: TextOverflow.ellipsis,
+          AutoSizeText(
+            text,
+            style: TextStyle(
+              color: completed ? const Color(0xFF52b788) : Colors.white,
+              fontSize: 10,
+              fontWeight: completed ? FontWeight.bold : FontWeight.normal,
             ),
+            maxLines: 1,
+            minFontSize: 6,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -354,14 +352,14 @@ class _GameHudWidgetState extends State<GameHudWidget>
                           ),
                           // MAIN TEXT with enhanced shadows
                           AutoSizeText(
-                        '${gameState.score}',
-                        style: TextStyle(
-                          color: hasCombo
-                              ? _getComboColor(gameState.combo)
-                              : Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+                            '${gameState.score}',
+                            style: TextStyle(
+                              color: hasCombo
+                                  ? _getComboColor(gameState.combo)
+                                  : Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
                               shadows: [
                                 // Multiple shadows for depth
                                 const Shadow(
@@ -380,10 +378,10 @@ class _GameHudWidgetState extends State<GameHudWidget>
                                     blurRadius: 12,
                                   ),
                               ],
-                        ),
-                        maxLines: 1,
-                        minFontSize: 24,
-                        textAlign: TextAlign.center,
+                            ),
+                            maxLines: 1,
+                            minFontSize: 24,
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),

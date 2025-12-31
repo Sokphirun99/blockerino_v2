@@ -34,18 +34,20 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final todayChallenge = DailyChallenge.generateForDate(today);
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Challenge', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Daily Challenge',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1a1a2e),
       ),
       body: GameGradientBackground(
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
             final settings = context.read<SettingsCubit>();
-            final isCompleted = settings.isChallengeCompleted(todayChallenge.id);
-            
+            final isCompleted =
+                settings.isChallengeCompleted(todayChallenge.id);
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -53,12 +55,13 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
                   // Timer countdown to next challenge
                   _buildCountdownTimer(today),
                   const Gap(24),
-                  
+
                   // Today's challenge card
-                  _buildChallengeCard(context, todayChallenge, isCompleted, settings),
-                  
+                  _buildChallengeCard(
+                      context, todayChallenge, isCompleted, settings),
+
                   const Gap(24),
-                  
+
                   // Previous challenges (last 3 days)
                   _buildPreviousChallenges(context, today, settings),
                 ],
@@ -73,7 +76,7 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
   Widget _buildCountdownTimer(DateTime today) {
     final tomorrow = DateTime(today.year, today.month, today.day + 1);
     final timeUntil = tomorrow.difference(today);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -116,18 +119,28 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
     );
   }
 
-  Widget _buildChallengeCard(BuildContext context, DailyChallenge challenge, bool isCompleted, SettingsCubit settings) {
+  Widget _buildChallengeCard(BuildContext context, DailyChallenge challenge,
+      bool isCompleted, SettingsCubit settings) {
     return GradientCard(
       padding: const EdgeInsets.all(16),
       borderRadius: 20,
       gradientColors: isCompleted
-          ? [const Color(0xFF52b788).withValues(alpha: 0.3), const Color(0xFF40916c).withValues(alpha: 0.3)]
-          : [const Color(0xFF2d2d44).withValues(alpha: 0.8), const Color(0xFF1a1a2e).withValues(alpha: 0.9)],
-      borderColor: isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd),
+          ? [
+              const Color(0xFF52b788).withValues(alpha: 0.3),
+              const Color(0xFF40916c).withValues(alpha: 0.3)
+            ]
+          : [
+              const Color(0xFF2d2d44).withValues(alpha: 0.8),
+              const Color(0xFF1a1a2e).withValues(alpha: 0.9)
+            ],
+      borderColor:
+          isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd),
       borderWidth: 2,
       boxShadow: [
         BoxShadow(
-          color: (isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd)).withValues(alpha: 0.3),
+          color:
+              (isCompleted ? const Color(0xFF52b788) : const Color(0xFF9d4edd))
+                  .withValues(alpha: 0.3),
           blurRadius: 12,
           spreadRadius: 2,
         ),
@@ -150,7 +163,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
                 ),
               ),
               if (isCompleted)
-                const Icon(Icons.check_circle, color: Color(0xFF52b788), size: 32),
+                const Icon(Icons.check_circle,
+                    color: Color(0xFF52b788), size: 32),
             ],
           ),
           const Gap(12),
@@ -162,7 +176,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
             ),
           ),
           const Gap(16),
-          _buildChallengeInfo('Mode', challenge.gameMode == GameMode.classic ? 'Classic' : 'Chaos'),
+          _buildChallengeInfo('Mode',
+              challenge.gameMode == GameMode.classic ? 'Classic' : 'Chaos'),
           _buildChallengeInfo('Target', _getTargetText(challenge)),
           const Gap(16),
           Row(
@@ -196,8 +211,16 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
                         foregroundColor: Colors.white,
                         padding: responsive.horizontalPadding(mobile: 16),
                         minimumSize: Size(
-                          responsive.isMobile ? 60 : responsive.isTablet ? 80 : 100,
-                          responsive.isMobile ? 30 : responsive.isTablet ? 36 : 42,
+                          responsive.isMobile
+                              ? 60
+                              : responsive.isTablet
+                                  ? 80
+                                  : 100,
+                          responsive.isMobile
+                              ? 30
+                              : responsive.isTablet
+                                  ? 36
+                                  : 42,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
@@ -253,7 +276,7 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
               color: Colors.white.withValues(alpha: 0.6),
             ),
           ),
-          Flexible(
+          Expanded(
             child: AutoSizeText(
               value,
               style: const TextStyle(
@@ -288,7 +311,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
     }
   }
 
-  Widget _buildPreviousChallenges(BuildContext context, DateTime today, SettingsCubit settings) {
+  Widget _buildPreviousChallenges(
+      BuildContext context, DateTime today, SettingsCubit settings) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,7 +329,7 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
           final date = today.subtract(Duration(days: index + 1));
           final challenge = DailyChallenge.generateForDate(date);
           final isCompleted = settings.isChallengeCompleted(challenge.id);
-          
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _buildSmallChallengeCard(challenge, isCompleted, date),
@@ -315,14 +339,17 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
     );
   }
 
-  Widget _buildSmallChallengeCard(DailyChallenge challenge, bool isCompleted, DateTime date) {
+  Widget _buildSmallChallengeCard(
+      DailyChallenge challenge, bool isCompleted, DateTime date) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF2d2d44).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isCompleted ? const Color(0xFF52b788).withValues(alpha: 0.3) : const Color(0xFF9d4edd).withValues(alpha: 0.2),
+          color: isCompleted
+              ? const Color(0xFF52b788).withValues(alpha: 0.3)
+              : const Color(0xFF9d4edd).withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -352,7 +379,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
           if (isCompleted)
             const Icon(Icons.check_circle, color: Color(0xFF52b788), size: 24)
           else
-            Icon(Icons.lock, color: Colors.white.withValues(alpha: 0.3), size: 24),
+            Icon(Icons.lock,
+                color: Colors.white.withValues(alpha: 0.3), size: 24),
         ],
       ),
     );
