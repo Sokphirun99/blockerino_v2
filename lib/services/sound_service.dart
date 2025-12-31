@@ -96,7 +96,12 @@ class SoundService {
 
     if (_soundEnabled && _initialized) {
       try {
-        await _audioPlayers['place']?.play(AssetSource('sounds/pop.mp3'));
+        final player = _audioPlayers['place'];
+        if (player != null) {
+          // ✅ Stop any currently playing sound first to prevent conflicts
+          await player.stop();
+          await player.play(AssetSource('sounds/pop.mp3'));
+        }
       } catch (e) {
         _logger.e('Failed to play place sound', error: e);
       }
@@ -127,7 +132,12 @@ class SoundService {
     if (_soundEnabled && _initialized && !hasCombo) {
       debugPrint('🔊 Playing clear sound (no combo)');
       try {
-        await _audioPlayers['clear']?.play(AssetSource('sounds/blast.mp3'));
+        final player = _audioPlayers['clear'];
+        if (player != null) {
+          // ✅ Stop any currently playing sound first to prevent conflicts
+          await player.stop();
+          await player.play(AssetSource('sounds/blast.mp3'));
+        }
       } catch (e) {
         _logger.e('Failed to play clear sound', error: e);
       }
@@ -157,8 +167,11 @@ class SoundService {
       try {
         final player = _audioPlayers['combo'];
         if (player != null) {
-          // Stop any currently playing combo sound first to prevent conflicts
+          // ✅ CRITICAL FIX: Stop any currently playing combo sound first
+          // Add small delay to ensure stop() completes before play()
           await player.stop();
+          await Future.delayed(
+              const Duration(milliseconds: 50)); // Allow stop to complete
           await player.play(AssetSource('sounds/combo.mp3'));
           debugPrint('🔊 Combo sound played successfully!');
         } else {
@@ -173,6 +186,8 @@ class SoundService {
           debugPrint('🔊 Attempting to reinitialize combo player...');
           _audioPlayers['combo'] = AudioPlayer();
           await _audioPlayers['combo']?.stop(); // Stop before playing
+          await Future.delayed(
+              const Duration(milliseconds: 50)); // Allow stop to complete
           await _audioPlayers['combo']?.play(AssetSource('sounds/combo.mp3'));
           debugPrint(
               '🔊 Combo sound played successfully after reinitialization!');
@@ -200,8 +215,12 @@ class SoundService {
 
     if (_soundEnabled && _initialized) {
       try {
-        await _audioPlayers['gameOver']
-            ?.play(AssetSource('sounds/game_over.mp3'));
+        final player = _audioPlayers['gameOver'];
+        if (player != null) {
+          // ✅ Stop any currently playing sound first to prevent conflicts
+          await player.stop();
+          await player.play(AssetSource('sounds/game_over.mp3'));
+        }
       } catch (e) {
         _logger.e('Failed to play game over sound', error: e);
       }
@@ -290,8 +309,13 @@ class SoundService {
 
     if (_soundEnabled && _initialized) {
       try {
-        // Use pop.mp3 for refill (no dedicated refill sound)
-        await _audioPlayers['refill']?.play(AssetSource('sounds/pop.mp3'));
+        final player = _audioPlayers['refill'];
+        if (player != null) {
+          // ✅ Stop any currently playing sound first to prevent conflicts
+          await player.stop();
+          // Use pop.mp3 for refill (no dedicated refill sound)
+          await player.play(AssetSource('sounds/pop.mp3'));
+        }
       } catch (e) {
         _logger.e('Failed to play refill sound', error: e);
       }
