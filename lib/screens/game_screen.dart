@@ -265,6 +265,24 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _showScorePopup(scoreEarned, position);
     }
 
+    // Check for perfect clear (board completely empty after clearing)
+    bool isBoardEmpty = true;
+    for (int row = 0; row < board.size && isBoardEmpty; row++) {
+      for (int col = 0; col < board.size && isBoardEmpty; col++) {
+        if (board.grid[row][col].type == BlockType.filled) {
+          isBoardEmpty = false;
+        }
+      }
+    }
+
+    if (isBoardEmpty && lineCount > 0) {
+      // Calculate perfect clear bonus (same formula as game_cubit)
+      final perfectClearBonus = 1000 + (gameState.combo * 100);
+      _showPerfectClearCelebration(perfectClearBonus);
+      _confettiController.play(); // Also play confetti!
+      _triggerFlash(const Color(0xFFFFD700)); // Gold flash
+    }
+
     // Create particles for each cleared block with ripple delay
     for (final blockInfo in clearedBlocks) {
       // Use delay for ripple effect
@@ -331,6 +349,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _checkAchievements(int lineCount, int combo) {
+    // BUG FIX: Reset lastComboLevel when combo resets to 0
+    // This allows combo milestone messages to show again after combo breaks
+    if (combo == 0) {
+      _lastComboLevel = 0;
+      return; // No combo achievements to check
+    }
+
     String? message;
 
     // Check for special line clears
