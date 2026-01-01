@@ -27,6 +27,7 @@ import '../widgets/screen_shake_widget.dart';
 import '../widgets/floating_score_overlay.dart';
 import '../widgets/loading_screen_widget.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/screen_flash.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -70,6 +71,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // BUG FIX #4 & #5: Track timers for proper cleanup
   final List<Timer> _particleTimers = [];
   Timer? _achievementTimer;
+
+  // Screen flash effects
+  final List<Widget> _flashEffects = [];
+  int _flashIdCounter = 0;
 
   // AdMob service
   final AdMobService _adService = AdMobService();
@@ -228,6 +233,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       }
     }
 
+    // Trigger screen flash for big clears
+    if (lineCount >= 5) {
+      _triggerFlash(const Color(0xFFFFD700)); // Gold for 5+ lines
+    } else if (lineCount >= 3) {
+      _triggerFlash(Colors.white); // White for 3-4 lines
+    }
+
     // Show achievement messages
     _checkAchievements(lineCount, gameState.combo);
 
@@ -346,6 +358,29 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _activeParticles.removeWhere((p) => p.id == id);
       });
     }
+  }
+
+  void _triggerFlash(Color color) {
+    final flashId = _flashIdCounter++;
+    setState(() {
+      _flashEffects.add(
+        Positioned.fill(
+          key: ValueKey('flash-$flashId'),
+          child: ScreenFlash(
+            color: color,
+            onComplete: () => _removeFlash(flashId),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _removeFlash(int id) {
+    if (!mounted) return;
+    setState(() {
+      _flashEffects.removeWhere(
+          (w) => (w.key as ValueKey).value == 'flash-$id');
+    });
   }
 
   // BUG FIX #7: Extract expensive calculation to separate method
@@ -672,6 +707,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
+
+                  // Screen flash effects (perfect clear, chaos events, etc.)
+                  ..._flashEffects,
                 ],
               ),
             );
