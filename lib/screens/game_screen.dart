@@ -29,6 +29,7 @@ import '../widgets/loading_screen_widget.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/screen_flash.dart';
 import '../widgets/combo_counter.dart';
+import '../widgets/floating_score.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -76,6 +77,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // Screen flash effects
   final List<Widget> _flashEffects = [];
   int _flashIdCounter = 0;
+
+  // Floating score popups
+  final List<Widget> _scorePopups = [];
+  int _scorePopupIdCounter = 0;
 
   // AdMob service
   final AdMobService _adService = AdMobService();
@@ -248,6 +253,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     final scoreEarned = gameState.score - _lastScore;
     _lastScore = gameState.score;
 
+    // Show floating score popup if points were earned
+    if (scoreEarned > 0) {
+      final size = MediaQuery.of(currentContext).size;
+      final position = Offset(size.width / 2 - 50, size.height / 3);
+      _showScorePopup(scoreEarned, position);
+    }
+
     // Create particles for each cleared block with ripple delay
     for (final blockInfo in clearedBlocks) {
       // Use delay for ripple effect
@@ -381,6 +393,28 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     setState(() {
       _flashEffects.removeWhere(
           (w) => (w.key as ValueKey).value == 'flash-$id');
+    });
+  }
+
+  void _showScorePopup(int points, Offset position) {
+    final popupId = _scorePopupIdCounter++;
+    setState(() {
+      _scorePopups.add(
+        FloatingScore(
+          key: ValueKey('score-$popupId'),
+          points: points,
+          position: position,
+          onComplete: () => _removeScorePopup(popupId),
+        ),
+      );
+    });
+  }
+
+  void _removeScorePopup(int id) {
+    if (!mounted) return;
+    setState(() {
+      _scorePopups.removeWhere(
+          (w) => (w.key as ValueKey).value == 'score-$id');
     });
   }
 
@@ -721,6 +755,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ),
                     ),
                   ),
+
+                  // Floating score popups
+                  ..._scorePopups,
 
                   // Screen flash effects (perfect clear, chaos events, etc.)
                   ..._flashEffects,
