@@ -30,6 +30,7 @@ import '../widgets/banner_ad_widget.dart';
 import '../widgets/screen_flash.dart';
 import '../widgets/combo_counter.dart';
 import '../widgets/floating_score.dart';
+import '../widgets/perfect_clear_celebration.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -81,6 +82,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // Floating score popups
   final List<Widget> _scorePopups = [];
   int _scorePopupIdCounter = 0;
+
+  // Perfect clear celebrations
+  final List<Widget> _celebrations = [];
+  int _celebrationIdCounter = 0;
 
   // AdMob service
   final AdMobService _adService = AdMobService();
@@ -415,6 +420,31 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     setState(() {
       _scorePopups.removeWhere(
           (w) => (w.key as ValueKey).value == 'score-$id');
+    });
+  }
+
+  void _showPerfectClearCelebration(int bonus) {
+    final id = _celebrationIdCounter++;
+    setState(() {
+      _celebrations.add(
+        Positioned.fill(
+          key: ValueKey('celebration-$id'),
+          child: Center(
+            child: PerfectClearCelebration(
+              bonus: bonus,
+              onComplete: () => _removeCelebration(id),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _removeCelebration(int id) {
+    if (!mounted) return;
+    setState(() {
+      _celebrations.removeWhere(
+          (w) => (w.key as ValueKey).value == 'celebration-$id');
     });
   }
 
@@ -761,6 +791,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
                   // Screen flash effects (perfect clear, chaos events, etc.)
                   ..._flashEffects,
+
+                  // Perfect clear celebrations (on top of everything)
+                  ..._celebrations,
                 ],
               ),
             );
