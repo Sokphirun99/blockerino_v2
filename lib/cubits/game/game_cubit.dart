@@ -830,6 +830,11 @@ class GameCubit extends Cubit<GameState> {
       _bagIndex = 0;
       _bagRefillCount = 0;
 
+      // ✅ CRITICAL: Reset Chaos mode variables
+      _moveCount = 0;
+      _doublePointsActive = false;
+      _doublePointsLeft = 0;
+
       startGame(gameMode, storyLevel: storyLevel);
     }
   }
