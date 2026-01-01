@@ -149,7 +149,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       return Container(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.purple.withOpacity(0.3), // Make it very visible
+        color: Colors.purple.withValues(alpha: 0.3), // Make it very visible
         child: const Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -181,7 +181,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       return Container(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.red.withOpacity(0.4), // Make it very visible
+        color: Colors.red.withValues(alpha: 0.4), // Make it very visible
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -215,7 +215,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       return Container(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.blue.withOpacity(0.4), // Make it very visible
+        color: Colors.blue.withValues(alpha: 0.4), // Make it very visible
         child: const Center(
           child: Text(
             'Ad Not Loaded Yet',
@@ -234,7 +234,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       return Container(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.yellow.withOpacity(0.4), // Make it very visible
+        color: Colors.yellow.withValues(alpha: 0.4), // Make it very visible
         child: const Center(
           child: Text(
             'Ad Widget is Null',
@@ -251,7 +251,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     return Container(
       height: finalHeight,
       width: double.infinity,
-      color: Colors.green.withOpacity(0.2), // Temporary: make it visible
+      color: Colors.green.withValues(alpha: 0.2), // Temporary: make it visible
       alignment: Alignment.center,
       child: adWidget,
     );

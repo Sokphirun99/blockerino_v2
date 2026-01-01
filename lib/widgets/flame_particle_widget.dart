@@ -129,7 +129,7 @@ class _ParticleGame extends FlameGame {
 }
 
 /// Individual particle component using Flame
-class _ParticleComponent extends PositionComponent with HasGameRef {
+class _ParticleComponent extends PositionComponent with HasGameReference {
   final Vector2 startPosition;
   final double angle;
   final double speed;
@@ -303,7 +303,7 @@ class _ComboFireGame extends FlameGame {
 }
 
 /// Fire particle component for combo effect
-class _FireParticleComponent extends PositionComponent with HasGameRef {
+class _FireParticleComponent extends PositionComponent with HasGameReference {
   final double startX;
   final double startY;
   final double speed;
@@ -337,7 +337,7 @@ class _FireParticleComponent extends PositionComponent with HasGameRef {
 
     // Update position based on time
     final progress = (_time * 2.0 + phase) % 1.0;
-    final gameSize = gameRef.size;
+    final gameSize = game.size;
 
     // Vertical movement (bottom to top)
     final y = gameSize.y * (startY - (progress * speed * 1.2));
@@ -359,7 +359,7 @@ class _FireParticleComponent extends PositionComponent with HasGameRef {
   @override
   void render(Canvas canvas) {
     final progress = (_time * 2.0 + phase) % 1.0;
-    final gameSize = gameRef.size;
+    final gameSize = game.size;
 
     // Calculate particle lifecycle
     double lifeProgress;
@@ -381,20 +381,20 @@ class _FireParticleComponent extends PositionComponent with HasGameRef {
 
     if (progress < 0.4) {
       color = Color.lerp(
-        const Color(0xFFFFD700).withOpacity(baseOpacity * lifeProgress),
-        const Color(0xFFFF8C00).withOpacity(baseOpacity * lifeProgress),
+        const Color(0xFFFFD700).withValues(alpha: baseOpacity * lifeProgress),
+        const Color(0xFFFF8C00).withValues(alpha: baseOpacity * lifeProgress),
         progress / 0.4,
       )!;
     } else if (progress < 0.7) {
       color = Color.lerp(
-        const Color(0xFFFF8C00).withOpacity(baseOpacity * lifeProgress * 0.95),
+        const Color(0xFFFF8C00).withValues(alpha: baseOpacity * lifeProgress * 0.95),
         const Color(0xFFFF4500).withOpacity(baseOpacity * lifeProgress * 0.85),
         (progress - 0.4) / 0.3,
       )!;
     } else {
       color = Color.lerp(
         const Color(0xFFFF4500).withOpacity(baseOpacity * lifeProgress * 0.85),
-        const Color(0xFFFF4500).withOpacity(baseOpacity * lifeProgress * 0.4),
+        const Color(0xFFFF4500).withValues(alpha: baseOpacity * lifeProgress * 0.4),
         (progress - 0.7) / 0.3,
       )!;
     }
@@ -412,13 +412,13 @@ class _FireParticleComponent extends PositionComponent with HasGameRef {
     // Add glow effects
     if (lifeProgress > 0.3) {
       final glowPaint = Paint()
-        ..color = color.withOpacity(color.opacity * 0.6)
+        ..color = color.withValues(alpha: color.a * 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
       canvas.drawCircle(Offset.zero, renderSize * 2.5, glowPaint);
 
       if (lifeProgress > 0.6) {
         final outerGlowPaint = Paint()
-          ..color = color.withOpacity(color.opacity * 0.3)
+          ..color = color.withValues(alpha: color.a * 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 25);
         canvas.drawCircle(Offset.zero, renderSize * 4.0, outerGlowPaint);
       }

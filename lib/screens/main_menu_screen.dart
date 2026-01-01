@@ -76,56 +76,56 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   children: [
                     // Scrollable content
                     Expanded(
-                      child: Center(
-                        child: SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: MediaQuery.of(context).size.height -
-                                  MediaQuery.of(context).padding.top -
-                                  MediaQuery.of(context).padding.bottom -
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: MediaQuery.of(context).size.height -
+                            MediaQuery.of(context).padding.top -
+                            MediaQuery.of(context).padding.bottom -
                                   (AppConfig.mainMenuVerticalPadding * 2) -
                                   AdSize.banner.height
                                       .toDouble() - // Reserve space for ad
                                   16, // Padding
-                            ),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: AppConfig.mainMenuVerticalPadding),
-                              child: BlocBuilder<SettingsCubit, SettingsState>(
-                                builder: (context, settingsState) {
-                                  return Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppConfig.mainMenuVerticalPadding),
+                        child: BlocBuilder<SettingsCubit, SettingsState>(
+                          builder: (context, settingsState) {
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
-                                    children: [
-                                      // Title
-                                      Text(
-                                        localizations.appName,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .displayMedium
-                                            ?.copyWith(
-                                              color: AppConfig.textPrimary,
-                                              fontSize: 32,
-                                              letterSpacing: 2,
-                                            ),
+                              children: [
+                                // Title
+                                Text(
+                                  localizations.appName,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displayMedium
+                                      ?.copyWith(
+                                        color: AppConfig.textPrimary,
+                                        fontSize: 32,
+                                        letterSpacing: 2,
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        localizations.appTagline,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: AppConfig.textSecondary,
-                                              fontSize: 12,
-                                            ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  localizations.appTagline,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: AppConfig.textSecondary,
+                                        fontSize: 12,
                                       ),
-                                      const SizedBox(height: 32),
+                                ),
+                                const SizedBox(height: 32),
 
-                                      // DISABLED: Coins Display
-                                      /*
+                                // DISABLED: Coins Display
+                                /*
                                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
@@ -160,50 +160,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 6),
                 */
 
-                                      // High Score Display
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 20, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: AppConfig.cardBackground,
+                                // High Score Display
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppConfig.cardBackground,
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           border: Border.all(
                                               color: AppConfig.cardBorder),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Text(
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
                                               localizations
                                                   .translate('high_score'),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall
-                                                  ?.copyWith(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
                                                     color:
                                                         AppConfig.textSecondary,
-                                                    fontSize: 10,
-                                                  ),
+                                              fontSize: 10,
                                             ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${settingsState.highScore}',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .headlineMedium
-                                                  ?.copyWith(
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${settingsState.highScore}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineMedium
+                                            ?.copyWith(
                                                     color:
                                                         AppConfig.accentColor,
-                                                    fontSize: 24,
-                                                  ),
+                                              fontSize: 24,
                                             ),
-                                          ],
-                                        ),
                                       ),
-                                      const SizedBox(height: 40),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 40),
 
-                                      // DISABLED: Story Mode Button
-                                      /*
+                                // DISABLED: Story Mode Button
+                                /*
                                 _MenuButton(
                   text: '📖 ${localizations.translate('story_mode')}',
                   subtitle: localizations.translate('story_subtitle'),
@@ -218,8 +218,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 12),
                 */
 
-                                      // DISABLED: Daily Challenge Button
-                                      /*
+                                // DISABLED: Daily Challenge Button
+                                /*
                                 _MenuButton(
                   text: '⭐ ${localizations.translate('daily_challenge')}',
                   subtitle: localizations.translate('daily_subtitle'),
@@ -234,32 +234,32 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 12),
                 */
 
-                                      // Classic Mode Button
-                                      _MenuButton(
-                                        text: localizations.classicMode,
-                                        subtitle: localizations
-                                            .translate('classic_subtitle'),
-                                        color: const Color(0xFF4ECDC4),
-                                        onPressed: () {
-                                          _startGame(context, GameMode.classic);
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
+                                // Classic Mode Button
+                                _MenuButton(
+                                  text: localizations.classicMode,
+                                  subtitle: localizations
+                                      .translate('classic_subtitle'),
+                                  color: const Color(0xFF4ECDC4),
+                                  onPressed: () {
+                                    _startGame(context, GameMode.classic);
+                                  },
+                                ),
+                                const SizedBox(height: 12),
 
-                                      // Chaos Mode Button
-                                      _MenuButton(
-                                        text: localizations.chaosMode,
+                                // Chaos Mode Button
+                                _MenuButton(
+                                  text: localizations.chaosMode,
                                         subtitle: localizations
                                             .translate('chaos_subtitle'),
-                                        color: const Color(0xFFFF6B6B),
-                                        onPressed: () {
-                                          _startGame(context, GameMode.chaos);
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
+                                  color: const Color(0xFFFF6B6B),
+                                  onPressed: () {
+                                    _startGame(context, GameMode.chaos);
+                                  },
+                                ),
+                                const SizedBox(height: 12),
 
-                                      // DISABLED: Store Button
-                                      /*
+                                // DISABLED: Store Button
+                                /*
                                 _MenuButton(
                   text: '🏪 ${localizations.translate('store')}',
                   subtitle: localizations.translate('store_subtitle'),
@@ -274,8 +274,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 12),
                 */
 
-                                      // DISABLED: Leaderboard Button
-                                      /*
+                                // DISABLED: Leaderboard Button
+                                /*
                                 TextButton(
                   onPressed: () {
                     Navigator.push(
@@ -294,8 +294,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 8),
                 */
 
-                                      // DISABLED: Settings button (not yet ready for use)
-                                      /*
+                                // DISABLED: Settings button (not yet ready for use)
+                                /*
                                 _MenuButton(
                   text: localizations.translate('settings'),
                   icon: Icons.settings,
@@ -314,15 +314,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
                 */
 
-                                      const SizedBox(height: 40),
-                                    ],
-                                  ); // Column
-                                }, // BlocBuilder builder
-                              ), // BlocBuilder
-                            ), // Container
-                          ), // ConstrainedBox
-                        ), // SingleChildScrollView
-                      ), // Center
+                                const SizedBox(height: 40),
+                              ],
+                            ); // Column
+                          }, // BlocBuilder builder
+                        ), // BlocBuilder
+                      ), // Container
+                    ), // ConstrainedBox
+                  ), // SingleChildScrollView
+                ), // Center
                     ), // Expanded
 
                     // Banner ad at the bottom (always visible)

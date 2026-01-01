@@ -106,7 +106,7 @@ class _LoadingScreenWidgetState extends State<LoadingScreenWidget>
                   child: Text(
                     widget.message!,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 1.2,
@@ -139,7 +139,7 @@ class _LoadingScreenWidgetState extends State<LoadingScreenWidget>
                         children: [
                           // Background
                           Container(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                           ),
 
                           // Progress

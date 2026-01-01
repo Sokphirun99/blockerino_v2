@@ -237,9 +237,13 @@ class _BlockCell extends StatefulWidget {
 }
 
 class _BlockCellState extends State<_BlockCell>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+
+  // Squish animation for block placement
+  late AnimationController _squishController;
+  late Animation<double> _squishAnimation;
 
   bool _isShowingGlow(BlockType blockType) {
     return blockType == BlockType.hoverBreakFilled ||
@@ -258,9 +262,37 @@ class _BlockCellState extends State<_BlockCell>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    // Setup squish animation for block placement
+    _squishController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _squishAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.85)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.85, end: 1.05)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.05, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
+    ]).animate(_squishController);
+
     // Direct call in initState is fine for this use case
     if (_isShowingGlow(widget.block.type)) {
       _pulseController.repeat(reverse: true);
+    }
+
+    // Trigger squish if block is already filled
+    if (widget.block.type == BlockType.filled) {
+      _squishController.forward(from: 0);
     }
   }
 
@@ -284,6 +316,9 @@ class _BlockCellState extends State<_BlockCell>
             oldWidget.block.type != BlockType.filled) ||
         (widget.block.type == BlockType.hoverBreakFilled &&
             oldWidget.block.type != BlockType.hoverBreakFilled)) {
+      // Trigger squish animation when block becomes filled
+      _squishController.forward(from: 0);
+
       if (!isShowingGlow) {
         _pulseController.forward(from: 0.0).then((_) {
           if (mounted) _pulseController.reverse();
@@ -295,6 +330,7 @@ class _BlockCellState extends State<_BlockCell>
   @override
   void dispose() {
     _pulseController.dispose();
+    _squishController.dispose();
     super.dispose();
   }
 
@@ -367,14 +403,16 @@ class _BlockCellState extends State<_BlockCell>
     }
 
     return AnimatedBuilder(
-      animation: _pulseAnimation,
+      animation: Listenable.merge([_pulseAnimation, _squishAnimation]),
       builder: (context, child) {
         final isGlowing = _isShowingGlow(widget.block.type);
-        final scale = isGlowing ? _pulseAnimation.value : 1.0;
+        final pulseScale = isGlowing ? _pulseAnimation.value : 1.0;
+        final squishScale = _squishAnimation.value;
+        final combinedScale = pulseScale * squishScale;
         final glowIntensity = isGlowing ? _pulseAnimation.value - 1.0 : 0.0;
 
         return Transform.scale(
-          scale: scale,
+          scale: combinedScale,
           child: Container(
             margin: const EdgeInsets.all(1),
             decoration: BoxDecoration(

@@ -10,6 +10,8 @@ import '../../models/game_mode.dart';
 import '../../models/story_level.dart';
 import '../../models/power_up.dart';
 import '../../services/sound_service.dart';
+import '../../services/mission_service.dart';
+import '../../models/daily_mission.dart';
 import '../settings/settings_cubit.dart';
 import 'game_state.dart';
 
@@ -56,6 +58,16 @@ class GameCubit extends Cubit<GameState> {
   int _bagIndex = 0;
   int _bagRefillCount =
       0; // Track bag refills for rotating distribution fairness
+
+  // Chaos Mode event tracking
+  int _moveCount = 0;
+  bool _doublePointsActive = false;
+  int _doublePointsLeft = 0;
+
+  // Mission tracking
+  int _perfectClearCount = 0;
+  int _maxComboReached = 0;
+  final MissionService _missionService = MissionService();
 
   // Story mode timer
   Timer? _storyTimer;
@@ -149,7 +161,6 @@ class GameCubit extends Cubit<GameState> {
 
     // BUG FIX #7: If mode is story but no level provided, reset to initial state
     if (mode == GameMode.story) {
-      debugPrint('Error: Story Mode started without a level');
       emit(
           const GameInitial()); // Reset to initial state instead of leaving inconsistent
       return;
@@ -157,15 +168,14 @@ class GameCubit extends Cubit<GameState> {
 
     // Check if this mode has a saved game (and we're not in GameOver state)
     if (_savedGames.containsKey(mode) && currentState is! GameOver) {
-      debugPrint('Loading saved game for $mode');
       _loadSavedGame(mode);
     } else {
-      debugPrint('No saved game found for $mode, starting fresh game');
       // Start fresh game
       _pieceBag.clear(); // Reset bag for new game
       _bagIndex = 0;
       _bagRefillCount =
           0; // CRITICAL FIX: Reset refill count for consistent rotation pattern
+      _resetMissionTracking(); // Reset mission tracking for new game
 
       final config = GameModeConfig.fromMode(mode);
       final board = Board(size: config.boardSize);
@@ -190,6 +200,7 @@ class GameCubit extends Cubit<GameState> {
     _bagIndex = 0;
     _bagRefillCount =
         0; // CRITICAL FIX: Reset refill count for consistent rotation pattern
+    _resetMissionTracking(); // Reset mission tracking for new game
 
     // FIX: Use the story level's game mode, not hardcoded GameMode.story
     // Some story levels use GameMode.chaos or other modes
@@ -544,6 +555,18 @@ class GameCubit extends Cubit<GameState> {
     return false;
   }
 
+  /// Helper method to detect perfect clear (completely empty board)
+  bool _isBoardEmpty(Board board) {
+    for (int row = 0; row < board.size; row++) {
+      for (int col = 0; col < board.size; col++) {
+        if (board.grid[row][col].type == BlockType.filled) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   bool placePiece(Piece piece, int x, int y) {
     final currentState = state;
     if (currentState is! GameInProgress) return false;
@@ -562,6 +585,7 @@ class GameCubit extends Cubit<GameState> {
         hoverY: null,
         hoverValid: null,
       ));
+
       return false;
     }
 
@@ -581,8 +605,15 @@ class GameCubit extends Cubit<GameState> {
 
     // CRITICAL FIX: Break lines on the NEW board, not the old one!
     // This ensures hover blocks are cleared and line breaking works correctly
+    final lineClearSw = Stopwatch()..start();
     final clearResult = newBoard.breakLinesWithInfo();
     final linesBroken = clearResult.lineCount;
+    lineClearSw.stop();
+
+    // TODO: REMOVE PERFORMANCE MONITORING IN PRODUCTION
+    if (linesBroken > 0) {
+      debugPrint('⏱️ Line clearing: ${lineClearSw.elapsedMilliseconds}ms');
+    }
 
     // Track lines cleared for story mode
     int newLinesCleared = currentState.linesCleared + linesBroken;
@@ -594,14 +625,55 @@ class GameCubit extends Cubit<GameState> {
       newLastBrokenLine = 0;
       newCombo += linesBroken;
 
-      // Score calculation - Simplified and balanced formula
-      // Base line bonus: 10 points per line
-      // Combo multiplier: Increases every 10 combo points (1x → 2x → 3x...)
-      // CRITICAL FIX: Use floor() + 1 instead of ceil() for correct progression
-      // 0-9 combo → 1x, 10-19 → 2x, 20-29 → 3x, etc.
-      final comboMultiplier = ((newCombo / 10).floor() + 1).clamp(1, 10);
-      final lineBonus = linesBroken * 10 * comboMultiplier; // Cap at 10x
-      newScore += lineBonus;
+      // ========== FIBONACCI-BASED EXPONENTIAL SCORING ==========
+      // Combo multiplier uses Fibonacci sequence for exponentially rewarding combos
+      // CRITICAL FIX: Use comboIndex-1 to align with 1-based combo numbering
+      // Combo 1 → index 0 (multiplier 1)
+      // Combo 2 → index 1 (multiplier 1)
+      // Combo 3 → index 2 (multiplier 2)
+      // Combo 4 → index 3 (multiplier 3)
+      const fibMultipliers = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+      final comboIndex =
+          (newCombo - 1).clamp(0, 11); // Convert 1-based combo to 0-based index
+      final comboMultiplier = fibMultipliers[comboIndex];
+
+      // Multi-line bonus: Reward clearing multiple lines at once
+      double multiLineBonus;
+      if (linesBroken >= 4) {
+        multiLineBonus = 3.0; // Tetris-style quad clear
+      } else if (linesBroken >= 3) {
+        multiLineBonus = 2.0; // Triple clear
+      } else if (linesBroken >= 2) {
+        multiLineBonus = 1.5; // Double clear
+      } else {
+        multiLineBonus = 1.0; // Single clear
+      }
+
+      // Calculate final score
+      final basePoints = linesBroken * 10;
+      var finalPoints = (basePoints * comboMultiplier * multiLineBonus).toInt();
+
+      // Apply Chaos event multiplier
+      if (_doublePointsActive) {
+        finalPoints *= 2;
+      }
+
+      newScore += finalPoints;
+
+      // Check for perfect clear (board completely empty after clearing lines)
+      if (_isBoardEmpty(newBoard)) {
+        final perfectClearBonus = 1000 + (newCombo * 100);
+        newScore += perfectClearBonus;
+        _perfectClearCount++; // Track for missions
+
+        // Optional: track for analytics
+        // settingsCubit?.analyticsService.logPerfectClear(newScore, newCombo);
+      }
+
+      // Track max combo for missions
+      if (newCombo > _maxComboReached) {
+        _maxComboReached = newCombo;
+      }
 
       // Play clear and combo sounds
       // CRITICAL FIX: Pass hasCombo parameter to prevent double sound
@@ -687,6 +759,18 @@ class GameCubit extends Cubit<GameState> {
       _soundService.playGameOver();
       settingsCubit?.updateHighScore(newScore);
 
+      // Track mission progress
+      _trackMissionProgress(
+        gameMode: currentState.gameMode,
+        finalScore: newScore,
+        linesCleared: newLinesCleared,
+        maxCombo: _maxComboReached,
+        perfectClears: _perfectClearCount,
+      );
+
+      // Reset tracking for next game
+      _resetMissionTracking();
+
       emit(GameOver(
         board: newBoard, // FIX: Use the modified board with placed piece
         finalScore: newScore,
@@ -721,6 +805,9 @@ class GameCubit extends Cubit<GameState> {
       _saveCurrentGame(newState);
     }
 
+    // Check for Chaos events
+    _checkChaosEvent();
+
     return true;
   }
 
@@ -742,6 +829,11 @@ class GameCubit extends Cubit<GameState> {
       _pieceBag.clear();
       _bagIndex = 0;
       _bagRefillCount = 0;
+
+      // ✅ CRITICAL: Reset Chaos mode variables
+      _moveCount = 0;
+      _doublePointsActive = false;
+      _doublePointsLeft = 0;
 
       startGame(gameMode, storyLevel: storyLevel);
     }
@@ -811,6 +903,16 @@ class GameCubit extends Cubit<GameState> {
       _soundService.playGameOver();
     }
 
+    // Track mission progress for story mode games too
+    _trackMissionProgress(
+      gameMode: currentState.gameMode,
+      finalScore: score,
+      linesCleared: currentState.linesCleared,
+      maxCombo: _maxComboReached,
+      perfectClears: _perfectClearCount,
+    );
+    _resetMissionTracking();
+
     // BUG FIX #1: Use currentState.gameMode instead of hardcoded GameMode.story
     // Story levels can use different game modes (chaos, classic, etc.)
     emit(GameOver(
@@ -824,6 +926,98 @@ class GameCubit extends Cubit<GameState> {
 
     // Reset flag after emitting (in case of future reuse)
     _isEndingStoryLevel = false;
+  }
+
+  // ========== Mission Tracking ==========
+
+  /// Track mission progress when game ends
+  Future<void> _trackMissionProgress({
+    required GameMode gameMode,
+    required int finalScore,
+    required int linesCleared,
+    required int maxCombo,
+    required int perfectClears,
+  }) async {
+    try {
+      // Track games played
+      await _missionService.addMissionProgress(MissionType.playGames, 1);
+
+      // Track lines cleared
+      if (linesCleared > 0) {
+        await _missionService.addMissionProgress(
+            MissionType.clearLines, linesCleared);
+      }
+
+      // Track high score
+      if (finalScore > 0) {
+        await _missionService.trackHighScore(finalScore);
+      }
+
+      // Track max combo
+      if (maxCombo > 0) {
+        await _missionService.trackMaxCombo(maxCombo);
+      }
+
+      // Track perfect clears
+      if (perfectClears > 0) {
+        await _missionService.addMissionProgress(
+            MissionType.perfectClears, perfectClears);
+      }
+
+      // Track chaos mode games
+      if (gameMode == GameMode.chaos) {
+        await _missionService.addMissionProgress(MissionType.useChaosMode, 1);
+      }
+
+      debugPrint(
+          '📊 Mission progress tracked: score=$finalScore, lines=$linesCleared, combo=$maxCombo, perfects=$perfectClears');
+    } catch (e) {
+      debugPrint('❌ Error tracking missions: $e');
+    }
+  }
+
+  /// Reset mission tracking variables for new game
+  void _resetMissionTracking() {
+    _perfectClearCount = 0;
+    _maxComboReached = 0;
+  }
+
+  // ========== Chaos Mode Events ==========
+
+  /// Check and trigger random Chaos Mode events
+  void _checkChaosEvent() {
+    final currentState = state;
+    if (currentState is! GameInProgress) return;
+
+    // Only for Chaos mode
+    if (currentState.gameMode != GameMode.chaos) return;
+
+    _moveCount++;
+
+    // If event is active, count down
+    if (_doublePointsActive) {
+      _doublePointsLeft--;
+      if (_doublePointsLeft <= 0) {
+        _doublePointsActive = false;
+        debugPrint('🎲 2X Points ended');
+      }
+      return;
+    }
+
+    // Random chance every ~18 moves
+    if (_moveCount > 10 &&
+        _moveCount % 18 == 0 &&
+        math.Random().nextDouble() > 0.5) {
+      _doublePointsActive = true;
+      _doublePointsLeft = 5;
+
+      debugPrint('🎲 CHAOS EVENT: 2X POINTS FOR 5 MOVES!');
+
+      // TODO: REMOVE DEBUG LOGGING BEFORE RELEASE
+      debugPrint('🎲 Event triggered: 2X POINTS');
+
+      // TODO: Show UI notification to player
+    }
   }
 
   // ========== Power-Up Methods ==========
@@ -1056,51 +1250,122 @@ class GameCubit extends Cubit<GameState> {
   }
 
   /// Refill the piece bag with weighted distribution (Fisher-Yates shuffle)
-  /// Target distribution: 50% Easy, 35% Medium, 15% Hard
+  /// Distribution is ADAPTIVE based on board density to prevent player frustration
   void _refillPieceBag() {
     _pieceBag.clear();
     _bagRefillCount++; // Increment counter for rotating distribution fairness
 
+    // ========== CALCULATE BOARD DENSITY ==========
+    int easyCount = 50;
+    int mediumCount = 35;
+    int hardCount = 15;
+
+    final currentState = state;
+    if (currentState is GameInProgress) {
+      final board = currentState.board;
+      final boardSize = currentState.gameMode == GameMode.chaos ? 100 : 64;
+
+      // Count filled cells
+      int filledCells = 0;
+      for (int row = 0; row < board.size; row++) {
+        for (int col = 0; col < board.size; col++) {
+          if (board.grid[row][col].type == BlockType.filled) {
+            filledCells++;
+          }
+        }
+      }
+
+      final density = filledCells / boardSize;
+      final densityPercent = (density * 100).toStringAsFixed(1);
+
+      // ========== ADJUST DISTRIBUTION BASED ON DENSITY ==========
+      if (density > 0.75) {
+        // CRITICAL - board almost full (MERCY MODE)
+        easyCount = 70;
+        mediumCount = 25;
+        hardCount = 5;
+      } else if (density > 0.60) {
+        // CROWDED
+        easyCount = 60;
+        mediumCount = 30;
+        hardCount = 10;
+      } else if (density > 0.40) {
+        // BALANCED
+        easyCount = 50;
+        mediumCount = 35;
+        hardCount = 15;
+      } else {
+        // EMPTY - plenty of space, can give harder pieces
+        easyCount = 45;
+        mediumCount = 35;
+        hardCount = 20;
+        debugPrint(
+            '🟢 EMPTY: Board $densityPercent% full - Easy: $easyCount%, Medium: $mediumCount%, Hard: $hardCount%');
+      }
+    } else {
+      // No active game - use default distribution
+    }
+
+    // ========== FILL BAG WITH ADAPTIVE DISTRIBUTION ==========
+    if (currentState is GameInProgress) {
+      final board = currentState.board;
+      final boardSize = currentState.gameMode == GameMode.chaos ? 100 : 64;
+      int filledCells = 0;
+      for (int row = 0; row < board.size; row++) {
+        for (int col = 0; col < board.size; col++) {
+          if (board.grid[row][col].type == BlockType.filled) {
+            filledCells++;
+          }
+        }
+      }
+      final density = filledCells / boardSize;
+      debugPrint('   Density: ${(density * 100).toStringAsFixed(1)}%');
+    }
+
     // Easy pieces (Singles, Doubles, Triples): 20, 21, 22, 23, 24
-    // Target: 50% of bag
-    // Add 10 copies of each (5 pieces × 10 = 50 pieces = 50% of 100)
-    for (int i = 0; i < 10; i++) {
-      _pieceBag.addAll([20, 21, 22, 23, 24]);
+    // Distribute evenly among 5 easy piece types
+    final easyPieces = [20, 21, 22, 23, 24];
+    final easyPerPiece = easyCount ~/ easyPieces.length; // Base count per piece
+    final easyRemainder =
+        easyCount % easyPieces.length; // Extra pieces to distribute
+    for (int i = 0; i < easyPerPiece; i++) {
+      _pieceBag.addAll(easyPieces);
+    }
+    // Add remainder with rotation for fairness
+    for (int i = 0; i < easyRemainder; i++) {
+      _pieceBag.add(easyPieces[(_bagRefillCount + i) % easyPieces.length]);
     }
 
     // Medium pieces (L-shapes, T-shapes, etc.): 0-15
-    // Target: 35% of bag (35 pieces total)
-    // To ensure equal distribution: 35 / 16 = 2.1875 pieces each
-    // Strategy: Add 2 copies of each piece (32 pieces), then rotate which 3 pieces get an extra copy
-    for (int i = 0; i < 2; i++) {
-      _pieceBag.addAll(List.generate(
-          16, (index) => index)); // 0..15 (2 copies each = 32 pieces)
+    // Distribute evenly among 16 medium piece types
+    final mediumPerPiece = mediumCount ~/ 16; // Base count per piece
+    final mediumRemainder = mediumCount % 16; // Extra pieces to distribute
+    for (int i = 0; i < mediumPerPiece; i++) {
+      _pieceBag.addAll(List.generate(16, (index) => index)); // 0..15
     }
     // CRITICAL FIX: Rotate which pieces get the extra copy to ensure equal probability over time
-    // Instead of always adding to [0, 1, 2], rotate through all pieces for fairness
     final startIndex = (_bagRefillCount * 3) % 16;
-    _pieceBag.addAll([
-      startIndex % 16,
-      (startIndex + 1) % 16,
-      (startIndex + 2) % 16,
-    ]); // Rotating distribution (total: 35 pieces)
+    for (int i = 0; i < mediumRemainder; i++) {
+      _pieceBag.add((startIndex + i) % 16);
+    }
 
     // Hard pieces (3x3, 4x1, 5x1): 16, 17, 18, 19, 25, 26
-    // Target: 15% of bag (15 pieces total)
-    // To ensure equal distribution: 15 / 6 = 2.5 pieces each
-    // Strategy: Add 2 copies of each piece (12 pieces), then rotate which 3 pieces get an extra copy
+    // Distribute evenly among 6 hard piece types
     final hardPieces = [16, 17, 18, 19, 25, 26];
-    for (int i = 0; i < 2; i++) {
-      _pieceBag.addAll(hardPieces); // 2 copies each = 12 pieces
+    final hardPerPiece = hardCount ~/ hardPieces.length; // Base count per piece
+    final hardRemainder =
+        hardCount % hardPieces.length; // Extra pieces to distribute
+    for (int i = 0; i < hardPerPiece; i++) {
+      _pieceBag.addAll(hardPieces);
     }
     // CRITICAL FIX: Rotate which pieces get the extra copy to ensure equal probability over time
-    // Instead of always adding to [16, 17, 18], rotate through all hard pieces for fairness
     final hardStartIndex = (_bagRefillCount * 3) % hardPieces.length;
-    _pieceBag.addAll([
-      hardPieces[hardStartIndex % hardPieces.length],
-      hardPieces[(hardStartIndex + 1) % hardPieces.length],
-      hardPieces[(hardStartIndex + 2) % hardPieces.length],
-    ]); // Rotating distribution (total: 15 pieces)
+    for (int i = 0; i < hardRemainder; i++) {
+      _pieceBag.add(hardPieces[(hardStartIndex + i) % hardPieces.length]);
+    }
+
+    debugPrint(
+        '📦 Bag refilled: ${_pieceBag.length} pieces (E:$easyCount M:$mediumCount H:$hardCount)');
 
     // Fisher-Yates shuffle with proper RNG
     final rng = math.Random();

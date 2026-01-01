@@ -10,9 +10,15 @@ class SoundService {
   factory SoundService() => _instance;
   SoundService._internal();
 
+  static const int poolSize = 5;
+  
   final Logger _logger = Logger();
   final Map<String, AudioPlayer> _audioPlayers = {};
   final AudioPlayer _bgmPlayer = AudioPlayer();
+  
+  // Sound pool for preventing audio overlap
+  final List<AudioPlayer> _soundPool = [];
+  int _currentPoolIndex = 0;
 
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
@@ -29,6 +35,13 @@ class SoundService {
       // Set background music to loop
       _bgmPlayer.setReleaseMode(ReleaseMode.loop);
 
+      // Create sound pool for overlapping sounds
+      for (int i = 0; i < poolSize; i++) {
+        final player = AudioPlayer();
+        player.setReleaseMode(ReleaseMode.stop);
+        _soundPool.add(player);
+      }
+
       // Preload sound effects
       _audioPlayers['place'] = AudioPlayer();
       _audioPlayers['clear'] = AudioPlayer();
@@ -38,7 +51,7 @@ class SoundService {
       _audioPlayers['refill'] = AudioPlayer();
 
       _initialized = true;
-      _logger.i('SoundService initialized successfully');
+      _logger.i('SoundService initialized successfully with $poolSize pooled players');
     } catch (e) {
       _logger.e('Failed to initialize SoundService', error: e);
     }
@@ -50,7 +63,11 @@ class SoundService {
     for (var player in _audioPlayers.values) {
       player.dispose();
     }
+    for (var player in _soundPool) {
+      player.dispose();
+    }
     _audioPlayers.clear();
+    _soundPool.clear();
   }
 
   void setSoundEnabled(bool enabled) {
@@ -62,6 +79,23 @@ class SoundService {
 
   void setHapticsEnabled(bool enabled) {
     _hapticsEnabled = enabled;
+  }
+
+  /// Play sound using pooled players to prevent overlap
+  Future<void> _playSound(String assetPath) async {
+    if (!_soundEnabled || !_initialized || _soundPool.isEmpty) return;
+
+    try {
+      // Get next player from pool
+      final player = _soundPool[_currentPoolIndex];
+      _currentPoolIndex = (_currentPoolIndex + 1) % poolSize;
+
+      // Stop current sound and play new one
+      await player.stop();
+      await player.play(AssetSource(assetPath));
+    } catch (e) {
+      _logger.e('Failed to play sound from pool: $assetPath', error: e);
+    }
   }
 
   /// Play background music
@@ -94,18 +128,8 @@ class SoundService {
       await HapticFeedback.lightImpact();
     }
 
-    if (_soundEnabled && _initialized) {
-      try {
-        final player = _audioPlayers['place'];
-        if (player != null) {
-          // ✅ Stop any currently playing sound first to prevent conflicts
-          await player.stop();
-          await player.play(AssetSource('sounds/pop.mp3'));
-        }
-      } catch (e) {
-        _logger.e('Failed to play place sound', error: e);
-      }
-    }
+    // Use pooled sound system for better performance
+    await _playSound('sounds/pop.mp3');
   }
 
   /// Play feedback when clearing lines - more intense for more lines
@@ -129,19 +153,10 @@ class SoundService {
     // CRITICAL FIX: Only play clear sound if there's NO combo
     // When there's a combo, playCombo() will be called instead
     // This prevents overlapping sounds (clear + combo playing at same time)
-    if (_soundEnabled && _initialized && !hasCombo) {
+    if (!hasCombo) {
       debugPrint('🔊 Playing clear sound (no combo)');
-      try {
-        final player = _audioPlayers['clear'];
-        if (player != null) {
-          // ✅ Stop any currently playing sound first to prevent conflicts
-          await player.stop();
-          await player.play(AssetSource('sounds/blast.mp3'));
-        }
-      } catch (e) {
-        _logger.e('Failed to play clear sound', error: e);
-      }
-    } else if (hasCombo) {
+      await _playSound('sounds/blast.mp3');
+    } else {
       debugPrint('🔊 Skipping clear sound (combo will play instead)');
     }
   }
@@ -164,38 +179,8 @@ class SoundService {
 
     if (_soundEnabled && _initialized) {
       debugPrint('🔊 Attempting to play combo sound...');
-      try {
-        final player = _audioPlayers['combo'];
-        if (player != null) {
-          // ✅ CRITICAL FIX: Stop any currently playing combo sound first
-          // Add small delay to ensure stop() completes before play()
-          await player.stop();
-          await Future.delayed(
-              const Duration(milliseconds: 50)); // Allow stop to complete
-          await player.play(AssetSource('sounds/combo.mp3'));
-          debugPrint('🔊 Combo sound played successfully!');
-        } else {
-          debugPrint('🔊 WARNING: Combo audio player not initialized');
-          _logger.w('Combo audio player not initialized');
-        }
-      } catch (e) {
-        debugPrint('🔊 ERROR: Failed to play combo sound: $e');
-        _logger.e('Failed to play combo sound: $e');
-        // Fallback: try to reinitialize the player
-        try {
-          debugPrint('🔊 Attempting to reinitialize combo player...');
-          _audioPlayers['combo'] = AudioPlayer();
-          await _audioPlayers['combo']?.stop(); // Stop before playing
-          await Future.delayed(
-              const Duration(milliseconds: 50)); // Allow stop to complete
-          await _audioPlayers['combo']?.play(AssetSource('sounds/combo.mp3'));
-          debugPrint(
-              '🔊 Combo sound played successfully after reinitialization!');
-        } catch (e2) {
-          debugPrint('🔊 ERROR: Failed to reinitialize combo player: $e2');
-          _logger.e('Failed to reinitialize combo player: $e2');
-        }
-      }
+      await _playSound('sounds/combo.mp3');
+      debugPrint('🔊 Combo sound played successfully!');
     } else {
       debugPrint(
           '🔊 Combo sound skipped: soundEnabled=$_soundEnabled, initialized=$_initialized');
@@ -213,18 +198,7 @@ class SoundService {
       await HapticFeedback.heavyImpact();
     }
 
-    if (_soundEnabled && _initialized) {
-      try {
-        final player = _audioPlayers['gameOver'];
-        if (player != null) {
-          // ✅ Stop any currently playing sound first to prevent conflicts
-          await player.stop();
-          await player.play(AssetSource('sounds/game_over.mp3'));
-        }
-      } catch (e) {
-        _logger.e('Failed to play game over sound', error: e);
-      }
-    }
+    await _playSound('sounds/game_over.mp3');
   }
 
   /// Play feedback when piece cannot be placed
@@ -245,60 +219,9 @@ class SoundService {
       debugPrint('   ⏭️  Haptic feedback skipped (disabled)');
     }
 
-    if (_soundEnabled && _initialized) {
-      debugPrint('   🎵 Attempting to play error sound...');
-      try {
-        final player = _audioPlayers['error'];
-        if (player != null) {
-          debugPrint('   ✅ Error audio player found');
-          // Stop any currently playing error sound first to prevent conflicts
-          await player.stop();
-          await player.play(AssetSource('sounds/error.mp3'));
-          debugPrint('   ✅ Error sound play() called successfully');
-        } else {
-          debugPrint('   ❌ ERROR: Error audio player is null!');
-          _logger.e('Error audio player not initialized');
-          // Fallback: try to reinitialize the player
-          try {
-            debugPrint('   🔄 Attempting to reinitialize error player...');
-            _audioPlayers['error'] = AudioPlayer();
-            await _audioPlayers['error']?.stop(); // Stop before playing
-            await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
-            debugPrint(
-                '   ✅ Error sound played successfully after reinitialization!');
-          } catch (e2) {
-            debugPrint('   ❌ ERROR: Failed to reinitialize error player: $e2');
-            _logger.e('Failed to reinitialize error player: $e2');
-          }
-        }
-      } catch (e, stackTrace) {
-        debugPrint('   ❌ ERROR: Failed to play error sound');
-        debugPrint('   Error: $e');
-        debugPrint('   Stack trace: $stackTrace');
-        _logger.e('Failed to play error sound',
-            error: e, stackTrace: stackTrace);
-        // Fallback: try to reinitialize the player
-        try {
-          debugPrint(
-              '   🔄 Attempting to reinitialize error player after error...');
-          _audioPlayers['error'] = AudioPlayer();
-          await _audioPlayers['error']?.stop(); // Stop before playing
-          await _audioPlayers['error']?.play(AssetSource('sounds/error.mp3'));
-          debugPrint(
-              '   ✅ Error sound played successfully after reinitialization!');
-        } catch (e2) {
-          debugPrint('   ❌ ERROR: Failed to reinitialize error player: $e2');
-          _logger.e('Failed to reinitialize error player: $e2');
-        }
-      }
-    } else {
-      if (!_soundEnabled) {
-        debugPrint('   ⏭️  Sound skipped: sound is disabled');
-      }
-      if (!_initialized) {
-        debugPrint('   ⏭️  Sound skipped: SoundService not initialized');
-      }
-    }
+    debugPrint('   🎵 Playing error sound...');
+    await _playSound('sounds/error.mp3');
+    debugPrint('   ✅ Error sound played');
   }
 
   /// Play feedback when hand is refilled
@@ -307,18 +230,7 @@ class SoundService {
       await HapticFeedback.selectionClick();
     }
 
-    if (_soundEnabled && _initialized) {
-      try {
-        final player = _audioPlayers['refill'];
-        if (player != null) {
-          // ✅ Stop any currently playing sound first to prevent conflicts
-          await player.stop();
-          // Use pop.mp3 for refill (no dedicated refill sound)
-          await player.play(AssetSource('sounds/pop.mp3'));
-        }
-      } catch (e) {
-        _logger.e('Failed to play refill sound', error: e);
-      }
-    }
+    // Use pop.mp3 for refill (no dedicated refill sound)
+    await _playSound('sounds/pop.mp3');
   }
 }

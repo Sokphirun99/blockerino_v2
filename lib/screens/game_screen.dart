@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vibration/vibration.dart';
 import 'package:confetti/confetti.dart';
@@ -27,6 +26,9 @@ import '../widgets/screen_shake_widget.dart';
 import '../widgets/floating_score_overlay.dart';
 import '../widgets/loading_screen_widget.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/screen_flash.dart';
+import '../widgets/floating_score.dart';
+import '../widgets/perfect_clear_celebration.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -70,6 +72,18 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // BUG FIX #4 & #5: Track timers for proper cleanup
   final List<Timer> _particleTimers = [];
   Timer? _achievementTimer;
+
+  // Screen flash effects
+  final List<Widget> _flashEffects = [];
+  int _flashIdCounter = 0;
+
+  // Floating score popups
+  final List<Widget> _scorePopups = [];
+  int _scorePopupIdCounter = 0;
+
+  // Perfect clear celebrations
+  final List<Widget> _celebrations = [];
+  int _celebrationIdCounter = 0;
 
   // AdMob service
   final AdMobService _adService = AdMobService();
@@ -228,12 +242,44 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       }
     }
 
+    // Trigger screen flash for big clears
+    if (lineCount >= 5) {
+      _triggerFlash(const Color(0xFFFFD700)); // Gold for 5+ lines
+    } else if (lineCount >= 3) {
+      _triggerFlash(Colors.white); // White for 3-4 lines
+    }
+
     // Show achievement messages
     _checkAchievements(lineCount, gameState.combo);
 
     // Calculate score earned for floating popup
     final scoreEarned = gameState.score - _lastScore;
     _lastScore = gameState.score;
+
+    // Show floating score popup if points were earned
+    if (scoreEarned > 0) {
+      final size = MediaQuery.of(currentContext).size;
+      final position = Offset(size.width / 2 - 50, size.height / 3);
+      _showScorePopup(scoreEarned, position);
+    }
+
+    // Check for perfect clear (board completely empty after clearing)
+    bool isBoardEmpty = true;
+    for (int row = 0; row < board.size && isBoardEmpty; row++) {
+      for (int col = 0; col < board.size && isBoardEmpty; col++) {
+        if (board.grid[row][col].type == BlockType.filled) {
+          isBoardEmpty = false;
+        }
+      }
+    }
+
+    if (isBoardEmpty && lineCount > 0) {
+      // Calculate perfect clear bonus (same formula as game_cubit)
+      final perfectClearBonus = 1000 + (gameState.combo * 100);
+      _showPerfectClearCelebration(perfectClearBonus);
+      _confettiController.play(); // Also play confetti!
+      _triggerFlash(const Color(0xFFFFD700)); // Gold flash
+    }
 
     // Create particles for each cleared block with ripple delay
     for (final blockInfo in clearedBlocks) {
@@ -301,6 +347,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _checkAchievements(int lineCount, int combo) {
+    // Track combo level for milestone detection
+    if (combo == 0) {
+      _lastComboLevel = 0;
+      return;
+    }
+
     String? message;
 
     // Check for special line clears
@@ -310,13 +362,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       message = '⚡ TRIPLE CLEAR! ⚡';
     }
 
-    // Check for combo milestones
+    // Check for combo milestones - use celebratory text (not "COMBO x#")
+    // ComboCounter widget shows the actual combo number
+    // Achievement shows the milestone celebration
     if (combo >= 20 && _lastComboLevel < 20) {
-      message = '🌟 MEGA COMBO x$combo! 🌟';
+      message = '🌟 LEGENDARY! 🌟';
     } else if (combo >= 10 && _lastComboLevel < 10) {
-      message = '✨ SUPER COMBO x$combo! ✨';
+      message = '✨ UNSTOPPABLE! ✨';
     } else if (combo >= 5 && _lastComboLevel < 5) {
-      message = '💫 COMBO x$combo! 💫';
+      message = '💫 ON FIRE! 💫';
     }
 
     _lastComboLevel = combo;
@@ -346,6 +400,76 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _activeParticles.removeWhere((p) => p.id == id);
       });
     }
+  }
+
+  void _triggerFlash(Color color) {
+    final flashId = _flashIdCounter++;
+    setState(() {
+      _flashEffects.add(
+        Positioned.fill(
+          key: ValueKey('flash-$flashId'),
+          child: ScreenFlash(
+            color: color,
+            onComplete: () => _removeFlash(flashId),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _removeFlash(int id) {
+    if (!mounted) return;
+    setState(() {
+      _flashEffects.removeWhere(
+          (w) => (w.key as ValueKey).value == 'flash-$id');
+    });
+  }
+
+  void _showScorePopup(int points, Offset position) {
+    final popupId = _scorePopupIdCounter++;
+    setState(() {
+      _scorePopups.add(
+        FloatingScore(
+          key: ValueKey('score-$popupId'),
+          points: points,
+          position: position,
+          onComplete: () => _removeScorePopup(popupId),
+        ),
+      );
+    });
+  }
+
+  void _removeScorePopup(int id) {
+    if (!mounted) return;
+    setState(() {
+      _scorePopups.removeWhere(
+          (w) => (w.key as ValueKey).value == 'score-$id');
+    });
+  }
+
+  void _showPerfectClearCelebration(int bonus) {
+    final id = _celebrationIdCounter++;
+    setState(() {
+      _celebrations.add(
+        Positioned.fill(
+          key: ValueKey('celebration-$id'),
+          child: Center(
+            child: PerfectClearCelebration(
+              bonus: bonus,
+              onComplete: () => _removeCelebration(id),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _removeCelebration(int id) {
+    if (!mounted) return;
+    setState(() {
+      _celebrations.removeWhere(
+          (w) => (w.key as ValueKey).value == 'celebration-$id');
+    });
   }
 
   // BUG FIX #7: Extract expensive calculation to separate method
@@ -672,6 +796,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
+
+                  // Floating score popups
+                  ..._scorePopups,
+
+                  // Screen flash effects (perfect clear, chaos events, etc.)
+                  ..._flashEffects,
+
+                  // Perfect clear celebrations (on top of everything)
+                  ..._celebrations,
                 ],
               ),
             );

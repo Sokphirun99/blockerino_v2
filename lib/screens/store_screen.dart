@@ -187,9 +187,9 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
                 const Text('🪙', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 2),
                 Text(
-                  '${powerUp.cost}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
+                    '${powerUp.cost}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
