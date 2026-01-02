@@ -29,6 +29,7 @@ import '../widgets/banner_ad_widget.dart';
 import '../widgets/screen_flash.dart';
 import '../widgets/floating_score.dart';
 import '../widgets/perfect_clear_celebration.dart';
+import '../widgets/tutorial_overlay.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -88,6 +89,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   // AdMob service
   final AdMobService _adService = AdMobService();
 
+  // Tutorial system
+  bool _showTutorial = false;
+  int _tutorialStep = 0;
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +100,46 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         ConfettiController(duration: const Duration(seconds: 3));
     // CRITICAL FIX: Listen to app lifecycle to auto-save game when app goes to background
     WidgetsBinding.instance.addObserver(this);
+    // Check if tutorial should be shown
+    _checkTutorialStatus();
+  }
+
+  Future<void> _checkTutorialStatus() async {
+    final completed = await TutorialOverlay.isTutorialCompleted();
+    if (!completed && mounted) {
+      setState(() {
+        _showTutorial = true;
+        _tutorialStep = 0;
+      });
+    }
+  }
+
+  void _onTutorialComplete() {
+    setState(() {
+      _showTutorial = false;
+    });
+  }
+
+  void _advanceTutorialStep() {
+    if (!_showTutorial) return;
+    
+    // Step 1: Piece placed -> advance to step 2
+    if (_tutorialStep == 1) {
+      setState(() {
+        _tutorialStep = 2;
+      });
+    }
+  }
+
+  void _onLineClearedForTutorial() {
+    if (!_showTutorial) return;
+    
+    // Step 2: Line cleared -> advance to step 3
+    if (_tutorialStep == 2) {
+      setState(() {
+        _tutorialStep = 3;
+      });
+    }
   }
 
   @override
@@ -215,6 +260,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   void _onLinesCleared(List<ClearedBlockInfo> clearedBlocks, int lineCount) {
     if (!mounted) return; // Safety check
+
+    // Advance tutorial if active
+    _onLineClearedForTutorial();
 
     final boardBox = _boardKey.currentContext?.findRenderObject() as RenderBox?;
     if (boardBox == null) return;
@@ -525,6 +573,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             if (state is GameInProgress && state.combo == 0) {
               _lastComboLevel = 0;
             }
+            
+            // Tutorial: Detect piece placement by monitoring hand changes
+            // When a piece is placed, the hand size decreases
+            if (_showTutorial && _tutorialStep == 1 && state is GameInProgress) {
+              // If we're on step 1 and game is in progress, any action means a piece was placed
+              _advanceTutorialStep();
+            }
           },
           child: BlocBuilder<GameCubit, GameState>(
           builder: (context, gameState) {
@@ -687,8 +742,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                                           adSize: AdSize.banner,
                                         ),
                                       ),
-
-                                    const SizedBox(height: 8),
                                   ],
                                 ), // ← Closes Column
                               ); // ← Closes Opacity
@@ -805,6 +858,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
                   // Perfect clear celebrations (on top of everything)
                   ..._celebrations,
+
+                  // Tutorial overlay (on top of everything else)
+                  if (_showTutorial)
+                    TutorialOverlay(
+                      initialStep: _tutorialStep,
+                      onComplete: _onTutorialComplete,
+                    ),
                 ],
               ),
             );
