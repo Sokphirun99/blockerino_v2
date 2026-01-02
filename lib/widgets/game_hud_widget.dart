@@ -6,7 +6,9 @@ import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../models/game_mode.dart';
 import '../services/app_localizations.dart';
+import '../services/scoring_service.dart';
 import 'combo_fire_widget.dart';
+import 'shared_ui_components.dart';
 
 class GameHudWidget extends StatefulWidget {
   const GameHudWidget({super.key});
@@ -101,16 +103,18 @@ class _GameHudWidgetState extends State<GameHudWidget>
             Icon(Icons.circle_outlined,
                 color: Colors.white.withValues(alpha: 0.5), size: 12),
           const SizedBox(width: 4),
-          AutoSizeText(
-            text,
-            style: TextStyle(
-              color: completed ? const Color(0xFF52b788) : Colors.white,
-              fontSize: 10,
-              fontWeight: completed ? FontWeight.bold : FontWeight.normal,
+          Flexible(
+            child: AutoSizeText(
+              text,
+              style: TextStyle(
+                color: completed ? const Color(0xFF52b788) : Colors.white,
+                fontSize: 10,
+                fontWeight: completed ? FontWeight.bold : FontWeight.normal,
+              ),
+              maxLines: 1,
+              minFontSize: 8, // Minimum readable font size
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            minFontSize: 6,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -132,11 +136,17 @@ class _GameHudWidgetState extends State<GameHudWidget>
 
         final settings = context.watch<SettingsCubit>().state;
         final config = GameModeConfig.fromMode(gameState.gameMode);
-        final movesLeft = config.handSize - gameState.lastBrokenLine;
+        // movesLeft shows how many more moves you have before combo resets
+        // After clearing: lastBrokenLine=0, so movesLeft = buffer - 0 = 3 (for buffer=3)
+        // After 1 move: lastBrokenLine=1, so movesLeft = buffer - 1 = 2
+        // After 2 moves: lastBrokenLine=2, so movesLeft = buffer - 2 = 1
+        // After 3 moves: lastBrokenLine=3, so movesLeft = buffer - 3 = 0, combo resets
+        final movesLeft = ScoringService.comboResetBuffer - gameState.lastBrokenLine;
         final comboProgress =
-            gameState.combo > 0 ? movesLeft / config.handSize : 0.0;
+            gameState.combo > 0 ? (ScoringService.comboResetBuffer - movesLeft) / ScoringService.comboResetBuffer : 0.0;
         final isNewHighScore = gameState.score > settings.highScore;
-        final hasCombo = gameState.combo > 1;
+        final hasCombo = gameState.combo >= 1; // Show combo display as soon as combo starts
+        final responsive = ResponsiveUtil(context);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -327,12 +337,12 @@ class _GameHudWidgetState extends State<GameHudWidget>
                         .toUpperCase(),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 10,
+                      fontSize: responsive.fontSize(10, 14, 16),
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: responsive.value(4, tablet: 6)),
 
                   // Score Value - IMPROVED FOR VISIBILITY
                   ComboFireWidget(
@@ -348,14 +358,14 @@ class _GameHudWidgetState extends State<GameHudWidget>
                             style: TextStyle(
                               foreground: Paint()
                                 ..style = PaintingStyle.stroke
-                                ..strokeWidth = 6
+                                ..strokeWidth = responsive.value(6, tablet: 8)
                                 ..color = Colors.black,
-                              fontSize: 36,
+                              fontSize: responsive.fontSize(36, 48, 56),
                               fontWeight: FontWeight.bold,
                               height: 1.0,
                             ),
                             maxLines: 1,
-                            minFontSize: 24,
+                            minFontSize: responsive.fontSize(24, 32, 40),
                             textAlign: TextAlign.center,
                           ),
                           // MAIN TEXT with enhanced shadows
@@ -365,7 +375,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               color: hasCombo
                                   ? _getComboColor(gameState.combo)
                                   : Colors.white,
-                              fontSize: 36,
+                              fontSize: responsive.fontSize(36, 48, 56),
                               fontWeight: FontWeight.bold,
                               height: 1.0,
                               shadows: [
@@ -388,7 +398,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               ],
                             ),
                             maxLines: 1,
-                            minFontSize: 24,
+                            minFontSize: responsive.fontSize(24, 32, 40),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -398,15 +408,16 @@ class _GameHudWidgetState extends State<GameHudWidget>
 
                   // Combo Display
                   if (hasCombo) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: responsive.value(8, tablet: 12)),
                     AnimatedBuilder(
                       animation: _comboAnimationController,
                       builder: (context, child) {
                         return Transform.scale(
                           scale: _comboScaleAnimation.value,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: responsive.value(14, tablet: 20), 
+                                vertical: responsive.value(6, tablet: 10)),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [

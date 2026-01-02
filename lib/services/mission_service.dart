@@ -92,7 +92,14 @@ class MissionService {
   /// Update progress by adding to current value
   Future<void> addMissionProgress(MissionType type, int amount) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist (avoids overwriting with empty list)
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to update progress for type: $type');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
@@ -100,16 +107,27 @@ class MissionService {
         final newProgress = mission.progress + amount;
         missions[i] = mission.copyWith(progress: newProgress);
         _log('📊 Mission progress: ${mission.title} - $newProgress/${mission.target}');
+        updated = true;
       }
     }
 
-    await _saveMissions(missions);
+    // Only save if we actually updated something
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Track high score for earnScore missions
   Future<void> trackHighScore(int score) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to track high score');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
@@ -118,17 +136,27 @@ class MissionService {
         if (score > mission.progress) {
           missions[i] = mission.copyWith(progress: score);
           _log('📊 High score tracked: ${mission.title} - $score/${mission.target}');
+          updated = true;
         }
       }
     }
 
-    await _saveMissions(missions);
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Track max combo for longCombo missions
   Future<void> trackMaxCombo(int combo) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to track combo');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
@@ -137,11 +165,14 @@ class MissionService {
         if (combo > mission.progress) {
           missions[i] = mission.copyWith(progress: combo);
           _log('📊 Max combo tracked: ${mission.title} - $combo/${mission.target}');
+          updated = true;
         }
       }
     }
 
-    await _saveMissions(missions);
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Claim reward for a completed mission

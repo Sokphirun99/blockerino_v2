@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// Widget that applies screen shake effect to its child
+/// Optimized to avoid unnecessary rebuilds
 class ScreenShakeWidget extends StatefulWidget {
   final Widget child;
   final bool shouldShake;
@@ -23,8 +24,12 @@ class ScreenShakeWidget extends StatefulWidget {
 class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  late Animation<double> _shakeAnimation;
   final Random _random = Random();
-  Offset _shakeOffset = Offset.zero;
+
+  // Pre-generate shake offsets for smoother animation
+  final List<Offset> _shakeOffsets = [];
+  static const int _shakeFrames = 12; // Reduced frame count
 
   @override
   void initState() {
@@ -32,7 +37,25 @@ class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
-    )..addListener(_updateShake);
+    );
+
+    _shakeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+
+    // Pre-generate shake offsets
+    _generateShakeOffsets();
+  }
+
+  void _generateShakeOffsets() {
+    _shakeOffsets.clear();
+    for (int i = 0; i < _shakeFrames; i++) {
+      _shakeOffsets.add(Offset(
+        (_random.nextDouble() - 0.5) * 2,
+        (_random.nextDouble() - 0.5) * 2,
+      ));
+    }
   }
 
   @override
@@ -44,28 +67,10 @@ class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
   }
 
   void _startShake() {
+    _generateShakeOffsets(); // New random offsets each shake
     _controller.forward(from: 0.0).then((_) {
-      if (!mounted) return;
-      setState(() {
-        _shakeOffset = Offset.zero;
-      });
       widget.onShakeComplete?.call();
     });
-  }
-
-  void _updateShake() {
-    if (!mounted) return;
-    if (_controller.isAnimating) {
-      final progress = _controller.value;
-      final intensity = widget.intensity * (1.0 - progress); // Decay over time
-      
-      setState(() {
-        _shakeOffset = Offset(
-          (_random.nextDouble() - 0.5) * intensity * 2,
-          (_random.nextDouble() - 0.5) * intensity * 2,
-        );
-      });
-    }
   }
 
   @override
@@ -76,8 +81,23 @@ class _ScreenShakeWidgetState extends State<ScreenShakeWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: _shakeOffset,
+    return AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, child) {
+        if (!_controller.isAnimating) {
+          return child!;
+        }
+
+        final progress = _shakeAnimation.value;
+        final intensity = widget.intensity * (1.0 - progress);
+        final frameIndex = (progress * (_shakeFrames - 1)).floor().clamp(0, _shakeFrames - 1);
+        final offset = _shakeOffsets[frameIndex] * intensity;
+
+        return Transform.translate(
+          offset: offset,
+          child: child,
+        );
+      },
       child: widget.child,
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../config/app_config.dart';
 
 /// Responsive utility for adaptive sizing across phone, tablet, and web
@@ -9,17 +10,38 @@ class ResponsiveUtil {
   
   double get screenWidth => MediaQuery.of(context).size.width;
   double get screenHeight => MediaQuery.of(context).size.height;
+  double get shortestSide => math.min(screenWidth, screenHeight);
+  double get textScaleFactor => MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.3);
   
-  // Determine device type
-  bool get isMobile => screenWidth < 600;
-  bool get isTablet => screenWidth >= 600 && screenWidth < 1200;
-  bool get isDesktop => screenWidth >= 1200;
+  // Determine device type based on shortest side (works in both orientations)
+  bool get isMobile => shortestSide < 600;
+  bool get isTablet => shortestSide >= 600 && shortestSide < 900;
+  bool get isDesktop => shortestSide >= 900;
   
-  // Responsive font sizes
+  /// Scale factor for responsive sizing (1.0 for mobile, 1.3 for tablet, 1.6 for desktop)
+  double get scaleFactor {
+    if (isDesktop) return 1.6;
+    if (isTablet) return 1.3;
+    return 1.0;
+  }
+  
+  // Responsive font sizes with optional custom tablet/desktop values
   double fontSize(double mobile, [double? tablet, double? desktop]) {
     if (isDesktop) return desktop ?? tablet ?? mobile * 1.5;
     if (isTablet) return tablet ?? mobile * 1.3;
     return mobile;
+  }
+  
+  /// Responsive value - scales automatically based on device
+  double value(double mobile, {double? tablet, double? desktop}) {
+    if (isDesktop) return desktop ?? (tablet ?? mobile) * 1.2;
+    if (isTablet) return tablet ?? mobile * scaleFactor;
+    return mobile;
+  }
+  
+  /// Responsive icon size
+  double iconSize(double mobile, {double? tablet, double? desktop}) {
+    return value(mobile, tablet: tablet, desktop: desktop);
   }
   
   // Responsive padding
@@ -41,6 +63,35 @@ class ResponsiveUtil {
     final value = isDesktop ? (desktop ?? mobile * 2) : isTablet ? (tablet ?? mobile * 1.5) : mobile;
     return EdgeInsets.symmetric(horizontal: value, vertical: value * 0.4);
   }
+  
+  /// Responsive symmetric padding
+  EdgeInsets symmetricPadding({
+    required double horizontalMobile,
+    required double verticalMobile,
+  }) {
+    return EdgeInsets.symmetric(
+      horizontal: horizontalMobile * scaleFactor,
+      vertical: verticalMobile * scaleFactor,
+    );
+  }
+}
+
+/// Extension to easily get responsive values in any widget
+extension ResponsiveContext on BuildContext {
+  ResponsiveUtil get responsive => ResponsiveUtil(this);
+  
+  /// Quick access to responsive font size
+  double responsiveFontSize(double mobile, {double? tablet, double? desktop}) {
+    return responsive.fontSize(mobile, tablet, desktop);
+  }
+  
+  /// Quick access to check device type
+  bool get isMobile => responsive.isMobile;
+  bool get isTablet => responsive.isTablet;
+  bool get isDesktop => responsive.isDesktop;
+  
+  /// Get scale factor for current device
+  double get scaleFactor => responsive.scaleFactor;
 }
 
 /// Shared gradient background used across all game screens

@@ -497,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showClearDataDialog(SettingsCubit settings) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppConfig.dialogBackground,
         title: const Text(
           '⚠️ Clear All Data',
@@ -515,24 +515,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              // Show second confirmation dialog
+              _showFinalClearConfirmation(settings);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppConfig.gameOverColor,
+            ),
+            child: const Text('Delete Everything'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFinalClearConfirmation(SettingsCubit settings) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppConfig.dialogBackground,
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppConfig.gameOverColor, size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Are you sure?',
+                style: TextStyle(color: AppConfig.gameOverColor),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Type "DELETE" to confirm you want to erase all data permanently.',
+          style: TextStyle(color: AppConfig.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final currentContext = context;
               await settings.clearAllData();
-              if (mounted && currentContext.mounted) {
-                Navigator.pop(currentContext);
-                ScaffoldMessenger.of(currentContext).showSnackBar(
-                  const SnackBar(content: Text('All data cleared')),
+              if (mounted && dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All data has been cleared'),
+                    backgroundColor: AppConfig.gameOverColor,
+                  ),
                 );
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppConfig.gameOverColor,
             ),
-            child: const Text('Delete Everything'),
+            child: const Text('YES, DELETE ALL'),
           ),
         ],
       ),

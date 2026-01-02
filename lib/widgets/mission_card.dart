@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/daily_mission.dart';
+import 'shared_ui_components.dart';
 
 /// Widget to display a daily mission card with progress and claim button
 class MissionCard extends StatelessWidget {
@@ -14,6 +15,8 @@ class MissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveUtil(context);
+    
     // Choose colors based on mission state
     final List<Color> gradientColors;
     final Color borderColor;
@@ -41,18 +44,18 @@ class MissionCard extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: responsive.value(8, tablet: 12)),
+      padding: EdgeInsets.all(responsive.value(16, tablet: 24)),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(responsive.value(16, tablet: 20)),
         border: Border.all(
           color: borderColor,
-          width: 2,
+          width: responsive.value(2, tablet: 3),
         ),
         boxShadow: [
           BoxShadow(
@@ -70,20 +73,20 @@ class MissionCard extends StatelessWidget {
             children: [
               // Mission icon
               Container(
-                width: 40,
-                height: 40,
+                width: responsive.value(40, tablet: 56),
+                height: responsive.value(40, tablet: 56),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(responsive.value(10, tablet: 14)),
                 ),
                 child: Center(
                   child: Text(
                     icon,
-                    style: const TextStyle(fontSize: 20),
+                    style: TextStyle(fontSize: responsive.fontSize(20, 28, 32)),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: responsive.value(10, tablet: 16)),
 
               // Title and description
               Expanded(
@@ -97,18 +100,18 @@ class MissionCard extends StatelessWidget {
                         color: mission.isCompleted || mission.canClaim
                             ? Colors.white
                             : Colors.white,
-                        fontSize: 14,
+                        fontSize: responsive.fontSize(14, 18, 20),
                         fontWeight: FontWeight.bold,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: responsive.value(2, tablet: 4)),
                     Text(
                       mission.description,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 11,
+                        fontSize: responsive.fontSize(11, 14, 16),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -119,21 +122,24 @@ class MissionCard extends StatelessWidget {
 
               // Coin reward
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: responsive.value(10, tablet: 16), 
+                  vertical: responsive.value(4, tablet: 8),
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(responsive.value(16, tablet: 20)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('🪙', style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 4),
+                    Text('🪙', style: TextStyle(fontSize: responsive.fontSize(14, 18, 22))),
+                    SizedBox(width: responsive.value(4, tablet: 6)),
                     Text(
                       '${mission.coinReward}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: responsive.fontSize(12, 16, 18),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -143,13 +149,13 @@ class MissionCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: responsive.value(10, tablet: 16)),
 
           // Progress section (if not completed)
           if (!mission.isCompleted) ...[
             // Progress bar
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(responsive.value(4, tablet: 6)),
               child: LinearProgressIndicator(
                 value: mission.progressPercentage,
                 backgroundColor: Colors.white.withValues(alpha: 0.2),
@@ -158,25 +164,30 @@ class MissionCard extends StatelessWidget {
                       ? Colors.white
                       : const Color(0xFF4ade80),
                 ),
-                minHeight: 8,
+                minHeight: responsive.value(8, tablet: 12),
               ),
             ),
 
-            const SizedBox(height: 8),
+            SizedBox(height: responsive.value(8, tablet: 12)),
 
             // Progress text and claim button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Progress text
-                Text(
-                  '${mission.progress}/${mission.target}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                // Progress text - Flexible to prevent overflow
+                Flexible(
+                  child: Text(
+                    '${mission.progress}/${mission.target}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: responsive.fontSize(14, 16, 18),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+
+                SizedBox(width: responsive.value(8, tablet: 12)),
 
                 // Claim button (if canClaim)
                 if (mission.canClaim)
@@ -185,19 +196,19 @@ class MissionCard extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFFFFD700),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: responsive.value(16, tablet: 20),
+                        vertical: responsive.value(8, tablet: 12),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    child: const Text(
-                      'CLAIM REWARD',
+                    child: Text(
+                      'CLAIM',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: responsive.fontSize(12, 14, 16),
                       ),
                     ),
                   ),

@@ -237,7 +237,6 @@ class TutorialOverlayState extends State<TutorialOverlay>
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -359,34 +358,6 @@ class TutorialOverlayState extends State<TutorialOverlay>
           ),
         );
       }),
-    );
-  }
-
-  /// Highlight circle around first piece in tray
-  Widget _buildPieceHighlight() {
-    return Positioned(
-      bottom: 100,
-      left: MediaQuery.of(context).size.width * 0.15,
-      child: const _PulsingHighlight(
-        size: 80,
-        color: Colors.amber,
-      ),
-    );
-  }
-
-  /// Arrow pointing from piece to board
-  Widget _buildArrowToBoad() {
-    return Positioned(
-      bottom: 180,
-      left: MediaQuery.of(context).size.width * 0.25,
-      child: Transform.rotate(
-        angle: -0.5, // Point upward-right
-        child: const Icon(
-          Icons.arrow_upward,
-          color: Colors.amber,
-          size: 60,
-        ),
-      ),
     );
   }
 }
@@ -511,7 +482,6 @@ class _TutorialCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
                     Icons.lightbulb_outline,
@@ -519,7 +489,7 @@ class _TutorialCard extends StatelessWidget {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       hint!,
                       style: TextStyle(
@@ -581,8 +551,7 @@ class _TutorialCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           // Before: Full row
           Flexible(
@@ -597,9 +566,7 @@ class _TutorialCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
           const Icon(Icons.arrow_forward, color: Colors.green, size: 20),
-          const SizedBox(width: 12),
           // After: Cleared
           Flexible(
             child: Column(
@@ -676,12 +643,11 @@ class _TutorialCard extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(child: _buildComboLevel('x1', Colors.grey, '10')),
-          const Icon(Icons.arrow_forward, color: Colors.orange, size: 16),
+          const Icon(Icons.arrow_forward, color: Colors.orange, size: 14),
           Flexible(child: _buildComboLevel('x2', Colors.orange, '20')),
-          const Icon(Icons.arrow_forward, color: Colors.red, size: 16),
+          const Icon(Icons.arrow_forward, color: Colors.red, size: 14),
           Flexible(child: _buildComboLevel('x3', Colors.red, '30')),
         ],
       ),
@@ -731,19 +697,16 @@ class _TutorialCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Flexible(child: _buildMiniPiece(Colors.blue, [[1, 1], [1, 0]])),
-              const SizedBox(width: 12),
               Flexible(child: _buildMiniPiece(Colors.red, [[1], [1], [1]])),
-              const SizedBox(width: 12),
               Flexible(child: _buildMiniPiece(Colors.green, [[1, 1]])),
             ],
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.warning_amber, color: Colors.red[400], size: 14),
               const SizedBox(width: 4),

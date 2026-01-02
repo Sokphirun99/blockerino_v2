@@ -8,6 +8,7 @@ import '../cubits/settings/settings_state.dart';
 import '../services/app_localizations.dart';
 import '../widgets/animated_background_widget.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/shared_ui_components.dart';
 import '../services/admob_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'game_screen.dart';
@@ -100,7 +101,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                               children: [
-                                // Title
+                                // Title - Responsive
                                 Text(
                                   localizations.appName,
                                   style: Theme.of(context)
@@ -108,11 +109,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                       .displayMedium
                                       ?.copyWith(
                                         color: AppConfig.textPrimary,
-                                        fontSize: 32,
+                                        fontSize: context.responsiveFontSize(32, tablet: 42, desktop: 52),
                                         letterSpacing: 2,
                                       ),
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: context.scaleFactor * 8),
                                 Text(
                                   localizations.appTagline,
                                   style: Theme.of(context)
@@ -120,10 +121,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                       .bodyMedium
                                       ?.copyWith(
                                         color: AppConfig.textSecondary,
-                                        fontSize: 12,
+                                        fontSize: context.responsiveFontSize(12, tablet: 16, desktop: 18),
                                       ),
                                 ),
-                                const SizedBox(height: 32),
+                                SizedBox(height: context.scaleFactor * 32),
 
                                 // DISABLED: Coins Display
                                 /*
@@ -161,10 +162,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 const SizedBox(height: 6),
                 */
 
-                                // High Score Display
+                                // High Score Display - Responsive
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 10),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: context.scaleFactor * 20, 
+                                      vertical: context.scaleFactor * 10),
                                   decoration: BoxDecoration(
                                     color: AppConfig.cardBackground,
                                           borderRadius:
@@ -183,10 +185,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                             ?.copyWith(
                                                     color:
                                                         AppConfig.textSecondary,
-                                              fontSize: 10,
+                                              fontSize: context.responsiveFontSize(10, tablet: 14, desktop: 16),
                                             ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      SizedBox(height: context.scaleFactor * 4),
                                       Text(
                                         '${settingsState.highScore}',
                                         style: Theme.of(context)
@@ -195,13 +197,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                             ?.copyWith(
                                                     color:
                                                         AppConfig.accentColor,
-                                              fontSize: 24,
+                                              fontSize: context.responsiveFontSize(24, tablet: 32, desktop: 40),
                                             ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 40),
+                                SizedBox(height: context.scaleFactor * 40),
 
                                 // DISABLED: Story Mode Button
                                 /*
@@ -245,7 +247,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     _startGame(context, GameMode.classic);
                                   },
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 16),
 
                                 // Chaos Mode Button
                                 _MenuButton(
@@ -257,7 +259,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     _startGame(context, GameMode.chaos);
                                   },
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 16),
 
                                 // Daily Missions Button
                                 _MenuButton(
@@ -271,7 +273,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     );
                                   },
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 16),
 
                                 // DISABLED: Store Button
                                 /*
@@ -580,15 +582,27 @@ class _MenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveUtil(context);
+    // Responsive width: scales with device size
+    final screenWidth = MediaQuery.of(context).size.width;
+    final baseWidth = responsive.isMobile ? 280.0 : responsive.isTablet ? 360.0 : 420.0;
+    final buttonWidth = screenWidth > baseWidth + 40 ? baseWidth : screenWidth - 40;
+    final minHeight = responsive.value(56, tablet: 72, desktop: 88);
+
     return InkWell(
       onTap: onPressed,
+      borderRadius: BorderRadius.circular(responsive.value(8, tablet: 12)),
       child: Container(
-        width: 280,
-        padding: const EdgeInsets.all(16),
+        width: buttonWidth,
+        constraints: BoxConstraints(minHeight: minHeight),
+        padding: EdgeInsets.symmetric(
+          horizontal: responsive.value(16, tablet: 24),
+          vertical: responsive.value(12, tablet: 16),
+        ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.2),
-          border: Border.all(color: color, width: 2),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color, width: responsive.value(2, tablet: 3)),
+          borderRadius: BorderRadius.circular(responsive.value(8, tablet: 12)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -598,19 +612,23 @@ class _MenuButton extends StatelessWidget {
               text,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: color,
-                    fontSize: 16,
+                    fontSize: responsive.fontSize(16, 22, 26),
                     letterSpacing: 1,
                   ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: responsive.value(6, tablet: 10)),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.white70,
-                    fontSize: 10,
+                    fontSize: responsive.fontSize(10, 14, 16),
                   ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

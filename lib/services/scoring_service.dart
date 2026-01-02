@@ -73,7 +73,7 @@ class ScoringService {
     required int lastBrokenLine,
   }) {
     if (linesBroken > 0) {
-      // Lines cleared - increment combo by 1 per clear action (not by lines count)
+      // Lines cleared - increment combo and reset counter to 0 (just broke lines)
       return (currentCombo + 1, 0);
     } else {
       // No lines cleared - increment counter, possibly reset combo

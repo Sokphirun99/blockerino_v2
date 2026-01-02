@@ -29,21 +29,21 @@ class _ParticleEffectWidgetState extends State<ParticleEffectWidget>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500), // Slightly shorter
       vsync: this,
     );
 
-    // Create 8-12 particles per block
-    final particleCount = 8 + _random.nextInt(5);
+    // Reduced particle count (8-12 -> 5-7) for better performance
+    final particleCount = 5 + _random.nextInt(3);
     _particles = List.generate(particleCount, (index) {
       final angle = (index / particleCount) * 2 * math.pi + _random.nextDouble() * 0.5;
-      final speed = 50 + _random.nextDouble() * 100;
-      final size = 3 + _random.nextDouble() * 4;
+      final speed = 40 + _random.nextDouble() * 60; // Reduced speed range
+      final size = 3 + _random.nextDouble() * 3;
       return Particle(
         angle: angle,
         speed: speed,
         size: size,
-        rotationSpeed: _random.nextDouble() * 4 - 2,
+        rotationSpeed: _random.nextDouble() * 2 - 1,
       );
     });
 
@@ -64,19 +64,21 @@ class _ParticleEffectWidgetState extends State<ParticleEffectWidget>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: ParticlePainter(
-            particles: _particles,
-            progress: _controller.value,
-            baseColor: widget.color,
-            centerX: widget.position.dx,
-            centerY: widget.position.dy,
-          ),
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: ParticlePainter(
+              particles: _particles,
+              progress: _controller.value,
+              baseColor: widget.color,
+              centerX: widget.position.dx,
+              centerY: widget.position.dy,
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -112,32 +114,22 @@ class ParticlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final particle in particles) {
-      // Calculate position with easing
-      final easedProgress = Curves.easeOut.transform(progress);
-      final distance = particle.speed * easedProgress;
-      
-      final x = centerX + math.cos(particle.angle) * distance;
-      final y = centerY + math.sin(particle.angle) * distance + (50 * progress * progress); // Gravity
-      
-      // Fade out and shrink
-      final opacity = 1.0 - progress;
-      final currentSize = particle.size * (1.0 - progress * 0.5);
-      
-      final paint = Paint()
-        ..color = baseColor.withValues(alpha: opacity)
-        ..style = PaintingStyle.fill;
+    final paint = Paint()..style = PaintingStyle.fill;
+    final easedProgress = Curves.easeOut.transform(progress);
 
-      // Draw particle as small square (like block pieces)
-      final rotation = particle.rotationSpeed * progress * math.pi;
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(rotation);
-      canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: currentSize, height: currentSize),
-        paint,
-      );
-      canvas.restore();
+    for (final particle in particles) {
+      final distance = particle.speed * easedProgress;
+
+      final x = centerX + math.cos(particle.angle) * distance;
+      final y = centerY + math.sin(particle.angle) * distance + (40 * progress * progress);
+
+      final opacity = (1.0 - progress).clamp(0.0, 1.0);
+      final currentSize = particle.size * (1.0 - progress * 0.5);
+
+      paint.color = baseColor.withValues(alpha: opacity);
+
+      // Simplified: draw circles instead of rotated squares
+      canvas.drawCircle(Offset(x, y), currentSize, paint);
     }
   }
 
@@ -150,7 +142,7 @@ class ParticlePainter extends CustomPainter {
 // Overlay to manage multiple particle effects
 class ParticleOverlay extends StatefulWidget {
   final Widget child;
-  
+
   const ParticleOverlay({super.key, required this.child});
 
   static ParticleOverlayState? of(BuildContext context) {
@@ -164,11 +156,19 @@ class ParticleOverlay extends StatefulWidget {
 class ParticleOverlayState extends State<ParticleOverlay> {
   final List<ParticleData> _activeParticles = [];
   int _particleIdCounter = 0;
+  static const int _maxActiveParticles = 20; // Limit concurrent particles
 
   void addParticles(List<ParticleSpawnInfo> spawns) {
     if (!mounted) return;
+
+    // Limit total active particles
+    final availableSlots = _maxActiveParticles - _activeParticles.length;
+    if (availableSlots <= 0) return;
+
+    final spawnsToAdd = spawns.take(availableSlots);
+
     setState(() {
-      for (final spawn in spawns) {
+      for (final spawn in spawnsToAdd) {
         _activeParticles.add(ParticleData(
           id: _particleIdCounter++,
           position: spawn.position,

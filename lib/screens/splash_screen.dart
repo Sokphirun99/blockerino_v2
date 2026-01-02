@@ -36,19 +36,19 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    // Fade animation (first 50% of duration)
+    // Fade animation - synchronized with scale (both run full duration)
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
       ),
     );
 
-    // Scale animation (elastic bounce effect)
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    // Scale animation - starts with fade, uses smooth bounce
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: Curves.elasticOut,
+        curve: const Interval(0.0, 0.7, curve: Curves.elasticOut),
       ),
     );
 
@@ -110,9 +110,10 @@ class _SplashScreenState extends State<SplashScreen>
     final missionService = MissionService();
     final streakService = StreakService();
     
-    // Pre-load data (but don't wait for it)
-    missionService.getDailyMissions();
-    streakService.getStreak();
+    // Pre-load data - await mission generation to ensure missions exist
+    // before any game can update progress
+    await missionService.getDailyMissions();
+    streakService.getStreak(); // Streak can load in background
 
     _log('✅ App services initialized successfully');
   }

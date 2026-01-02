@@ -149,116 +149,48 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     const minHeight = 50.0;
     final finalHeight = adHeight < minHeight ? minHeight : adHeight;
 
-    // ALWAYS show something - never return empty widget
-    // Show loading indicator while ad is loading
+    // Show minimal placeholder while ad is loading (no debug UI in production)
     if (_isLoading) {
-      return Container(
+      return SizedBox(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.purple.withValues(alpha: 0.3), // Make it very visible
-        child: const Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9d4edd)),
-                ),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Loading Ad...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
       );
     }
 
-    // Show error message - ALWAYS show something
+    // Show nothing if error (ad space collapses gracefully)
     if (_errorMessage != null) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.red.withValues(alpha: 0.4), // Make it very visible
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _errorMessage!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (_retryCount < _maxRetries)
-                const Text(
-                  'Retrying...',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Show ad if loaded
-    if (!_adLoaded) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.blue.withValues(alpha: 0.4), // Make it very visible
-        child: const Center(
-          child: Text(
-            'Ad Not Loaded Yet',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+      // In debug mode, show error for debugging
+      if (kDebugMode) {
+        return Container(
+          height: finalHeight,
+          width: double.infinity,
+          color: Colors.red.withValues(alpha: 0.2),
+          child: Center(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              textAlign: TextAlign.center,
             ),
           ),
-        ),
-      );
+        );
+      }
+      // In production, just show empty space
+      return SizedBox(height: finalHeight, width: double.infinity);
+    }
+
+    // Show empty space if ad not loaded yet
+    if (!_adLoaded) {
+      return SizedBox(height: finalHeight, width: double.infinity);
     }
 
     final adWidget = widget.adService.getBannerAdWidget();
     if (adWidget == null) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.yellow.withValues(alpha: 0.4), // Make it very visible
-        child: const Center(
-          child: Text(
-            'Ad Widget is Null',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
+      return SizedBox(height: finalHeight, width: double.infinity);
     }
 
-    return Container(
+    return SizedBox(
       height: finalHeight,
       width: double.infinity,
-      color: Colors.green.withValues(alpha: 0.2), // Temporary: make it visible
-      alignment: Alignment.center,
       child: adWidget,
     );
   }
