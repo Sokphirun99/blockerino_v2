@@ -30,10 +30,8 @@ class HandPiecesWidget extends StatelessWidget {
 
         // Clean design like Block Blast - no container, just pieces on background
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: SizedBox(
-            height: 100,
-            child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: hand.map((piece) {
@@ -53,7 +51,6 @@ class HandPiecesWidget extends StatelessWidget {
                 );
               }).toList(),
             ),
-          ),
         );
       },
     );
