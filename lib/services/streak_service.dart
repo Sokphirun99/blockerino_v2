@@ -1,7 +1,14 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_streak.dart';
+
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
 
 /// Service for managing daily login streaks
 class StreakService {
@@ -20,7 +27,7 @@ class StreakService {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       return DailyStreak.fromJson(json);
     } catch (e) {
-      debugPrint('❌ Error loading streak: $e');
+      _log('❌ Error loading streak: $e');
       return const DailyStreak();
     }
   }
@@ -34,9 +41,9 @@ class StreakService {
     await _saveStreak(updatedStreak);
 
     if (updatedStreak.currentStreak > currentStreak.currentStreak) {
-      debugPrint('🔥 Streak increased to ${updatedStreak.currentStreak}!');
+      _log('🔥 Streak increased to ${updatedStreak.currentStreak}!');
     } else if (updatedStreak.currentStreak < currentStreak.currentStreak) {
-      debugPrint('💔 Streak reset to ${updatedStreak.currentStreak}');
+      _log('💔 Streak reset to ${updatedStreak.currentStreak}');
     }
 
     return updatedStreak;
@@ -48,9 +55,9 @@ class StreakService {
       final prefs = await SharedPreferences.getInstance();
       final jsonString = jsonEncode(streak.toJson());
       await prefs.setString(_storageKey, jsonString);
-      debugPrint('💾 Streak saved: ${streak.currentStreak} days');
+      _log('💾 Streak saved: ${streak.currentStreak} days');
     } catch (e) {
-      debugPrint('❌ Error saving streak: $e');
+      _log('❌ Error saving streak: $e');
     }
   }
 
@@ -58,6 +65,6 @@ class StreakService {
   Future<void> clearStreak() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
-    debugPrint('🗑️ Streak cleared');
+    _log('🗑️ Streak cleared');
   }
 }

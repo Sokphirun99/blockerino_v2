@@ -1,8 +1,15 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_mission.dart';
+
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
 
 /// Service for managing daily missions
 /// Handles generation, persistence, progress tracking, and rewards
@@ -25,7 +32,7 @@ class MissionService {
       final missions = _generateRandomMissions(today);
       await _saveMissions(missions);
       await prefs.setString(_lastGeneratedKey, todayString);
-      debugPrint('🎯 Generated new daily missions for $todayString');
+      _log('🎯 Generated new daily missions for $todayString');
       return missions;
     }
 
@@ -61,7 +68,7 @@ class MissionService {
     final index = missions.indexWhere((m) => m.id == id);
 
     if (index == -1) {
-      debugPrint('⚠️ Mission not found: $id');
+      _log('⚠️ Mission not found: $id');
       return;
     }
 
@@ -79,30 +86,48 @@ class MissionService {
     missions[index] = updatedMission;
     await _saveMissions(missions);
 
-    debugPrint('📊 Mission progress: ${mission.title} - $newProgress/${mission.target}');
+    _log('📊 Mission progress: ${mission.title} - $newProgress/${mission.target}');
   }
 
   /// Update progress by adding to current value
   Future<void> addMissionProgress(MissionType type, int amount) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist (avoids overwriting with empty list)
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to update progress for type: $type');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
       if (mission.type == type && !mission.isCompleted) {
         final newProgress = mission.progress + amount;
         missions[i] = mission.copyWith(progress: newProgress);
-        debugPrint('📊 Mission progress: ${mission.title} - $newProgress/${mission.target}');
+        _log('📊 Mission progress: ${mission.title} - $newProgress/${mission.target}');
+        updated = true;
       }
     }
 
-    await _saveMissions(missions);
+    // Only save if we actually updated something
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Track high score for earnScore missions
   Future<void> trackHighScore(int score) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to track high score');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
@@ -110,18 +135,28 @@ class MissionService {
         // For high score, we track the maximum achieved
         if (score > mission.progress) {
           missions[i] = mission.copyWith(progress: score);
-          debugPrint('📊 High score tracked: ${mission.title} - $score/${mission.target}');
+          _log('📊 High score tracked: ${mission.title} - $score/${mission.target}');
+          updated = true;
         }
       }
     }
 
-    await _saveMissions(missions);
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Track max combo for longCombo missions
   Future<void> trackMaxCombo(int combo) async {
     final missions = await _loadMissions();
+    
+    // Don't save if no missions exist
+    if (missions.isEmpty) {
+      _log('⚠️ No missions to track combo');
+      return;
+    }
 
+    bool updated = false;
     for (int i = 0; i < missions.length; i++) {
       final mission = missions[i];
       
@@ -129,12 +164,15 @@ class MissionService {
         // For combo, we track the maximum achieved
         if (combo > mission.progress) {
           missions[i] = mission.copyWith(progress: combo);
-          debugPrint('📊 Max combo tracked: ${mission.title} - $combo/${mission.target}');
+          _log('📊 Max combo tracked: ${mission.title} - $combo/${mission.target}');
+          updated = true;
         }
       }
     }
 
-    await _saveMissions(missions);
+    if (updated) {
+      await _saveMissions(missions);
+    }
   }
 
   /// Claim reward for a completed mission
@@ -144,7 +182,7 @@ class MissionService {
     final index = missions.indexWhere((m) => m.id == id);
 
     if (index == -1) {
-      debugPrint('⚠️ Mission not found: $id');
+      _log('⚠️ Mission not found: $id');
       return 0;
     }
 
@@ -152,7 +190,7 @@ class MissionService {
 
     // Check if can claim
     if (!mission.canClaim) {
-      debugPrint('⚠️ Mission cannot be claimed: ${mission.title}');
+      _log('⚠️ Mission cannot be claimed: ${mission.title}');
       return 0;
     }
 
@@ -160,7 +198,7 @@ class MissionService {
     missions[index] = mission.copyWith(isCompleted: true);
     await _saveMissions(missions);
 
-    debugPrint('🎁 Claimed reward: ${mission.coinReward} coins for ${mission.title}');
+    _log('🎁 Claimed reward: ${mission.coinReward} coins for ${mission.title}');
     return mission.coinReward;
   }
 
@@ -177,7 +215,7 @@ class MissionService {
       final List<dynamic> jsonList = jsonDecode(jsonString);
       return jsonList.map((json) => _missionFromJson(json)).toList();
     } catch (e) {
-      debugPrint('❌ Error loading missions: $e');
+      _log('❌ Error loading missions: $e');
       return [];
     }
   }
@@ -229,6 +267,6 @@ class MissionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
     await prefs.remove(_lastGeneratedKey);
-    debugPrint('🗑️ Cleared all daily missions');
+    _log('🗑️ Cleared all daily missions');
   }
 }

@@ -100,23 +100,23 @@ class _PerfectClearCelebrationState extends State<PerfectClearCelebration>
               child: Transform.scale(
                 scale: _scaleAnimation.value,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: Colors.white,
-                      width: 5,
+                      width: 4,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFFFFD700).withValues(alpha: 0.8),
-                        blurRadius: 50,
-                        spreadRadius: 20,
+                        blurRadius: 40,
+                        spreadRadius: 15,
                       ),
                     ],
                   ),
@@ -125,37 +125,39 @@ class _PerfectClearCelebrationState extends State<PerfectClearCelebration>
                     children: [
                       const Text(
                         '🎉',
-                        style: TextStyle(fontSize: 80),
+                        style: TextStyle(fontSize: 60),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
+                      const SizedBox(height: 12),
+                      const Text(
                         'PERFECT CLEAR!',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 36,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
+                          letterSpacing: 1.5,
                           shadows: [
                             Shadow(
                               color: Colors.black,
-                              offset: const Offset(3, 3),
-                              blurRadius: 8,
+                              offset: Offset(2, 2),
+                              blurRadius: 6,
                             ),
                           ],
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
                           '+${widget.bonus} BONUS',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

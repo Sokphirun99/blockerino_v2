@@ -4,6 +4,7 @@ import '../models/daily_mission.dart';
 import '../services/mission_service.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../widgets/mission_card.dart';
+import '../widgets/shared_ui_components.dart';
 
 /// Screen to display and manage daily missions
 class DailyMissionsScreen extends StatefulWidget {
@@ -13,7 +14,8 @@ class DailyMissionsScreen extends StatefulWidget {
   State<DailyMissionsScreen> createState() => _DailyMissionsScreenState();
 }
 
-class _DailyMissionsScreenState extends State<DailyMissionsScreen> {
+class _DailyMissionsScreenState extends State<DailyMissionsScreen>
+    with WidgetsBindingObserver {
   final MissionService _missionService = MissionService();
   List<DailyMission> _missions = [];
   bool _loading = true;
@@ -21,6 +23,34 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadMissions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Reload missions when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadMissions();
+    }
+  }
+
+  /// Called when screen becomes visible again (e.g., returning from game)
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload missions every time screen dependencies change
+    // This helps catch navigation-based returns
+  }
+
+  /// Refresh missions - called when navigating back to this screen
+  void refreshMissions() {
     _loadMissions();
   }
 
@@ -86,9 +116,14 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveUtil(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Missions'),
+        title: Text(
+          'Daily Missions',
+          style: TextStyle(fontSize: responsive.fontSize(18, 22, 26)),
+        ),
         backgroundColor: const Color(0xFF1a1a2e),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -115,36 +150,36 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen> {
                 children: [
                   // Header section
                   Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(responsive.value(20, tablet: 32)),
                     child: Column(
                       children: [
                         // Title
-                        const Text(
+                        Text(
                           '🎯 DAILY MISSIONS',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 28,
+                            fontSize: responsive.fontSize(28, 36, 44),
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: responsive.value(8, tablet: 12)),
 
                         // Subtitle
                         Text(
                           'Complete missions to earn coins!',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14,
+                            fontSize: responsive.fontSize(14, 18, 20),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: responsive.value(12, tablet: 18)),
 
                         // Time until refresh
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: responsive.value(16, tablet: 24),
+                            vertical: responsive.value(8, tablet: 12),
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.1),
@@ -176,27 +211,41 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen> {
 
                   // Missions list
                   Expanded(
-                    child: _missions.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No missions available',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5),
-                                fontSize: 16,
-                              ),
+                    child: RefreshIndicator(
+                      onRefresh: _loadMissions,
+                      color: const Color(0xFFFFD700),
+                      backgroundColor: const Color(0xFF1a1a2e),
+                      child: _missions.isEmpty
+                          ? ListView(
+                              // Need ListView for RefreshIndicator to work
+                              children: [
+                                SizedBox(
+                                  height: 200,
+                                  child: Center(
+                                    child: Text(
+                                      'No missions available\nPull to refresh',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _missions.length,
+                              itemBuilder: (context, index) {
+                                final mission = _missions[index];
+                                return MissionCard(
+                                  mission: mission,
+                                  onClaim: _handleClaim,
+                                );
+                              },
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _missions.length,
-                            itemBuilder: (context, index) {
-                              final mission = _missions[index];
-                              return MissionCard(
-                                mission: mission,
-                                onClaim: _handleClaim,
-                              );
-                            },
-                          ),
+                    ),
                   ),
 
                   // Bottom padding for safe area

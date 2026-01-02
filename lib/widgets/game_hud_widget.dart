@@ -6,7 +6,9 @@ import '../cubits/game/game_state.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../models/game_mode.dart';
 import '../services/app_localizations.dart';
+import '../services/scoring_service.dart';
 import 'combo_fire_widget.dart';
+import 'shared_ui_components.dart';
 
 class GameHudWidget extends StatefulWidget {
   const GameHudWidget({super.key});
@@ -101,16 +103,18 @@ class _GameHudWidgetState extends State<GameHudWidget>
             Icon(Icons.circle_outlined,
                 color: Colors.white.withValues(alpha: 0.5), size: 12),
           const SizedBox(width: 4),
-          AutoSizeText(
-            text,
-            style: TextStyle(
-              color: completed ? const Color(0xFF52b788) : Colors.white,
-              fontSize: 10,
-              fontWeight: completed ? FontWeight.bold : FontWeight.normal,
+          Flexible(
+            child: AutoSizeText(
+              text,
+              style: TextStyle(
+                color: completed ? const Color(0xFF52b788) : Colors.white,
+                fontSize: 10,
+                fontWeight: completed ? FontWeight.bold : FontWeight.normal,
+              ),
+              maxLines: 1,
+              minFontSize: 8, // Minimum readable font size
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            minFontSize: 6,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -132,11 +136,17 @@ class _GameHudWidgetState extends State<GameHudWidget>
 
         final settings = context.watch<SettingsCubit>().state;
         final config = GameModeConfig.fromMode(gameState.gameMode);
-        final movesLeft = config.handSize - gameState.lastBrokenLine;
+        // movesLeft shows how many more moves you have before combo resets
+        // After clearing: lastBrokenLine=0, so movesLeft = buffer - 0 = 3 (for buffer=3)
+        // After 1 move: lastBrokenLine=1, so movesLeft = buffer - 1 = 2
+        // After 2 moves: lastBrokenLine=2, so movesLeft = buffer - 2 = 1
+        // After 3 moves: lastBrokenLine=3, so movesLeft = buffer - 3 = 0, combo resets
+        final movesLeft = ScoringService.comboResetBuffer - gameState.lastBrokenLine;
         final comboProgress =
-            gameState.combo > 0 ? movesLeft / config.handSize : 0.0;
+            gameState.combo > 0 ? (ScoringService.comboResetBuffer - movesLeft) / ScoringService.comboResetBuffer : 0.0;
         final isNewHighScore = gameState.score > settings.highScore;
-        final hasCombo = gameState.combo > 1;
+        final hasCombo = gameState.combo >= 1; // Show combo display as soon as combo starts
+        final responsive = ResponsiveUtil(context);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -170,14 +180,18 @@ class _GameHudWidgetState extends State<GameHudWidget>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.timer, color: Colors.white, size: 16),
+                      const Icon(Icons.timer, color: Colors.white, size: 14),
                       const SizedBox(width: 4),
-                      Text(
-                        _formatTime(gameState.timeRemaining),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          _formatTime(gameState.timeRemaining),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -289,27 +303,31 @@ class _GameHudWidgetState extends State<GameHudWidget>
                 children: [
                   // High Score Indicator (if new high score)
                   if (isNewHighScore) ...[
-                    Row(
+                    const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.emoji_events,
                           color: Color(0xFFFFE66D),
-                          size: 14,
+                          size: 12,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'NEW BEST!',
-                          style: TextStyle(
-                            color: const Color(0xFFFFE66D),
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                        SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'NEW BEST!',
+                            style: TextStyle(
+                              color: Color(0xFFFFE66D),
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                   ],
 
                   // Score Label
@@ -319,12 +337,12 @@ class _GameHudWidgetState extends State<GameHudWidget>
                         .toUpperCase(),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 10,
+                      fontSize: responsive.fontSize(10, 14, 16),
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: responsive.value(4, tablet: 6)),
 
                   // Score Value - IMPROVED FOR VISIBILITY
                   ComboFireWidget(
@@ -340,14 +358,14 @@ class _GameHudWidgetState extends State<GameHudWidget>
                             style: TextStyle(
                               foreground: Paint()
                                 ..style = PaintingStyle.stroke
-                                ..strokeWidth = 6
+                                ..strokeWidth = responsive.value(6, tablet: 8)
                                 ..color = Colors.black,
-                              fontSize: 36,
+                              fontSize: responsive.fontSize(36, 48, 56),
                               fontWeight: FontWeight.bold,
                               height: 1.0,
                             ),
                             maxLines: 1,
-                            minFontSize: 24,
+                            minFontSize: responsive.fontSize(24, 32, 40),
                             textAlign: TextAlign.center,
                           ),
                           // MAIN TEXT with enhanced shadows
@@ -357,7 +375,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               color: hasCombo
                                   ? _getComboColor(gameState.combo)
                                   : Colors.white,
-                              fontSize: 36,
+                              fontSize: responsive.fontSize(36, 48, 56),
                               fontWeight: FontWeight.bold,
                               height: 1.0,
                               shadows: [
@@ -380,7 +398,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                               ],
                             ),
                             maxLines: 1,
-                            minFontSize: 24,
+                            minFontSize: responsive.fontSize(24, 32, 40),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -390,15 +408,16 @@ class _GameHudWidgetState extends State<GameHudWidget>
 
                   // Combo Display
                   if (hasCombo) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: responsive.value(8, tablet: 12)),
                     AnimatedBuilder(
                       animation: _comboAnimationController,
                       builder: (context, child) {
                         return Transform.scale(
                           scale: _comboScaleAnimation.value,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: responsive.value(14, tablet: 20), 
+                                vertical: responsive.value(6, tablet: 10)),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -436,23 +455,27 @@ class _GameHudWidgetState extends State<GameHudWidget>
                                   '🔥',
                                   style: TextStyle(
                                     fontSize:
-                                        16 + (_comboScaleAnimation.value * 2),
+                                        14 + (_comboScaleAnimation.value * 2),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'COMBO',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.5,
+                                const SizedBox(width: 4),
+                                const Flexible(
+                                  child: Text(
+                                    'COMBO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.25),
                                     borderRadius: BorderRadius.circular(12),
@@ -461,7 +484,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                                     'x${gameState.combo}',
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

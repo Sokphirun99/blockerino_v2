@@ -12,8 +12,6 @@ import '../models/board.dart';
 import '../models/game_mode.dart';
 import '../models/game_theme.dart';
 import '../models/story_level.dart';
-// DISABLED: Power-up bar hidden
-// import '../models/power_up.dart';
 import '../widgets/board_grid_widget.dart';
 import '../widgets/hand_pieces_widget.dart';
 import '../widgets/game_hud_widget.dart';
@@ -21,8 +19,6 @@ import '../widgets/draggable_piece_widget.dart';
 import '../widgets/particle_effect_widget.dart';
 import '../widgets/animated_background_widget.dart';
 import '../widgets/screen_shake_widget.dart';
-// DISABLED: Power-up bar hidden
-// import '../widgets/shared_ui_components.dart';
 import '../widgets/floating_score_overlay.dart';
 import '../widgets/loading_screen_widget.dart';
 import '../widgets/banner_ad_widget.dart';
@@ -91,7 +87,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   // Tutorial system
   bool _showTutorial = false;
-  int _tutorialStep = 0;
+  final GlobalKey<TutorialOverlayState> _tutorialKey = GlobalKey<TutorialOverlayState>();
 
   @override
   void initState() {
@@ -109,7 +105,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (!completed && mounted) {
       setState(() {
         _showTutorial = true;
-        _tutorialStep = 0;
       });
     }
   }
@@ -120,14 +115,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     });
   }
 
-  void _advanceTutorialStep() {
+  void _advanceTutorialOnPiecePlaced() {
     if (!_showTutorial) return;
     
     // Step 1: Piece placed -> advance to step 2
-    if (_tutorialStep == 1) {
-      setState(() {
-        _tutorialStep = 2;
-      });
+    final tutorialState = _tutorialKey.currentState;
+    if (tutorialState != null && tutorialState.currentStep == 1) {
+      tutorialState.onPiecePlaced();
     }
   }
 
@@ -135,10 +129,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (!_showTutorial) return;
     
     // Step 2: Line cleared -> advance to step 3
-    if (_tutorialStep == 2) {
-      setState(() {
-        _tutorialStep = 3;
-      });
+    final tutorialState = _tutorialKey.currentState;
+    if (tutorialState != null && tutorialState.currentStep == 2) {
+      tutorialState.onLineCleared();
     }
   }
 
@@ -191,7 +184,6 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       final currentState = gameCubit.state;
       if (currentState is GameInProgress) {
         gameCubit.saveGame();
-        debugPrint('Auto-saved game on app lifecycle change: $state');
       }
     }
   }
@@ -253,7 +245,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         // Set up line clear callback (for both story mode and regular modes)
         gameCubit.onLinesCleared = _onLinesCleared;
       } catch (e) {
-        debugPrint('Error initializing game: $e');
+        // Error logged only in debug mode
+        assert(() {
+          debugPrint('Error initializing game: $e');
+          return true;
+        }());
       }
     }
   }
@@ -576,9 +572,12 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             
             // Tutorial: Detect piece placement by monitoring hand changes
             // When a piece is placed, the hand size decreases
-            if (_showTutorial && _tutorialStep == 1 && state is GameInProgress) {
-              // If we're on step 1 and game is in progress, any action means a piece was placed
-              _advanceTutorialStep();
+            if (_showTutorial && state is GameInProgress) {
+              final tutorialState = _tutorialKey.currentState;
+              if (tutorialState != null && tutorialState.currentStep == 1) {
+                // Any game state change during step 1 means a piece was placed
+                _advanceTutorialOnPiecePlaced();
+              }
             }
           },
           child: BlocBuilder<GameCubit, GameState>(
@@ -862,7 +861,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   // Tutorial overlay (on top of everything else)
                   if (_showTutorial)
                     TutorialOverlay(
-                      initialStep: _tutorialStep,
+                      key: _tutorialKey,
+                      initialStep: 0,
                       onComplete: _onTutorialComplete,
                     ),
                 ],
@@ -905,21 +905,16 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _showGameOverDialog(BuildContext context, GameCubit gameCubit) {
-    debugPrint('🎮 _showGameOverDialog called'); // Debug log
-
-    // CRITICAL FIX: Verify context is still valid (release mode safety)
+    // Verify context is still valid
     if (!context.mounted) {
-      debugPrint('⚠️ Context not mounted, cannot show dialog');
       return;
     }
 
     final settingsCubit = context.read<SettingsCubit>();
     final state = gameCubit.state;
     if (state is! GameOver) {
-      debugPrint('⚠️ State is not GameOver, returning early');
       return;
     }
-    debugPrint('✅ GameOver state confirmed, showing dialog');
 
     final isHighScore = state.finalScore >= settingsCubit.state.highScore;
 
@@ -955,16 +950,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _safeVibrate(duration: 500);
     }
 
-    // CRITICAL FIX: Use rootNavigator for release mode compatibility
-    // RELEASE MODE FIX: Ensure dialog appears immediately with proper barrier
+    // Use rootNavigator for release mode compatibility
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor:
-          Colors.black.withOpacity(0.85), // Visible barrier in release mode
-      useRootNavigator: true, // RELEASE MODE FIX: Ensure dialog appears on top
+      barrierColor: Colors.black.withValues(alpha: 0.85),
+      useRootNavigator: true,
       builder: (dialogContext) {
-        debugPrint('🎮 Building Game Over Dialog'); // Debug log
         return AlertDialog(
           backgroundColor: const Color(0xFF1a1a2e),
         shape: RoundedRectangleBorder(
@@ -1138,105 +1130,4 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       },
     );
   }
-
-  // ========== Power-Up UI Methods ==========
-  // DISABLED: Power-up bar hidden
-  /*
-  Widget _buildPowerUpBar(BuildContext context, SettingsCubit settingsCubit) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildPowerUpButton(context, PowerUpType.shuffle, settingsCubit),
-          _buildPowerUpButton(context, PowerUpType.wildPiece, settingsCubit),
-          _buildPowerUpButton(context, PowerUpType.lineClear, settingsCubit),
-          _buildPowerUpButton(context, PowerUpType.colorBomb, settingsCubit),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPowerUpButton(
-      BuildContext context, PowerUpType type, SettingsCubit settingsCubit) {
-    final count = settingsCubit.getPowerUpCount(type);
-    final powerUp = PowerUp.allPowerUps.firstWhere((p) => p.type == type);
-
-    return GestureDetector(
-      onTap: count > 0
-          ? () async {
-              // Capture context and cubit before async operations
-              final currentContext = context;
-              final gameCubit = currentContext.read<GameCubit>();
-              final powerUpName = powerUp.name; // Capture name before async
-              await gameCubit.triggerPowerUp(type);
-
-              // Show feedback - check mounted before using context
-              if (mounted && count - 1 == 0) {
-                // Only use context if widget is still mounted
-                if (currentContext.mounted) {
-                  SharedSnackBars.showPowerUpUsed(currentContext, powerUpName);
-                }
-              }
-            }
-          : null,
-      child: Opacity(
-        opacity: count > 0 ? 1.0 : 0.3,
-        child: Container(
-          width: 60,
-          height: 70,
-          decoration: BoxDecoration(
-            gradient: count > 0
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.purple.withValues(alpha: 0.3),
-                      Colors.blue.withValues(alpha: 0.2),
-                    ],
-                  )
-                : null,
-            color: count > 0 ? null : Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: count > 0
-                  ? Colors.purpleAccent.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.1),
-              width: 2,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                powerUp.icon,
-                style: const TextStyle(fontSize: 24),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: count > 0
-                      ? const Color(0xFFffd700).withValues(alpha: 0.3)
-                      : Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    color: count > 0
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.3),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  */
 }

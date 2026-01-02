@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../models/piece.dart';
 import '../cubits/game/game_cubit.dart';
 import '../cubits/game/game_state.dart';
@@ -13,9 +12,11 @@ import '../config/app_config.dart';
 int _dragLogCounter = 0;
 void _dragDebugLog(
     String location, String hypothesisId, Map<String, dynamic> data) {
-  _dragLogCounter++;
-  debugPrint(
-      '[DEBUG:$hypothesisId:#$_dragLogCounter] DragTarget.$location: $data');
+  if (kDebugMode) {
+    _dragLogCounter++;
+    debugPrint(
+        '[DEBUG:$hypothesisId:#$_dragLogCounter] DragTarget.$location: $data');
+  }
 }
 // #endregion
 
@@ -54,15 +55,23 @@ enum HapticFeedbackType {
 }
 
 /// Fat Finger fix: Calculate responsive Y offset to make piece float above finger
-/// Uses ScreenUtil for consistent scaling across all devices and aspect ratios
-/// This ensures the piece is always visible above the finger on phones, tablets, and foldables
+/// Uses a responsive value based on screen height, clamped to prevent extreme scaling
+/// The offset is applied in both dragAnchorStrategy and _calculateGridPosition
+/// to ensure visual feedback matches actual placement
 /// Returns a positive value representing how many pixels the piece should float above the finger
 double _getDragYOffset(BuildContext context) {
-  // Use ScreenUtil for responsive sizing - 50 logical pixels that scale correctly
-  // ScreenUtil handles device pixel ratio and aspect ratio automatically
-  // Increased from 40 to 50 for better visibility (like Block Blast, Candy Crush)
-  return 50.0.sp; // Scaled pixels that adapt to screen size
+  // TABLET FIX: Use responsive offset based on screen height
+  // - Phones (height ~800): ~48-56 pixels
+  // - Tablets (height ~1200+): ~72-80 pixels (capped)
+  // Clamp prevents extreme values that caused coordinate mismatch
+  final screenHeight = MediaQuery.of(context).size.height;
+  final responsiveOffset = screenHeight * 0.06; // 6% of screen height
+  return responsiveOffset.clamp(48.0, 80.0); // Min 48, Max 80 logical pixels
 }
+
+/// Scale factor applied to feedback during drag
+/// IMPORTANT: This must match the scale value in Transform.scale in feedback widget
+const double _feedbackScale = 1.15;
 
 class DraggablePieceWidget extends StatefulWidget {
   final Piece piece;
@@ -121,26 +130,26 @@ class _DraggablePieceWidgetState extends State<DraggablePieceWidget>
         // The anchor point determines where the finger "grabs" the piece
         // A larger anchor Y offset means the piece appears higher above the finger
         //
-        // BUG FIX: The original code used (centerY - dragYOffset) which made the piece
-        // appear BELOW the finger (negative offset = anchor above piece = piece below finger)
-        // Fixed to use (centerY + dragYOffset) so piece floats ABOVE the finger
+        // TABLET FIX: Account for feedback scale factor
+        // Transform.scale scales from center, but anchor is from top-left
+        // We need to account for how scaling affects the visual position
         //
         // Even-sized piece alignment: subtract 0.5 to align with grid intersections
         final widthOffset = (widget.piece.width % 2 == 0) ? -0.5 : 0.0;
         final heightOffset = (widget.piece.height % 2 == 0) ? -0.5 : 0.0;
-        final dragYOffset =
-            _getDragYOffset(context); // Positive value (e.g., 50.0.sp)
+        final dragYOffset = _getDragYOffset(context);
 
+        // Calculate base anchor at piece center
+        final baseCenterX = (widget.piece.width / 2 + widthOffset) * feedbackBlockSize;
+        final baseCenterY = (widget.piece.height / 2 + heightOffset) * feedbackBlockSize;
+        
         // Return offset from piece top-left to anchor point (finger position)
         // X: piece center (horizontal alignment)
         // Y: piece center PLUS Y offset (anchor is below piece center, so piece appears ABOVE finger)
-        return Offset(
-            (widget.piece.width / 2 + widthOffset) * feedbackBlockSize,
-            (widget.piece.height / 2 + heightOffset) * feedbackBlockSize +
-                dragYOffset);
+        return Offset(baseCenterX, baseCenterY + dragYOffset);
       },
       feedback: Transform.scale(
-        scale: 1.15, // Scale up by 15% when dragging - better visibility
+        scale: _feedbackScale, // Scale up when dragging - better visibility
         child: Material(
           color: Colors.transparent,
           elevation: 12, // Increased elevation for better shadow/visibility
@@ -332,7 +341,9 @@ class _BoardDragTargetState extends State<BoardDragTarget> {
 
     // BUG FIX #5: Add debug logging for null renderBox
     if (renderBox == null) {
-      debugPrint('WARNING: Cannot calculate grid position - renderBox is null');
+      if (kDebugMode) {
+        debugPrint('WARNING: Cannot calculate grid position - renderBox is null');
+      }
       return null;
     }
 

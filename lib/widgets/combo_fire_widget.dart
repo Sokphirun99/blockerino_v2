@@ -39,15 +39,16 @@ class _ComboFireWidgetState extends State<ComboFireWidget>
   }
 
   void _onAnimationTick() {
-    if (mounted) {
-      setState(() {
-        _tick();
-      });
+    if (mounted && widget.combo > 1) {
+      _tick();
+      // Force rebuild to update the CustomPainter
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onAnimationTick);
     _controller.dispose();
     super.dispose();
   }
@@ -72,18 +73,18 @@ class _ComboFireWidgetState extends State<ComboFireWidget>
   }
 
   void _tick() {
-    // Spawn new particles
-    final spawnCount = (2 * _intensity).round();
+    // Spawn new particles - reduced spawn rate
+    final spawnCount = (_intensity).round();
     for (int i = 0; i < spawnCount; i++) {
-      if (_particles.length < 100) {
-        // Limit max particles
+      if (_particles.length < 40) {
+        // Reduced max particles (100 -> 40)
         _particles.add(_FireParticle(
-          x: (_random.nextDouble() - 0.5) * 60, // Width of fire base
-          y: 20, // Start slightly below center
-          speed: (20 + _random.nextDouble() * 40) * _intensity,
-          size: (4 + _random.nextDouble() * 6) * _intensity,
+          x: (_random.nextDouble() - 0.5) * 50, // Slightly narrower
+          y: 20,
+          speed: (15 + _random.nextDouble() * 30) * _intensity,
+          size: (3 + _random.nextDouble() * 4) * _intensity,
           angle: (_random.nextDouble() - 0.5) * 0.5,
-          life: 0.8 + _random.nextDouble() * 0.4,
+          life: 0.6 + _random.nextDouble() * 0.3,
         ));
       }
     }
@@ -91,10 +92,10 @@ class _ComboFireWidgetState extends State<ComboFireWidget>
     // Update existing particles
     for (int i = _particles.length - 1; i >= 0; i--) {
       final p = _particles[i];
-      p.y -= p.speed * 0.016; // Move up
-      p.x += math.sin(p.y * 0.05) * 0.5; // Wiggle
-      p.life -= 0.016 * 1.5; // Decay
-      p.size -= 0.05; // Shrink
+      p.y -= p.speed * 0.025;
+      p.x += math.sin(p.y * 0.05) * 0.4;
+      p.life -= 0.03;
+      p.size -= 0.08;
 
       if (p.life <= 0 || p.size <= 0) {
         _particles.removeAt(i);
@@ -116,31 +117,27 @@ class _ComboFireWidgetState extends State<ComboFireWidget>
       return widget.child;
     }
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        // Don't call _tick() here - it's called in the listener
-        return Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            // The Fire Painter (Behind)
-            Positioned(
-              top: -40, // Shift fire up slightly to be visible behind badge
-              child: CustomPaint(
-                painter: _FirePainter(
-                  particles: _particles,
-                  baseColor: _baseColor,
-                  coreColor: _coreColor,
-                ),
-                size: const Size(100, 100),
+    return RepaintBoundary(
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // The Fire Painter (Behind)
+          Positioned(
+            top: -40,
+            child: CustomPaint(
+              painter: _FirePainter(
+                particles: _particles,
+                baseColor: _baseColor,
+                coreColor: _coreColor,
               ),
+              size: const Size(100, 100),
             ),
-            // The Child (Combo Badge)
-            widget.child,
-          ],
-        );
-      },
+          ),
+          // The Child (Combo Badge)
+          widget.child,
+        ],
+      ),
     );
   }
 }
@@ -151,7 +148,7 @@ class _FireParticle {
   double speed;
   double size;
   double angle;
-  double life; // 1.0 to 0.0
+  double life;
 
   _FireParticle({
     required this.x,
@@ -176,30 +173,31 @@ class _FirePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
     for (final p in particles) {
       if (p.life <= 0) continue;
 
-      final paint = Paint()..style = PaintingStyle.fill;
-
-      // Interpolate color based on life
-      // High life = Core Color (Hot), Low life = Base Color (Cooler)
-      if (p.life > 0.5) {
-        paint.color = Color.lerp(baseColor, coreColor, (p.life - 0.5) * 2)!
-            .withValues(alpha: p.life);
-      } else {
-        paint.color = baseColor.withValues(alpha: p.life);
-      }
+      // Simplified color calculation
+      final alpha = p.life.clamp(0.0, 1.0);
+      paint.color = (p.life > 0.5 ? coreColor : baseColor).withValues(alpha: alpha);
 
       canvas.drawCircle(
-          Offset(size.width / 2 + p.x, size.height / 2 + p.y), p.size, paint);
+        Offset(size.width / 2 + p.x, size.height / 2 + p.y),
+        p.size,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _FirePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _FirePainter oldDelegate) {
+    // Always repaint when animation ticks to show fire movement
+    return true;
+  }
 }
 
-/// A pulsing glow effect for high combos
+/// A pulsing glow effect for high combos - optimized
 class ComboGlowWidget extends StatefulWidget {
   final int comboLevel;
   final Widget child;
@@ -222,12 +220,13 @@ class _ComboGlowWidgetState extends State<ComboGlowWidget>
   @override
   void initState() {
     super.initState();
+    // Slower animation for better performance
     _controller = AnimationController(
-      duration: Duration(milliseconds: 800 ~/ widget.comboLevel.clamp(1, 5)),
+      duration: Duration(milliseconds: 1200 ~/ widget.comboLevel.clamp(1, 3)),
       vsync: this,
     );
 
-    _glowAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+    _glowAnimation = Tween<double>(begin: 0.4, end: 0.8).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
@@ -241,7 +240,7 @@ class _ComboGlowWidgetState extends State<ComboGlowWidget>
     super.didUpdateWidget(oldWidget);
     if (widget.comboLevel != oldWidget.comboLevel) {
       _controller.duration = Duration(
-        milliseconds: 800 ~/ widget.comboLevel.clamp(1, 5),
+        milliseconds: 1200 ~/ widget.comboLevel.clamp(1, 3),
       );
       if (widget.comboLevel > 1) {
         if (!_controller.isAnimating) _controller.repeat(reverse: true);
@@ -279,24 +278,26 @@ class _ComboGlowWidgetState extends State<ComboGlowWidget>
       return widget.child;
     }
 
-    return AnimatedBuilder(
-      animation: _glowAnimation,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: _getGlowColor()
-                    .withValues(alpha: _glowAnimation.value * 0.6),
-                blurRadius: 15 + (_glowAnimation.value * 10),
-                spreadRadius: 2 + (_glowAnimation.value * 3),
-              ),
-            ],
-          ),
-          child: widget.child,
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _glowAnimation,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: _getGlowColor().withValues(alpha: _glowAnimation.value * 0.5),
+                  blurRadius: 12 + (_glowAnimation.value * 6),
+                  spreadRadius: 1 + (_glowAnimation.value * 2),
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
     );
   }
 }

@@ -3,6 +3,13 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
+
 /// Service to manage AdMob ads
 ///
 /// Usage:
@@ -41,13 +48,12 @@ class AdMobService {
     try {
       _bannerAd?.dispose();
 
-      debugPrint('📱 AdMobService: Loading banner ad');
-      debugPrint('   Ad Unit ID: $_bannerAdUnitId');
-      debugPrint('   Ad size: ${adSize ?? AdSize.banner}');
-      debugPrint('   Debug mode: $kDebugMode');
-      debugPrint('   Force test ads: ${AppConfig.forceTestAds}');
-      debugPrint(
-          '   Using: ${(AppConfig.forceTestAds || kDebugMode) ? "TEST ADS" : "PRODUCTION ADS"}');
+      _log('📱 AdMobService: Loading banner ad');
+      _log('   Ad Unit ID: $_bannerAdUnitId');
+      _log('   Ad size: ${adSize ?? AdSize.banner}');
+      _log('   Debug mode: $kDebugMode');
+      _log('   Force test ads: ${AppConfig.forceTestAds}');
+      _log('   Using: ${(AppConfig.forceTestAds || kDebugMode) ? "TEST ADS" : "PRODUCTION ADS"}');
 
       _bannerAd = BannerAd(
         adUnitId:
@@ -56,15 +62,15 @@ class AdMobService {
         request: const AdRequest(),
         listener: BannerAdListener(
           onAdLoaded: (ad) {
-            debugPrint('✅ AdMobService: Banner ad loaded successfully!');
+            _log('✅ AdMobService: Banner ad loaded successfully!');
             onAdLoaded?.call(ad as BannerAd);
           },
           onAdFailedToLoad: (ad, error) {
-            debugPrint('❌ AdMobService: Banner ad failed to load');
-            debugPrint('   Error code: ${error.code}');
-            debugPrint('   Error message: ${error.message}');
-            debugPrint('   Error domain: ${error.domain}');
-            debugPrint('   Response info: ${error.responseInfo}');
+            _log('❌ AdMobService: Banner ad failed to load');
+            _log('   Error code: ${error.code}');
+            _log('   Error message: ${error.message}');
+            _log('   Error domain: ${error.domain}');
+            _log('   Response info: ${error.responseInfo}');
 
             // Common error codes:
             // 0 = ERROR_CODE_INTERNAL_ERROR
@@ -74,24 +80,23 @@ class AdMobService {
             // 8 = ERROR_CODE_INVALID_AD_SIZE
 
             if (error.code == 3) {
-              debugPrint('⚠️ ERROR CODE 3 (403): This usually means:');
-              debugPrint('   1. Ad Unit ID is incorrect or not activated');
-              debugPrint('   2. App is not properly linked to AdMob account');
-              debugPrint('   3. Ad Unit is not active yet in AdMob Console');
-              debugPrint('   💡 Solution: Check AdMob Console and verify:');
-              debugPrint('      - App ID matches: ${AppConfig.admobAppId}');
-              debugPrint(
-                  '      - Ad Unit ID is correct: ${AppConfig.productionBannerAdUnitId}');
-              debugPrint('      - Ad Unit status is "Active" in AdMob Console');
+              _log('⚠️ ERROR CODE 3 (403): This usually means:');
+              _log('   1. Ad Unit ID is incorrect or not activated');
+              _log('   2. App is not properly linked to AdMob account');
+              _log('   3. Ad Unit is not active yet in AdMob Console');
+              _log('   💡 Solution: Check AdMob Console and verify:');
+              _log('      - App ID matches: ${AppConfig.admobAppId}');
+              _log('      - Ad Unit ID is correct: ${AppConfig.productionBannerAdUnitId}');
+              _log('      - Ad Unit status is "Active" in AdMob Console');
             }
 
             ad.dispose();
             _bannerAd = null;
             onAdFailedToLoad?.call(error);
           },
-          onAdOpened: (ad) => debugPrint('📱 AdMobService: Banner ad opened'),
+          onAdOpened: (ad) => _log('📱 AdMobService: Banner ad opened'),
           onAdClosed: (ad) {
-            debugPrint('📱 AdMobService: Banner ad closed');
+            _log('📱 AdMobService: Banner ad closed');
             ad.dispose();
             _bannerAd = null;
           },
@@ -99,11 +104,11 @@ class AdMobService {
       );
 
       _bannerAd!.load();
-      debugPrint('📱 AdMobService: Banner ad load() called');
+      _log('📱 AdMobService: Banner ad load() called');
       return true;
     } catch (e, stackTrace) {
-      debugPrint('❌ AdMobService: Error loading banner ad: $e');
-      debugPrint('   Stack trace: $stackTrace');
+      _log('❌ AdMobService: Error loading banner ad: $e');
+      _log('   Stack trace: $stackTrace');
       return false;
     }
   }
@@ -131,13 +136,13 @@ class AdMobService {
         request: const AdRequest(),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
-            debugPrint('Interstitial ad loaded');
+            _log('Interstitial ad loaded');
             _interstitialAd = ad;
 
             _interstitialAd!.fullScreenContentCallback =
                 FullScreenContentCallback(
               onAdDismissedFullScreenContent: (ad) {
-                debugPrint('Interstitial ad dismissed');
+                _log('Interstitial ad dismissed');
                 ad.dispose();
                 _interstitialAd = null;
                 onAdDismissed?.call();
@@ -145,14 +150,14 @@ class AdMobService {
                 loadInterstitialAd();
               },
               onAdFailedToShowFullScreenContent: (ad, error) {
-                debugPrint('Interstitial ad failed to show: $error');
+                _log('Interstitial ad failed to show: $error');
                 ad.dispose();
                 _interstitialAd = null;
               },
             );
           },
           onAdFailedToLoad: (error) {
-            debugPrint('Interstitial ad failed to load: $error');
+            _log('Interstitial ad failed to load: $error');
             _interstitialAd = null;
             onAdFailedToLoad?.call(error);
           },
@@ -160,7 +165,7 @@ class AdMobService {
       );
       return true;
     } catch (e) {
-      debugPrint('Error loading interstitial ad: $e');
+      _log('Error loading interstitial ad: $e');
       return false;
     }
   }
@@ -169,7 +174,7 @@ class AdMobService {
   /// Returns true if ad was shown, false if not loaded
   Future<bool> showInterstitialAd() async {
     if (_interstitialAd == null) {
-      debugPrint('Interstitial ad not loaded, loading now...');
+      _log('Interstitial ad not loaded, loading now...');
       await loadInterstitialAd();
       return false;
     }
@@ -178,7 +183,7 @@ class AdMobService {
       await _interstitialAd!.show();
       return true;
     } catch (e) {
-      debugPrint('Error showing interstitial ad: $e');
+      _log('Error showing interstitial ad: $e');
       return false;
     }
   }
@@ -194,26 +199,26 @@ class AdMobService {
         request: const AdRequest(),
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (ad) {
-            debugPrint('Rewarded ad loaded');
+            _log('Rewarded ad loaded');
             _rewardedAd = ad;
 
             _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
               onAdDismissedFullScreenContent: (ad) {
-                debugPrint('Rewarded ad dismissed');
+                _log('Rewarded ad dismissed');
                 ad.dispose();
                 _rewardedAd = null;
                 // Preload next rewarded ad
                 loadRewardedAd(onRewarded: onRewarded);
               },
               onAdFailedToShowFullScreenContent: (ad, error) {
-                debugPrint('Rewarded ad failed to show: $error');
+                _log('Rewarded ad failed to show: $error');
                 ad.dispose();
                 _rewardedAd = null;
               },
             );
           },
           onAdFailedToLoad: (error) {
-            debugPrint('Rewarded ad failed to load: $error');
+            _log('Rewarded ad failed to load: $error');
             _rewardedAd = null;
             onAdFailedToLoad?.call(error);
           },
@@ -221,7 +226,7 @@ class AdMobService {
       );
       return true;
     } catch (e) {
-      debugPrint('Error loading rewarded ad: $e');
+      _log('Error loading rewarded ad: $e');
       return false;
     }
   }
@@ -232,7 +237,7 @@ class AdMobService {
     required void Function(RewardedAd, RewardItem) onRewarded,
   }) async {
     if (_rewardedAd == null) {
-      debugPrint('Rewarded ad not loaded, loading now...');
+      _log('Rewarded ad not loaded, loading now...');
       await loadRewardedAd(onRewarded: onRewarded);
       return false;
     }
@@ -240,13 +245,13 @@ class AdMobService {
     try {
       _rewardedAd!.show(
         onUserEarnedReward: (ad, reward) {
-          debugPrint('User earned reward: ${reward.amount} ${reward.type}');
+          _log('User earned reward: ${reward.amount} ${reward.type}');
           onRewarded(_rewardedAd!, reward);
         },
       );
       return true;
     } catch (e) {
-      debugPrint('Error showing rewarded ad: $e');
+      _log('Error showing rewarded ad: $e');
       return false;
     }
   }

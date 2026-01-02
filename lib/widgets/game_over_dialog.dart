@@ -125,44 +125,50 @@ class _GameOverDialogState extends State<GameOverDialog>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Title
-                    Text(
-                      isNewHighScore ? '🎉 NEW HIGH SCORE!' : 'GAME OVER',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            offset: const Offset(2, 2),
-                            blurRadius: 4,
-                          ),
-                        ],
+                    Flexible(
+                      flex: 0,
+                      child: Text(
+                        isNewHighScore ? '🎉 NEW HIGH SCORE!' : 'GAME OVER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              offset: const Offset(2, 2),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      textAlign: TextAlign.center,
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
                     // Score display
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.3),
                           width: 1,
                         ),
                       ),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'FINAL SCORE',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 12,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
                             ),
@@ -172,7 +178,7 @@ class _GameOverDialogState extends State<GameOverDialog>
                             '${widget.finalScore}',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 36,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
                               shadows: [
                                 Shadow(
@@ -226,9 +232,9 @@ class _GameOverDialogState extends State<GameOverDialog>
 
                     // Coins earned (if provided)
                     if (widget.coinsEarned != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
@@ -236,24 +242,32 @@ class _GameOverDialogState extends State<GameOverDialog>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('🪙', style: TextStyle(fontSize: 16)),
-                            const SizedBox(width: 8),
-                            Text(
-                              '+${widget.coinsEarned} coins',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                            const Text('🪙', style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '+${widget.coinsEarned} coins',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (widget.streakMultiplier != null && widget.streakMultiplier! > 1.0) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '(×${widget.streakMultiplier!.toStringAsFixed(1)} streak)',
-                                style: TextStyle(
-                                  color: Colors.orange.shade300,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '(×${widget.streakMultiplier!.toStringAsFixed(1)} streak)',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade300,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -262,7 +276,7 @@ class _GameOverDialogState extends State<GameOverDialog>
                       ),
                     ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
                     // Buttons
                     Row(
@@ -277,7 +291,7 @@ class _GameOverDialogState extends State<GameOverDialog>
                                 color: Colors.white.withValues(alpha: 0.8),
                                 width: 2,
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -285,14 +299,16 @@ class _GameOverDialogState extends State<GameOverDialog>
                             child: const Text(
                               'HOME',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         
                         // Play again button (2x width)
                         Expanded(
@@ -306,7 +322,7 @@ class _GameOverDialogState extends State<GameOverDialog>
                               foregroundColor: isNewHighScore 
                                   ? const Color(0xFFFFD700) 
                                   : Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -315,10 +331,12 @@ class _GameOverDialogState extends State<GameOverDialog>
                             child: const Text(
                               'PLAY AGAIN',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -337,31 +355,36 @@ class _GameOverDialogState extends State<GameOverDialog>
   /// Build a stat card with icon, value, and label
   Widget _buildStatCard(String icon, String value, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
+          Text(icon, style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 10,
+              fontSize: 8,
               fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

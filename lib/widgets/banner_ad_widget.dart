@@ -4,6 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/admob_service.dart';
 
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
+
 /// Widget that displays a banner ad at the bottom of the screen
 class BannerAdWidget extends StatefulWidget {
   final AdMobService adService;
@@ -34,15 +41,15 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   @override
   void initState() {
     super.initState();
-    debugPrint('🎯 BannerAdWidget: initState() called');
-    debugPrint('🎯 BannerAdWidget: Widget is being created');
+    _log('🎯 BannerAdWidget: initState() called');
+    _log('🎯 BannerAdWidget: Widget is being created');
     // Wait a bit for AdMob to be fully initialized
     _initTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
-        debugPrint('🎯 BannerAdWidget: Starting to load ad after delay');
+        _log('🎯 BannerAdWidget: Starting to load ad after delay');
         _loadAd();
       } else {
-        debugPrint('⚠️ BannerAdWidget: Widget not mounted, skipping ad load');
+        _log('⚠️ BannerAdWidget: Widget not mounted, skipping ad load');
       }
     });
   }
@@ -61,7 +68,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     _retryTimer?.cancel();
     _loadingTimer?.cancel();
 
-    debugPrint('🎯 BannerAdWidget: Loading ad... (attempt ${_retryCount + 1})');
+    _log('🎯 BannerAdWidget: Loading ad... (attempt ${_retryCount + 1})');
     setState(() {
       _isLoading = true;
       _errorMessage = null; // Clear previous error when retrying
@@ -71,7 +78,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     await widget.adService.loadBannerAd(
       adSize: widget.adSize ?? AdSize.banner,
       onAdLoaded: (_) {
-        debugPrint('✅ BannerAdWidget: Ad loaded successfully!');
+        _log('✅ BannerAdWidget: Ad loaded successfully!');
         if (mounted) {
           setState(() {
             _adLoaded = true;
@@ -80,19 +87,18 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
         }
       },
       onAdFailedToLoad: (error) {
-        debugPrint('❌ BannerAdWidget: Ad failed to load: $error');
-        debugPrint('   Error code: ${error.code}');
-        debugPrint('   Error message: ${error.message}');
-        debugPrint('   Error domain: ${error.domain}');
-        debugPrint('   Retry count: $_retryCount');
+        _log('❌ BannerAdWidget: Ad failed to load: $error');
+        _log('   Error code: ${error.code}');
+        _log('   Error message: ${error.message}');
+        _log('   Error domain: ${error.domain}');
+        _log('   Retry count: $_retryCount');
 
         // Retry on network errors (code 2) or no fill errors (code 3)
         if (mounted &&
             _retryCount < _maxRetries &&
             (error.code == 2 || error.code == 3)) {
           _retryCount++;
-          debugPrint(
-              '🔄 BannerAdWidget: Retrying ad load (attempt $_retryCount/$_maxRetries)...');
+          _log('🔄 BannerAdWidget: Retrying ad load (attempt $_retryCount/$_maxRetries)...');
           // Wait a bit before retrying (exponential backoff)
           // ✅ Use Timer instead of Future.delayed so it can be cancelled
           _retryTimer = Timer(Duration(seconds: _retryCount * 2), () {
@@ -143,116 +149,48 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     const minHeight = 50.0;
     final finalHeight = adHeight < minHeight ? minHeight : adHeight;
 
-    // ALWAYS show something - never return empty widget
-    // Show loading indicator while ad is loading
+    // Show minimal placeholder while ad is loading (no debug UI in production)
     if (_isLoading) {
-      return Container(
+      return SizedBox(
         height: finalHeight,
         width: double.infinity,
-        color: Colors.purple.withValues(alpha: 0.3), // Make it very visible
-        child: const Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9d4edd)),
-                ),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Loading Ad...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
       );
     }
 
-    // Show error message - ALWAYS show something
+    // Show nothing if error (ad space collapses gracefully)
     if (_errorMessage != null) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.red.withValues(alpha: 0.4), // Make it very visible
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _errorMessage!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (_retryCount < _maxRetries)
-                const Text(
-                  'Retrying...',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 9,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Show ad if loaded
-    if (!_adLoaded) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.blue.withValues(alpha: 0.4), // Make it very visible
-        child: const Center(
-          child: Text(
-            'Ad Not Loaded Yet',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+      // In debug mode, show error for debugging
+      if (kDebugMode) {
+        return Container(
+          height: finalHeight,
+          width: double.infinity,
+          color: Colors.red.withValues(alpha: 0.2),
+          child: Center(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              textAlign: TextAlign.center,
             ),
           ),
-        ),
-      );
+        );
+      }
+      // In production, just show empty space
+      return SizedBox(height: finalHeight, width: double.infinity);
+    }
+
+    // Show empty space if ad not loaded yet
+    if (!_adLoaded) {
+      return SizedBox(height: finalHeight, width: double.infinity);
     }
 
     final adWidget = widget.adService.getBannerAdWidget();
     if (adWidget == null) {
-      return Container(
-        height: finalHeight,
-        width: double.infinity,
-        color: Colors.yellow.withValues(alpha: 0.4), // Make it very visible
-        child: const Center(
-          child: Text(
-            'Ad Widget is Null',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
+      return SizedBox(height: finalHeight, width: double.infinity);
     }
 
-    return Container(
+    return SizedBox(
       height: finalHeight,
       width: double.infinity,
-      color: Colors.green.withValues(alpha: 0.2), // Temporary: make it visible
-      alignment: Alignment.center,
       child: adWidget,
     );
   }

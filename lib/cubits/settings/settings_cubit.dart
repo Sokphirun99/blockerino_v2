@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
@@ -11,6 +12,13 @@ import '../../services/analytics_service.dart';
 import '../../services/database_helper.dart';
 import '../../services/sound_service.dart';
 import 'settings_state.dart';
+
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
 
 class SettingsCubit extends Cubit<SettingsState> {
   // Firebase services
@@ -57,18 +65,16 @@ class SettingsCubit extends Cubit<SettingsState> {
                 const Duration(seconds: 10),
               );
         } on TimeoutException {
-          debugPrint('Firebase sign-in timeout - continuing offline');
+          _log('Firebase sign-in timeout - continuing offline');
         } catch (e) {
           // Handle CONFIGURATION_NOT_FOUND and other Firebase errors gracefully
-          debugPrint('Firebase anonymous sign-in failed: $e');
-          debugPrint('App will continue without Firebase authentication');
+          _log('Firebase anonymous sign-in failed: $e');
+          _log('App will continue without Firebase authentication');
           // Check if it's a configuration error
           if (e.toString().contains('CONFIGURATION_NOT_FOUND') ||
               e.toString().contains('configuration')) {
-            debugPrint(
-                '⚠️ Firebase Configuration Error: Make sure Anonymous Authentication is enabled in Firebase Console');
-            debugPrint(
-                '   Firebase Console → Authentication → Sign-in method → Enable Anonymous');
+            _log('⚠️ Firebase Configuration Error: Make sure Anonymous Authentication is enabled in Firebase Console');
+            _log('   Firebase Console → Authentication → Sign-in method → Enable Anonymous');
           }
         }
       }
@@ -82,26 +88,25 @@ class SettingsCubit extends Cubit<SettingsState> {
           await _restoreFromFirestore(uid).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint(
-                  'Firestore restore timeout - continuing with local data');
+              _log('Firestore restore timeout - continuing with local data');
             },
           );
           // Sync to Firestore (with timeout, don't block)
           _syncToFirestore().timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('Firestore sync timeout - will retry later');
+              _log('Firestore sync timeout - will retry later');
             },
           ).catchError((e) {
-            debugPrint('Firestore sync error (non-fatal): $e');
+            _log('Firestore sync error (non-fatal): $e');
           });
         } catch (e) {
           // Non-fatal: Log error but continue - app works offline
-          debugPrint('Firebase initialization error (non-fatal): $e');
+          _log('Firebase initialization error (non-fatal): $e');
         }
       } else {
         // No user signed in - app continues in offline mode
-        debugPrint('No Firebase user - app running in offline mode');
+        _log('No Firebase user - app running in offline mode');
       }
 
       // Listen to auth state changes (with error handling)
@@ -110,23 +115,23 @@ class SettingsCubit extends Cubit<SettingsState> {
           if (user != null) {
             // Handle auth state changes asynchronously with error handling
             _restoreFromFirestore(user.uid).catchError((e) {
-              debugPrint('Error restoring from Firestore (non-fatal): $e');
+              _log('Error restoring from Firestore (non-fatal): $e');
             });
             _syncToFirestore().catchError((e) {
-              debugPrint('Error syncing to Firestore (non-fatal): $e');
+              _log('Error syncing to Firestore (non-fatal): $e');
             });
             _analyticsService.setUserId(user.uid).catchError((e) {
-              debugPrint('Error setting analytics user ID (non-fatal): $e');
+              _log('Error setting analytics user ID (non-fatal): $e');
             });
           }
         },
         onError: (error) {
           // Handle stream errors gracefully
-          debugPrint('Auth state stream error (non-fatal): $error');
+          _log('Auth state stream error (non-fatal): $error');
         },
       );
     } catch (e) {
-      debugPrint('Firebase initialization error: $e');
+      _log('Firebase initialization error: $e');
       // Continue without Firebase features
     }
   }
@@ -202,7 +207,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           await _dbHelper.addPowerUp(type, count);
           await prefs.remove(key);
         } catch (e) {
-          debugPrint('Error migrating power-up $key: $e');
+          _log('Error migrating power-up $key: $e');
         }
       }
     }
@@ -247,7 +252,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         );
       }
     } catch (e) {
-      debugPrint('Error syncing to Firestore: $e');
+      _log('Error syncing to Firestore: $e');
     }
   }
 
@@ -289,7 +294,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         }
       } catch (e) {
         // Rollback on error to maintain data consistency
-        debugPrint('Error spending coins, rolling back: $e');
+        _log('Error spending coins, rolling back: $e');
         emit(state.copyWith(coins: oldCoins));
         rethrow; // Re-throw to allow caller to handle the error
       }
@@ -570,7 +575,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       // CRITICAL FIX: Rollback to original state (before optimistic update)
       // Must use oldUnlockedThemeIds, not state.unlockedThemeIds, because state
       // has already been updated by the optimistic emit above
-      debugPrint('Error purchasing theme, rolling back: $e');
+      _log('Error purchasing theme, rolling back: $e');
       emit(state.copyWith(
         coins: oldCoins,
         unlockedThemeIds: oldUnlockedThemeIds,

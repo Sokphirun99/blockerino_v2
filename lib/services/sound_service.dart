@@ -1,18 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:logger/logger.dart';
 
 /// Sound and haptic feedback service for game events
-/// Uses actual audio files and haptic feedback for game sounds
 class SoundService {
   static final SoundService _instance = SoundService._internal();
   factory SoundService() => _instance;
   SoundService._internal();
 
   static const int poolSize = 5;
-  
-  final Logger _logger = Logger();
+
   final Map<String, AudioPlayer> _audioPlayers = {};
   final AudioPlayer _bgmPlayer = AudioPlayer();
   
@@ -51,9 +48,12 @@ class SoundService {
       _audioPlayers['refill'] = AudioPlayer();
 
       _initialized = true;
-      _logger.i('SoundService initialized successfully with $poolSize pooled players');
     } catch (e) {
-      _logger.e('Failed to initialize SoundService', error: e);
+      // Initialization errors logged in debug mode
+      assert(() {
+        debugPrint('Failed to initialize SoundService: $e');
+        return true;
+      }());
     }
   }
 
@@ -94,22 +94,13 @@ class SoundService {
       await player.stop();
       await player.play(AssetSource(assetPath));
     } catch (e) {
-      _logger.e('Failed to play sound from pool: $assetPath', error: e);
+      // Sound playback errors are not critical
     }
   }
 
-  /// Play background music
-  /// DISABLED: BGM not needed yet
+  /// Play background music (currently disabled)
   Future<void> playBGM() async {
-    // BGM disabled - return early
-    return;
-    // if (!_soundEnabled) return;
-    // try {
-    //   await _bgmPlayer.play(AssetSource('sounds/bgm_loop.mp3'));
-    //   _logger.d('BGM playback started');
-    // } catch (e) {
-    //   _logger.e('Failed to play BGM', error: e);
-    // }
+    // BGM disabled for now
   }
 
   /// Stop background music
@@ -150,22 +141,14 @@ class SoundService {
       }
     }
 
-    // CRITICAL FIX: Only play clear sound if there's NO combo
-    // When there's a combo, playCombo() will be called instead
-    // This prevents overlapping sounds (clear + combo playing at same time)
+    // Only play clear sound if there's NO combo (combo sound plays instead)
     if (!hasCombo) {
-      debugPrint('🔊 Playing clear sound (no combo)');
       await _playSound('sounds/blast.mp3');
-    } else {
-      debugPrint('🔊 Skipping clear sound (combo will play instead)');
     }
   }
 
   /// Play feedback for combo - escalating pattern
   Future<void> playCombo(int comboLevel) async {
-    debugPrint(
-        '🔊 playCombo called: level=$comboLevel, soundEnabled=$_soundEnabled, initialized=$_initialized');
-
     if (_hapticsEnabled) {
       // Rapid clicks for combo feeling
       final clickCount = comboLevel.clamp(1, 5);
@@ -178,12 +161,7 @@ class SoundService {
     }
 
     if (_soundEnabled && _initialized) {
-      debugPrint('🔊 Attempting to play combo sound...');
       await _playSound('sounds/combo.mp3');
-      debugPrint('🔊 Combo sound played successfully!');
-    } else {
-      debugPrint(
-          '🔊 Combo sound skipped: soundEnabled=$_soundEnabled, initialized=$_initialized');
     }
   }
 
@@ -203,25 +181,15 @@ class SoundService {
 
   /// Play feedback when piece cannot be placed
   Future<void> playError() async {
-    debugPrint('🔊 playError() called');
-    debugPrint('   soundEnabled: $_soundEnabled');
-    debugPrint('   initialized: $_initialized');
-    debugPrint('   hapticsEnabled: $_hapticsEnabled');
-
     if (_hapticsEnabled) {
       try {
         await HapticFeedback.vibrate();
-        debugPrint('   ✅ Haptic feedback triggered');
       } catch (e) {
-        debugPrint('   ❌ Haptic feedback failed: $e');
+        // Haptic feedback not available on all devices
       }
-    } else {
-      debugPrint('   ⏭️  Haptic feedback skipped (disabled)');
     }
 
-    debugPrint('   🎵 Playing error sound...');
     await _playSound('sounds/error.mp3');
-    debugPrint('   ✅ Error sound played');
   }
 
   /// Play feedback when hand is refilled

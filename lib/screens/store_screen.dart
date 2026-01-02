@@ -87,10 +87,14 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) {
         final settings = context.read<SettingsCubit>();
+        // Responsive grid: 2 columns on phones, 3 on tablets
+        final screenWidth = MediaQuery.of(context).size.width;
+        final crossAxisCount = screenWidth > 600 ? 3 : 2;
+
         return GridView.builder(
           padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
             childAspectRatio: 0.85,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,

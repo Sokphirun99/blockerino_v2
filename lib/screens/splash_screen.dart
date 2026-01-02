@@ -1,8 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/sound_service.dart';
 import '../services/mission_service.dart';
 import '../services/streak_service.dart';
 import 'main_menu_screen.dart';
+
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
 
 /// Professional splash screen with animated logo and app initialization
 class SplashScreen extends StatefulWidget {
@@ -28,19 +36,19 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    // Fade animation (first 50% of duration)
+    // Fade animation - synchronized with scale (both run full duration)
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
       ),
     );
 
-    // Scale animation (elastic bounce effect)
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    // Scale animation - starts with fade, uses smooth bounce
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: Curves.elasticOut,
+        curve: const Interval(0.0, 0.7, curve: Curves.elasticOut),
       ),
     );
 
@@ -74,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen>
         );
       }
     } catch (e) {
-      debugPrint('❌ Error during app initialization: $e');
+      _log('❌ Error during app initialization: $e');
       
       // Still navigate on error after minimum duration
       await Future.delayed(const Duration(seconds: 2));
@@ -90,7 +98,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   /// Perform actual service initialization
   Future<void> _performInitialization() async {
-    debugPrint('🚀 Initializing app services...');
+    _log('🚀 Initializing app services...');
 
     // Initialize core services
     await Future.wait([
@@ -102,11 +110,12 @@ class _SplashScreenState extends State<SplashScreen>
     final missionService = MissionService();
     final streakService = StreakService();
     
-    // Pre-load data (but don't wait for it)
-    missionService.getDailyMissions();
-    streakService.getStreak();
+    // Pre-load data - await mission generation to ensure missions exist
+    // before any game can update progress
+    await missionService.getDailyMissions();
+    streakService.getStreak(); // Streak can load in background
 
-    debugPrint('✅ App services initialized successfully');
+    _log('✅ App services initialized successfully');
   }
 
   @override

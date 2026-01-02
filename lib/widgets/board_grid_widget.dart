@@ -55,14 +55,14 @@ class BoardGridWidget extends StatelessWidget {
             child: Stack(
               key: gridKey,
               clipBehavior: Clip.none,
-              children: [
+              children: const [
                 // LAYER 1: The Static Grid (HEAVY)
                 // This ignores hover updates and only rebuilds on piece placement
-                const _StaticBoardLayer(),
+                _StaticBoardLayer(),
 
                 // LAYER 2: The Ghost Piece (LIGHT)
                 // This listens to hover updates and rebuilds frequently
-                const _GhostOverlayLayer(),
+                _GhostOverlayLayer(),
               ],
             ),
           ),

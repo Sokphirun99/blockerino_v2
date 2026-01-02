@@ -1,6 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+/// Debug print helper - only prints in debug mode
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
+
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -22,9 +29,9 @@ class FirestoreService {
         'createdAt': FieldValue.serverTimestamp(),
         'lastActive': FieldValue.serverTimestamp(),
       });
-      debugPrint('User profile created: $uid');
+      _log('User profile created: $uid');
     } catch (e) {
-      debugPrint('Error creating user profile: $e');
+      _log('Error creating user profile: $e');
     }
   }
 
@@ -33,7 +40,7 @@ class FirestoreService {
       final doc = await _firestore.collection('users').doc(uid).get();
       return doc.data();
     } catch (e) {
-      debugPrint('Error getting user profile: $e');
+      _log('Error getting user profile: $e');
       return null;
     }
   }
@@ -45,7 +52,7 @@ class FirestoreService {
         'lastActive': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('Error updating user profile: $e');
+      _log('Error updating user profile: $e');
     }
   }
 
@@ -68,9 +75,9 @@ class FirestoreService {
         'highScore': score,
         'completedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('Story progress saved: Level $levelNumber, $stars stars');
+      _log('Story progress saved: Level $levelNumber, $stars stars');
     } catch (e) {
-      debugPrint('Error saving story progress: $e');
+      _log('Error saving story progress: $e');
     }
   }
 
@@ -90,7 +97,7 @@ class FirestoreService {
       }
       return progress;
     } catch (e) {
-      debugPrint('Error getting story progress: $e');
+      _log('Error getting story progress: $e');
       return {};
     }
   }
@@ -117,9 +124,9 @@ class FirestoreService {
         'gamesPlayed': FieldValue.increment(1),
       });
 
-      debugPrint('Score submitted: $score for $gameMode');
+      _log('Score submitted: $score for $gameMode');
     } catch (e) {
-      debugPrint('Error submitting score: $e');
+      _log('Error submitting score: $e');
     }
   }
 
@@ -148,7 +155,7 @@ class FirestoreService {
 
       return doc.data();
     } catch (e) {
-      debugPrint('Error getting daily challenge: $e');
+      _log('Error getting daily challenge: $e');
       return null;
     }
   }
@@ -171,9 +178,9 @@ class FirestoreService {
         'score': score,
         'timestamp': FieldValue.serverTimestamp(),
       });
-      debugPrint('Challenge score submitted: $score');
+      _log('Challenge score submitted: $score');
     } catch (e) {
-      debugPrint('Error submitting challenge score: $e');
+      _log('Error submitting challenge score: $e');
     }
   }
 
@@ -193,9 +200,9 @@ class FirestoreService {
       await _firestore.collection('users').doc(uid).update({
         'coins': FieldValue.increment(amount),
       });
-      debugPrint('Added $amount coins to user $uid');
+      _log('Added $amount coins to user $uid');
     } catch (e) {
-      debugPrint('Error adding coins: $e');
+      _log('Error adding coins: $e');
     }
   }
 
@@ -208,12 +215,12 @@ class FirestoreService {
         await _firestore.collection('users').doc(uid).update({
           'coins': FieldValue.increment(-amount),
         });
-        debugPrint('Spent $amount coins for user $uid');
+        _log('Spent $amount coins for user $uid');
       } else {
-        debugPrint('Insufficient coins: $currentCoins < $amount');
+        _log('Insufficient coins: $currentCoins < $amount');
       }
     } catch (e) {
-      debugPrint('Error spending coins: $e');
+      _log('Error spending coins: $e');
     }
   }
 
@@ -228,7 +235,7 @@ class FirestoreService {
         'coins': data?['coins'] ?? 0,
       };
     } catch (e) {
-      debugPrint('Error getting user stats: $e');
+      _log('Error getting user stats: $e');
       return null;
     }
   }

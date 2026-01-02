@@ -111,32 +111,32 @@ class _FloatingScoreState extends State<FloatingScore>
             child: Transform.scale(
               scale: _scaleAnimation.value,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: gradientColors,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.white.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                      spreadRadius: 2,
+                      blurRadius: 8,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
                 child: Text(
                   '+${widget.points}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 28,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     shadows: [
                       Shadow(
                         color: Colors.black,
-                        offset: const Offset(2, 2),
+                        offset: Offset(2, 2),
                         blurRadius: 4,
                       ),
                     ],

@@ -2,6 +2,12 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 
+void _log(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
+
 class AnalyticsService {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
@@ -15,7 +21,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging game start: $e');
+      _log('Error logging game start: $e');
     }
   }
 
@@ -36,7 +42,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging game end: $e');
+      _log('Error logging game end: $e');
     }
   }
 
@@ -55,7 +61,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging level complete: $e');
+      _log('Error logging level complete: $e');
     }
   }
 
@@ -68,7 +74,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging power up used: $e');
+      _log('Error logging power up used: $e');
     }
   }
 
@@ -86,7 +92,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging purchase: $e');
+      _log('Error logging purchase: $e');
     }
   }
 
@@ -94,7 +100,7 @@ class AnalyticsService {
     try {
       await _analytics.logEvent(name: 'daily_challenge_start');
     } catch (e) {
-      debugPrint('Error logging daily challenge start: $e');
+      _log('Error logging daily challenge start: $e');
     }
   }
 
@@ -107,7 +113,7 @@ class AnalyticsService {
         },
       );
     } catch (e) {
-      debugPrint('Error logging daily challenge complete: $e');
+      _log('Error logging daily challenge complete: $e');
     }
   }
 
@@ -115,7 +121,7 @@ class AnalyticsService {
     try {
       await _analytics.logScreenView(screenName: screenName);
     } catch (e) {
-      debugPrint('Error logging screen view: $e');
+      _log('Error logging screen view: $e');
     }
   }
 
@@ -123,7 +129,7 @@ class AnalyticsService {
     try {
       await _analytics.logLogin(loginMethod: method);
     } catch (e) {
-      debugPrint('Error logging sign in: $e');
+      _log('Error logging sign in: $e');
     }
   }
 
@@ -131,7 +137,7 @@ class AnalyticsService {
     try {
       await _analytics.logTutorialBegin();
     } catch (e) {
-      debugPrint('Error logging tutorial begin: $e');
+      _log('Error logging tutorial begin: $e');
     }
   }
 
@@ -139,7 +145,7 @@ class AnalyticsService {
     try {
       await _analytics.logTutorialComplete();
     } catch (e) {
-      debugPrint('Error logging tutorial complete: $e');
+      _log('Error logging tutorial complete: $e');
     }
   }
 
@@ -148,7 +154,7 @@ class AnalyticsService {
     try {
       await _analytics.setUserProperty(name: name, value: value);
     } catch (e) {
-      debugPrint('Error setting user property: $e');
+      _log('Error setting user property: $e');
     }
   }
 
@@ -156,7 +162,7 @@ class AnalyticsService {
     try {
       await _analytics.setUserId(id: userId);
     } catch (e) {
-      debugPrint('Error setting user ID: $e');
+      _log('Error setting user ID: $e');
     }
   }
 }

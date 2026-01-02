@@ -11,6 +11,9 @@ import '../../models/story_level.dart';
 import '../../models/power_up.dart';
 import '../../services/sound_service.dart';
 import '../../services/mission_service.dart';
+import '../../services/scoring_service.dart';
+import '../../services/piece_generation_service.dart';
+import '../../services/power_up_service.dart';
 import '../../models/daily_mission.dart';
 import '../settings/settings_cubit.dart';
 import 'game_state.dart';
@@ -46,18 +49,22 @@ class _SavedGameState {
 }
 
 class GameCubit extends Cubit<GameState> {
+  // Chaos Mode constants
+  static const int _chaosEventMinMoves = 10;
+  static const int _chaosEventInterval = 18;
+  static const int _chaosEventDuration = 5;
+  static const double _chaosEventProbability = 0.5;
+
   final SettingsCubit? settingsCubit;
+
+  // Services
   final SoundService _soundService = SoundService();
+  final ScoringService _scoringService = ScoringService();
+  final PieceGenerationService _pieceService = PieceGenerationService();
+  late final PowerUpService _powerUpService;
 
   // Separate saved states for each game mode
   final Map<GameMode, _SavedGameState> _savedGames = {};
-
-  // Random Bag System (Section 4.1 of technical document)
-  // FIX: Changed from static to instance variables so each game session is independent
-  List<int> _pieceBag = [];
-  int _bagIndex = 0;
-  int _bagRefillCount =
-      0; // Track bag refills for rotating distribution fairness
 
   // Chaos Mode event tracking
   int _moveCount = 0;
@@ -83,21 +90,31 @@ class GameCubit extends Cubit<GameState> {
   final Completer<void> _savedGamesLoadCompleter = Completer<void>();
 
   GameCubit({this.settingsCubit}) : super(const GameInitial()) {
+    // Initialize power-up service with dependencies
+    _powerUpService = PowerUpService(
+      soundService: _soundService,
+      pieceService: _pieceService,
+    );
+
     // Sync sound service with settings
     if (settingsCubit != null) {
       final settingsState = settingsCubit!.state;
       _soundService.setHapticsEnabled(settingsState.hapticsEnabled);
       _soundService.setSoundEnabled(settingsState.soundEnabled);
     }
-    // Load saved games from persistent storage
-    // CRITICAL FIX: Load saved games asynchronously and mark when complete
+
+    // Load saved games asynchronously
     loadSavedGames().then((_) {
       _savedGamesLoaded = true;
       if (!_savedGamesLoadCompleter.isCompleted) {
         _savedGamesLoadCompleter.complete();
       }
     }).catchError((e) {
-      debugPrint('Error loading saved games: $e');
+      // Error logged only in debug mode
+      assert(() {
+        debugPrint('Error loading saved games: $e');
+        return true;
+      }());
       _savedGamesLoaded = true;
       if (!_savedGamesLoadCompleter.isCompleted) {
         _savedGamesLoadCompleter.complete();
@@ -171,15 +188,13 @@ class GameCubit extends Cubit<GameState> {
       _loadSavedGame(mode);
     } else {
       // Start fresh game
-      _pieceBag.clear(); // Reset bag for new game
-      _bagIndex = 0;
-      _bagRefillCount =
-          0; // CRITICAL FIX: Reset refill count for consistent rotation pattern
-      _resetMissionTracking(); // Reset mission tracking for new game
+      _pieceService.reset();
+      _resetMissionTracking();
 
       final config = GameModeConfig.fromMode(mode);
       final board = Board(size: config.boardSize);
-      final hand = _generateRandomHand(config.handSize);
+      final themeColors = settingsCubit?.state.currentTheme.blockColors;
+      final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
 
       emit(GameInProgress(
         board: board,
@@ -196,17 +211,13 @@ class GameCubit extends Cubit<GameState> {
     // Reset flag for new story level
     _isEndingStoryLevel = false;
 
-    _pieceBag.clear(); // Reset bag for new story level
-    _bagIndex = 0;
-    _bagRefillCount =
-        0; // CRITICAL FIX: Reset refill count for consistent rotation pattern
-    _resetMissionTracking(); // Reset mission tracking for new game
+    _pieceService.reset();
+    _resetMissionTracking();
 
-    // FIX: Use the story level's game mode, not hardcoded GameMode.story
-    // Some story levels use GameMode.chaos or other modes
     final config = GameModeConfig.fromMode(level.gameMode);
     final board = Board(size: config.boardSize);
-    final hand = _generateRandomHand(config.handSize);
+    final themeColors = settingsCubit?.state.currentTheme.blockColors;
+    final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
 
     // Check if power-ups are disabled
     final powerUpsDisabled = level.restrictions.any((r) =>
@@ -271,6 +282,7 @@ class GameCubit extends Cubit<GameState> {
   }
 
   void _saveCurrentGame(GameInProgress currentState) {
+    final bagState = _pieceService.getState();
     _savedGames[currentState.gameMode] = _SavedGameState(
       board: currentState.board.clone(),
       hand: List.from(currentState.hand),
@@ -278,10 +290,9 @@ class GameCubit extends Cubit<GameState> {
       combo: currentState.combo,
       lastBrokenLine: currentState.lastBrokenLine,
       gameOver: false,
-      pieceBag: List.from(_pieceBag), // Save current bag state
-      bagIndex: _bagIndex, // Save current bag index
-      bagRefillCount:
-          _bagRefillCount, // CRITICAL FIX: Save refill count for rotating distribution
+      pieceBag: bagState['pieceBag'],
+      bagIndex: bagState['bagIndex'],
+      bagRefillCount: bagState['bagRefillCount'],
     );
     _saveToPersistentStorage();
   }
@@ -315,9 +326,12 @@ class GameCubit extends Cubit<GameState> {
       });
 
       await prefs.setString('savedGames', jsonEncode(savedGamesData));
-      debugPrint('Saved games to persistent storage: ${_savedGames.keys}');
     } catch (e) {
-      debugPrint('Error saving games: $e');
+      // Error logged only in debug mode
+      assert(() {
+        debugPrint('Error saving games: $e');
+        return true;
+      }());
     }
   }
 
@@ -328,7 +342,6 @@ class GameCubit extends Cubit<GameState> {
 
       if (savedGamesJson != null && savedGamesJson.isNotEmpty) {
         final Map<String, dynamic> savedGamesData = jsonDecode(savedGamesJson);
-        debugPrint('Loading saved games from storage: ${savedGamesData.keys}');
 
         savedGamesData.forEach((modeStr, gameData) {
           try {
@@ -348,56 +361,45 @@ class GameCubit extends Cubit<GameState> {
               combo: gameData['combo'] ?? 0,
               lastBrokenLine: gameData['lastBrokenLine'] ?? 0,
               gameOver: gameData['gameOver'] ?? false,
-              pieceBag:
-                  List<int>.from(gameData['pieceBag'] ?? []), // Load bag state
-              bagIndex: gameData['bagIndex'] ?? 0, // Load bag index
-              bagRefillCount: gameData['bagRefillCount'] ??
-                  0, // CRITICAL FIX: Load refill count (default to 0 for old saves)
+              pieceBag: List<int>.from(gameData['pieceBag'] ?? []),
+              bagIndex: gameData['bagIndex'] ?? 0,
+              bagRefillCount: gameData['bagRefillCount'] ?? 0,
             );
-            debugPrint(
-                'Successfully loaded saved game for $mode (score: ${gameData['score'] ?? 0})');
           } catch (e) {
-            debugPrint('Error loading saved game for mode $modeStr: $e');
+            // Error logged only in debug mode
+            assert(() {
+              debugPrint('Error loading saved game for mode $modeStr: $e');
+              return true;
+            }());
           }
         });
-        debugPrint('Loaded ${_savedGames.length} saved game(s)');
-      } else {
-        debugPrint('No saved games found in storage');
       }
     } catch (e) {
-      debugPrint('Error loading saved games: $e');
+      // Error logged only in debug mode
+      assert(() {
+        debugPrint('Error loading saved games: $e');
+        return true;
+      }());
     }
   }
 
   void _loadSavedGame(GameMode mode) {
     final savedGame = _savedGames[mode];
     if (savedGame == null) {
-      debugPrint('No saved game found for mode: $mode');
       return;
     }
 
-    debugPrint(
-        'Loading saved game for $mode: hand size=${savedGame.hand.length}, board size=${savedGame.board.size}');
-
     // Validate board size matches mode configuration
-    // CRITICAL FIX: Prevents loading 8x8 board for Chaos mode (expects 10x10) or vice versa
-    // This can happen if saved game data is corrupted or from a different version
     final config = GameModeConfig.fromMode(mode);
-    debugPrint(
-        'Mode config for $mode: hand size=${config.handSize}, board size=${config.boardSize}');
 
     if (savedGame.board.size != config.boardSize) {
-      debugPrint(
-          'Saved game has wrong board size (${savedGame.board.size} vs ${config.boardSize}). Creating fresh game.');
-      // Remove corrupted save from memory and persistent storage
+      // Remove corrupted save and start fresh
       _savedGames.remove(mode);
-      _saveToPersistentStorage(); // Persist the removal so it's not reloaded on next app start
-      // Start fresh game with correct size
-      _pieceBag.clear();
-      _bagIndex = 0;
-      _bagRefillCount = 0; // CRITICAL FIX: Reset refill count for fresh game
+      _saveToPersistentStorage();
+      _pieceService.reset();
       final board = Board(size: config.boardSize);
-      final hand = _generateRandomHand(config.handSize);
+      final themeColors = settingsCubit?.state.currentTheme.blockColors;
+      final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
       emit(GameInProgress(
         board: board,
         hand: hand,
@@ -409,38 +411,25 @@ class GameCubit extends Cubit<GameState> {
       return;
     }
 
-    // CRITICAL FIX: Restore bag state BEFORE checking hand size
-    // This ensures piece bag is restored even if hand size needs correction
-    // Restoring bag state first maintains the random sequence integrity
-    _pieceBag = List.from(savedGame.pieceBag);
-    _bagIndex = savedGame.bagIndex;
-    _bagRefillCount = savedGame
-        .bagRefillCount; // CRITICAL FIX: Restore refill count for correct rotation pattern
+    // Restore bag state before checking hand size
+    _pieceService.restoreState({
+      'pieceBag': savedGame.pieceBag,
+      'bagIndex': savedGame.bagIndex,
+      'bagRefillCount': savedGame.bagRefillCount,
+    });
 
-    // CRITICAL FIX: Validate hand size matches mode configuration
-    // BUG FIX: Preserve partial hands - only refill when hand is completely empty (0 pieces)
-    // Hand should stay partial (e.g., 2/3 pieces) until all pieces are used
+    // Validate and adjust hand size if needed
     List<Piece> hand = savedGame.hand;
     if (hand.length != config.handSize) {
-      debugPrint(
-          'Hand size mismatch (${hand.length} vs ${config.handSize}). Adjusting hand size.');
-
+      final themeColors = settingsCubit?.state.currentTheme.blockColors;
       if (hand.isEmpty) {
-        // Hand is completely empty - refill to full size (normal game behavior)
-        hand = _generateRandomHand(config.handSize);
-        debugPrint('Hand was empty, refilled with ${config.handSize} pieces');
+        // Hand is completely empty - refill to full size
+        hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
       } else if (hand.length > config.handSize) {
-        // Hand is too large - trim to correct size (keep first N pieces)
+        // Hand is too large - trim to correct size
         hand = hand.take(config.handSize).toList();
-        debugPrint(
-            'Trimmed hand from ${savedGame.hand.length} to ${hand.length} pieces');
-      } else {
-        // Hand is partial (e.g., 2/3 pieces) - preserve it as-is!
-        // This is correct behavior - hand only refills when ALL pieces are used
-        debugPrint(
-            'Preserving partial hand with ${hand.length} pieces (expected ${config.handSize})');
-        // Keep hand as-is, no changes needed
       }
+      // Partial hands are preserved as-is (normal game behavior)
 
       if (savedGame.gameOver) {
         emit(GameOver(
@@ -471,8 +460,6 @@ class GameCubit extends Cubit<GameState> {
         gameMode: mode,
       ));
     } else {
-      debugPrint(
-          'Loading saved game with preserved hand: ${savedGame.hand.length} pieces');
       emit(GameInProgress(
         board: savedGame.board,
         hand: savedGame.hand,
@@ -555,18 +542,6 @@ class GameCubit extends Cubit<GameState> {
     return false;
   }
 
-  /// Helper method to detect perfect clear (completely empty board)
-  bool _isBoardEmpty(Board board) {
-    for (int row = 0; row < board.size; row++) {
-      for (int col = 0; col < board.size; col++) {
-        if (board.grid[row][col].type == BlockType.filled) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   bool placePiece(Piece piece, int x, int y) {
     final currentState = state;
     if (currentState is! GameInProgress) return false;
@@ -603,71 +578,34 @@ class GameCubit extends Cubit<GameState> {
     final pieceBlockCount = piece.getBlockCount();
     int newScore = currentState.score + pieceBlockCount;
 
-    // CRITICAL FIX: Break lines on the NEW board, not the old one!
-    // This ensures hover blocks are cleared and line breaking works correctly
-    final lineClearSw = Stopwatch()..start();
+    // Break lines on the new board
     final clearResult = newBoard.breakLinesWithInfo();
     final linesBroken = clearResult.lineCount;
-    lineClearSw.stop();
-
-    // TODO: REMOVE PERFORMANCE MONITORING IN PRODUCTION
-    if (linesBroken > 0) {
-      debugPrint('⏱️ Line clearing: ${lineClearSw.elapsedMilliseconds}ms');
-    }
 
     // Track lines cleared for story mode
     int newLinesCleared = currentState.linesCleared + linesBroken;
 
-    int newCombo = currentState.combo;
-    int newLastBrokenLine = currentState.lastBrokenLine;
+    // Update combo state using scoring service
+    final (newCombo, newLastBrokenLine) = _scoringService.updateComboState(
+      linesBroken: linesBroken,
+      currentCombo: currentState.combo,
+      lastBrokenLine: currentState.lastBrokenLine,
+    );
 
     if (linesBroken > 0) {
-      newLastBrokenLine = 0;
-      newCombo += linesBroken;
+      // Calculate score using scoring service
+      final lineScore = _scoringService.calculateLineClearScore(
+        linesBroken: linesBroken,
+        currentCombo: newCombo,
+        doublePointsActive: _doublePointsActive,
+      );
+      newScore += lineScore;
 
-      // ========== FIBONACCI-BASED EXPONENTIAL SCORING ==========
-      // Combo multiplier uses Fibonacci sequence for exponentially rewarding combos
-      // CRITICAL FIX: Use comboIndex-1 to align with 1-based combo numbering
-      // Combo 1 → index 0 (multiplier 1)
-      // Combo 2 → index 1 (multiplier 1)
-      // Combo 3 → index 2 (multiplier 2)
-      // Combo 4 → index 3 (multiplier 3)
-      const fibMultipliers = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
-      final comboIndex =
-          (newCombo - 1).clamp(0, 11); // Convert 1-based combo to 0-based index
-      final comboMultiplier = fibMultipliers[comboIndex];
-
-      // Multi-line bonus: Reward clearing multiple lines at once
-      double multiLineBonus;
-      if (linesBroken >= 4) {
-        multiLineBonus = 3.0; // Tetris-style quad clear
-      } else if (linesBroken >= 3) {
-        multiLineBonus = 2.0; // Triple clear
-      } else if (linesBroken >= 2) {
-        multiLineBonus = 1.5; // Double clear
-      } else {
-        multiLineBonus = 1.0; // Single clear
-      }
-
-      // Calculate final score
-      final basePoints = linesBroken * 10;
-      var finalPoints = (basePoints * comboMultiplier * multiLineBonus).toInt();
-
-      // Apply Chaos event multiplier
-      if (_doublePointsActive) {
-        finalPoints *= 2;
-      }
-
-      newScore += finalPoints;
-
-      // Check for perfect clear (board completely empty after clearing lines)
-      if (_isBoardEmpty(newBoard)) {
-        final perfectClearBonus = 1000 + (newCombo * 100);
+      // Check for perfect clear
+      if (newBoard.isEmpty()) {
+        final perfectClearBonus = _scoringService.calculatePerfectClearBonus(newCombo);
         newScore += perfectClearBonus;
-        _perfectClearCount++; // Track for missions
-
-        // Optional: track for analytics
-        // settingsCubit?.analyticsService.logPerfectClear(newScore, newCombo);
+        _perfectClearCount++;
       }
 
       // Track max combo for missions
@@ -676,8 +614,6 @@ class GameCubit extends Cubit<GameState> {
       }
 
       // Play clear and combo sounds
-      // CRITICAL FIX: Pass hasCombo parameter to prevent double sound
-      // If there's a combo, only play combo sound (not clear sound)
       final hasCombo = newCombo > 1;
       _soundService.playClear(linesBroken, hasCombo: hasCombo);
       if (hasCombo) {
@@ -688,18 +624,6 @@ class GameCubit extends Cubit<GameState> {
       if (onLinesCleared != null && clearResult.clearedBlocks.isNotEmpty) {
         onLinesCleared!(clearResult.clearedBlocks, linesBroken);
       }
-    } else {
-      newLastBrokenLine++;
-      // ✅ DESIGN DECISION: Use constant 3-move buffer instead of scaling with handSize
-      // This is INTENTIONAL game balance design, not a bug:
-      // - Classic mode: 3 pieces in hand, 3-move buffer
-      // - Chaos mode: 5 pieces in hand, 3-move buffer (same buffer despite more pieces)
-      // This makes combos harder to maintain in Chaos mode, which balances the game
-      // since Chaos mode already has more pieces available (5 vs 3).
-      // Combo resets after 4 moves without clearing (allows 3 moves buffer)
-      if (newLastBrokenLine > 3) {
-        newCombo = 0;
-      }
     }
 
     // Remove the piece from hand
@@ -709,7 +633,12 @@ class GameCubit extends Cubit<GameState> {
     // Refill hand if empty
     if (newHand.isEmpty) {
       final config = GameModeConfig.fromMode(currentState.gameMode);
-      newHand.addAll(_generateRandomHand(config.handSize));
+      final themeColors = settingsCubit?.state.currentTheme.blockColors;
+      newHand.addAll(_pieceService.generateAdaptiveHand(
+        config.handSize,
+        newBoard,
+        themeColors: themeColors,
+      ));
       _soundService.playRefill();
     }
 
@@ -825,12 +754,10 @@ class GameCubit extends Cubit<GameState> {
       _savedGames.remove(gameMode);
       _saveToPersistentStorage();
 
-      // ✅ CRITICAL: Reset bag system
-      _pieceBag.clear();
-      _bagIndex = 0;
-      _bagRefillCount = 0;
+      // Reset services
+      _pieceService.reset();
 
-      // ✅ CRITICAL: Reset Chaos mode variables
+      // Reset Chaos mode variables
       _moveCount = 0;
       _doublePointsActive = false;
       _doublePointsLeft = 0;
@@ -858,15 +785,12 @@ class GameCubit extends Cubit<GameState> {
 
   void _endStoryLevel(GameInProgress currentState,
       {bool failed = false, bool timeUp = false}) {
-    // ✅ Prevent duplicate calls - check both state and flag
+    // Prevent duplicate calls
     if (state is GameOver) {
-      debugPrint(
-          'Level already ended (GameOver state), ignoring duplicate call');
       return;
     }
 
     if (_isEndingStoryLevel) {
-      debugPrint('Level ending already in progress, ignoring duplicate call');
       return;
     }
 
@@ -969,10 +893,12 @@ class GameCubit extends Cubit<GameState> {
         await _missionService.addMissionProgress(MissionType.useChaosMode, 1);
       }
 
-      debugPrint(
-          '📊 Mission progress tracked: score=$finalScore, lines=$linesCleared, combo=$maxCombo, perfects=$perfectClears');
     } catch (e) {
-      debugPrint('❌ Error tracking missions: $e');
+      // Error logged only in debug mode
+      assert(() {
+        debugPrint('Error tracking missions: $e');
+        return true;
+      }());
     }
   }
 
@@ -999,24 +925,17 @@ class GameCubit extends Cubit<GameState> {
       _doublePointsLeft--;
       if (_doublePointsLeft <= 0) {
         _doublePointsActive = false;
-        debugPrint('🎲 2X Points ended');
       }
       return;
     }
 
-    // Random chance every ~18 moves
-    if (_moveCount > 10 &&
-        _moveCount % 18 == 0 &&
-        math.Random().nextDouble() > 0.5) {
+    // Random chance to trigger chaos event
+    if (_moveCount > _chaosEventMinMoves &&
+        _moveCount % _chaosEventInterval == 0 &&
+        math.Random().nextDouble() > _chaosEventProbability) {
       _doublePointsActive = true;
-      _doublePointsLeft = 5;
-
-      debugPrint('🎲 CHAOS EVENT: 2X POINTS FOR 5 MOVES!');
-
-      // TODO: REMOVE DEBUG LOGGING BEFORE RELEASE
-      debugPrint('🎲 Event triggered: 2X POINTS');
-
-      // TODO: Show UI notification to player
+      _doublePointsLeft = _chaosEventDuration;
+      // TODO: Show UI notification to player when 2X points activates
     }
   }
 
@@ -1030,350 +949,45 @@ class GameCubit extends Cubit<GameState> {
 
     // Check if power-ups are disabled in story mode
     if (currentState.powerUpsDisabled) {
-      debugPrint('Power-ups are disabled for this level');
       return;
     }
 
     // Check if user has the power-up
     if (settingsCubit!.getPowerUpCount(type) <= 0) return;
 
-    bool success = false;
+    // Use power-up service
+    final themeColors = settingsCubit?.state.currentTheme.blockColors;
+    final result = _powerUpService.activate(
+      type: type,
+      board: currentState.board,
+      hand: currentState.hand,
+      gameMode: currentState.gameMode,
+      themeColors: themeColors,
+    );
 
-    switch (type) {
-      case PowerUpType.shuffle:
-        success = _activateShuffle(currentState);
-        break;
-      case PowerUpType.wildPiece:
-        success = _activateWildPiece(currentState);
-        break;
-      case PowerUpType.lineClear:
-        success = _activateRandomLineClear(currentState);
-        break;
-      case PowerUpType.bomb:
-        success = false;
-        break;
-      case PowerUpType.colorBomb:
-        success = _activateColorBomb(currentState);
-        break;
-    }
+    if (result.success) {
+      // Apply result to state
+      var newState = currentState;
 
-    if (success) {
+      if (result.newBoard != null) {
+        newState = newState.copyWith(
+          board: result.newBoard,
+          score: currentState.score + result.scoreGained,
+        );
+      }
+
+      if (result.newHand != null) {
+        newState = newState.copyWith(hand: result.newHand);
+      }
+
+      // Trigger particle effects
+      if (onLinesCleared != null && result.clearedBlocks.isNotEmpty) {
+        onLinesCleared!(result.clearedBlocks, 1);
+      }
+
+      emit(newState);
       await settingsCubit!.usePowerUp(type);
     }
   }
 
-  bool _activateShuffle(GameInProgress currentState) {
-    final config = GameModeConfig.fromMode(currentState.gameMode);
-    final newHand = _generateRandomHand(config.handSize);
-    _soundService.playRefill();
-
-    emit(currentState.copyWith(hand: newHand));
-    return true;
-  }
-
-  bool _activateWildPiece(GameInProgress currentState) {
-    final wildPiece = Piece(
-      id: 'wild_${DateTime.now().millisecondsSinceEpoch}',
-      shape: [
-        [true]
-      ],
-      color: const Color(0xFFFFD700),
-    );
-
-    final newHand = List<Piece>.from(currentState.hand)..add(wildPiece);
-    _soundService.playPlace();
-
-    emit(currentState.copyWith(hand: newHand));
-    return true;
-  }
-
-  bool _activateRandomLineClear(GameInProgress currentState) {
-    // CRITICAL FIX: Clone board before mutation to ensure state change is detected
-    final newBoard = currentState.board.clone();
-
-    // Find all rows and columns that have at least one block
-    final filledRows = <int>[];
-    final filledCols = <int>[];
-
-    for (int row = 0; row < newBoard.size; row++) {
-      for (int col = 0; col < newBoard.size; col++) {
-        if (newBoard.grid[row][col].type == BlockType.filled) {
-          if (!filledRows.contains(row)) filledRows.add(row);
-          if (!filledCols.contains(col)) filledCols.add(col);
-        }
-      }
-    }
-
-    if (filledRows.isEmpty && filledCols.isEmpty) return false;
-
-    // Randomly pick a row or column
-    final allLines = [...filledRows, ...filledCols.map((c) => -c - 1)];
-    allLines.shuffle();
-    final selectedLine = allLines.first;
-
-    final clearedBlocks = <ClearedBlockInfo>[];
-
-    if (selectedLine >= 0) {
-      // Clear row
-      for (int col = 0; col < newBoard.size; col++) {
-        if (newBoard.grid[selectedLine][col].type == BlockType.filled) {
-          clearedBlocks.add(ClearedBlockInfo(
-            row: selectedLine,
-            col: col,
-            color: newBoard.grid[selectedLine][col].color!,
-          ));
-          newBoard.grid[selectedLine][col] =
-              const BoardBlock(type: BlockType.empty);
-        }
-      }
-    } else {
-      // Clear column
-      final col = -selectedLine - 1;
-      for (int row = 0; row < newBoard.size; row++) {
-        if (newBoard.grid[row][col].type == BlockType.filled) {
-          clearedBlocks.add(ClearedBlockInfo(
-            row: row,
-            col: col,
-            color: newBoard.grid[row][col].color!,
-          ));
-          newBoard.grid[row][col] = const BoardBlock(type: BlockType.empty);
-        }
-      }
-    }
-
-    // After modifying the grid, update the bitboard
-    newBoard.updateBitboard();
-
-    // Award points
-    final newScore = currentState.score + (clearedBlocks.length * 10);
-    _soundService.playClear(1);
-
-    // Trigger particles
-    if (onLinesCleared != null && clearedBlocks.isNotEmpty) {
-      onLinesCleared!(clearedBlocks, 1);
-    }
-
-    // CRITICAL FIX: Emit with new board to trigger UI update
-    emit(currentState.copyWith(
-      board: newBoard,
-      score: newScore,
-    ));
-    return true;
-  }
-
-  bool _activateColorBomb(GameInProgress currentState) {
-    // CRITICAL FIX: Clone board before mutation to ensure state change is detected
-    final newBoard = currentState.board.clone();
-
-    // Count blocks by color
-    final colorCounts = <Color, int>{};
-    for (int row = 0; row < newBoard.size; row++) {
-      for (int col = 0; col < newBoard.size; col++) {
-        final block = newBoard.grid[row][col];
-        if (block.type == BlockType.filled && block.color != null) {
-          colorCounts[block.color!] = (colorCounts[block.color!] ?? 0) + 1;
-        }
-      }
-    }
-
-    if (colorCounts.isEmpty) return false;
-
-    // Find most common color
-    Color? mostCommonColor;
-    int maxCount = 0;
-    colorCounts.forEach((color, count) {
-      if (count > maxCount) {
-        maxCount = count;
-        mostCommonColor = color;
-      }
-    });
-
-    if (mostCommonColor == null) return false;
-
-    // Clear all blocks of that color
-    final clearedBlocks = <ClearedBlockInfo>[];
-    for (int row = 0; row < newBoard.size; row++) {
-      for (int col = 0; col < newBoard.size; col++) {
-        final block = newBoard.grid[row][col];
-        if (block.type == BlockType.filled && block.color == mostCommonColor) {
-          clearedBlocks.add(ClearedBlockInfo(
-            row: row,
-            col: col,
-            color: block.color!,
-          ));
-          newBoard.grid[row][col] = const BoardBlock(type: BlockType.empty);
-        }
-      }
-    }
-
-    // After modifying the grid, update the bitboard
-    newBoard.updateBitboard();
-
-    // Award points
-    final newScore = currentState.score + (clearedBlocks.length * 15);
-    _soundService.playClear(clearedBlocks.length ~/ newBoard.size);
-
-    // Trigger particles
-    if (onLinesCleared != null && clearedBlocks.isNotEmpty) {
-      onLinesCleared!(clearedBlocks, clearedBlocks.length ~/ newBoard.size);
-    }
-
-    // CRITICAL FIX: Emit with new board to trigger UI update
-    emit(currentState.copyWith(
-      board: newBoard,
-      score: newScore,
-    ));
-    return true;
-  }
-
-  /// Generate random hand using Weighted Random Bag system (Section 4.1)
-  /// This prevents clumping of hard pieces and ensures fair distribution
-  List<Piece> _generateRandomHand(int count) {
-    final hand = <Piece>[];
-
-    // Get theme colors from settings (if available)
-    final themeColors = settingsCubit?.state.currentTheme.blockColors;
-
-    for (int i = 0; i < count; i++) {
-      // Refill bag if empty
-      if (_bagIndex >= _pieceBag.length) {
-        _refillPieceBag();
-        _bagIndex = 0;
-      }
-
-      // Draw piece from bag
-      final pieceIndex = _pieceBag[_bagIndex++];
-      hand.add(Piece.fromShapeIndex(pieceIndex, themeColors: themeColors));
-    }
-
-    return hand;
-  }
-
-  /// Refill the piece bag with weighted distribution (Fisher-Yates shuffle)
-  /// Distribution is ADAPTIVE based on board density to prevent player frustration
-  void _refillPieceBag() {
-    _pieceBag.clear();
-    _bagRefillCount++; // Increment counter for rotating distribution fairness
-
-    // ========== CALCULATE BOARD DENSITY ==========
-    int easyCount = 50;
-    int mediumCount = 35;
-    int hardCount = 15;
-
-    final currentState = state;
-    if (currentState is GameInProgress) {
-      final board = currentState.board;
-      final boardSize = currentState.gameMode == GameMode.chaos ? 100 : 64;
-
-      // Count filled cells
-      int filledCells = 0;
-      for (int row = 0; row < board.size; row++) {
-        for (int col = 0; col < board.size; col++) {
-          if (board.grid[row][col].type == BlockType.filled) {
-            filledCells++;
-          }
-        }
-      }
-
-      final density = filledCells / boardSize;
-      final densityPercent = (density * 100).toStringAsFixed(1);
-
-      // ========== ADJUST DISTRIBUTION BASED ON DENSITY ==========
-      if (density > 0.75) {
-        // CRITICAL - board almost full (MERCY MODE)
-        easyCount = 70;
-        mediumCount = 25;
-        hardCount = 5;
-      } else if (density > 0.60) {
-        // CROWDED
-        easyCount = 60;
-        mediumCount = 30;
-        hardCount = 10;
-      } else if (density > 0.40) {
-        // BALANCED
-        easyCount = 50;
-        mediumCount = 35;
-        hardCount = 15;
-      } else {
-        // EMPTY - plenty of space, can give harder pieces
-        easyCount = 45;
-        mediumCount = 35;
-        hardCount = 20;
-        debugPrint(
-            '🟢 EMPTY: Board $densityPercent% full - Easy: $easyCount%, Medium: $mediumCount%, Hard: $hardCount%');
-      }
-    } else {
-      // No active game - use default distribution
-    }
-
-    // ========== FILL BAG WITH ADAPTIVE DISTRIBUTION ==========
-    if (currentState is GameInProgress) {
-      final board = currentState.board;
-      final boardSize = currentState.gameMode == GameMode.chaos ? 100 : 64;
-      int filledCells = 0;
-      for (int row = 0; row < board.size; row++) {
-        for (int col = 0; col < board.size; col++) {
-          if (board.grid[row][col].type == BlockType.filled) {
-            filledCells++;
-          }
-        }
-      }
-      final density = filledCells / boardSize;
-      debugPrint('   Density: ${(density * 100).toStringAsFixed(1)}%');
-    }
-
-    // Easy pieces (Singles, Doubles, Triples): 20, 21, 22, 23, 24
-    // Distribute evenly among 5 easy piece types
-    final easyPieces = [20, 21, 22, 23, 24];
-    final easyPerPiece = easyCount ~/ easyPieces.length; // Base count per piece
-    final easyRemainder =
-        easyCount % easyPieces.length; // Extra pieces to distribute
-    for (int i = 0; i < easyPerPiece; i++) {
-      _pieceBag.addAll(easyPieces);
-    }
-    // Add remainder with rotation for fairness
-    for (int i = 0; i < easyRemainder; i++) {
-      _pieceBag.add(easyPieces[(_bagRefillCount + i) % easyPieces.length]);
-    }
-
-    // Medium pieces (L-shapes, T-shapes, etc.): 0-15
-    // Distribute evenly among 16 medium piece types
-    final mediumPerPiece = mediumCount ~/ 16; // Base count per piece
-    final mediumRemainder = mediumCount % 16; // Extra pieces to distribute
-    for (int i = 0; i < mediumPerPiece; i++) {
-      _pieceBag.addAll(List.generate(16, (index) => index)); // 0..15
-    }
-    // CRITICAL FIX: Rotate which pieces get the extra copy to ensure equal probability over time
-    final startIndex = (_bagRefillCount * 3) % 16;
-    for (int i = 0; i < mediumRemainder; i++) {
-      _pieceBag.add((startIndex + i) % 16);
-    }
-
-    // Hard pieces (3x3, 4x1, 5x1): 16, 17, 18, 19, 25, 26
-    // Distribute evenly among 6 hard piece types
-    final hardPieces = [16, 17, 18, 19, 25, 26];
-    final hardPerPiece = hardCount ~/ hardPieces.length; // Base count per piece
-    final hardRemainder =
-        hardCount % hardPieces.length; // Extra pieces to distribute
-    for (int i = 0; i < hardPerPiece; i++) {
-      _pieceBag.addAll(hardPieces);
-    }
-    // CRITICAL FIX: Rotate which pieces get the extra copy to ensure equal probability over time
-    final hardStartIndex = (_bagRefillCount * 3) % hardPieces.length;
-    for (int i = 0; i < hardRemainder; i++) {
-      _pieceBag.add(hardPieces[(hardStartIndex + i) % hardPieces.length]);
-    }
-
-    debugPrint(
-        '📦 Bag refilled: ${_pieceBag.length} pieces (E:$easyCount M:$mediumCount H:$hardCount)');
-
-    // Fisher-Yates shuffle with proper RNG
-    final rng = math.Random();
-    for (int i = _pieceBag.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final temp = _pieceBag[i];
-      _pieceBag[i] = _pieceBag[j];
-      _pieceBag[j] = temp;
-    }
-  }
 }

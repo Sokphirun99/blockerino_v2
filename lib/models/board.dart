@@ -529,6 +529,72 @@ class Board {
     return filledCount / (size * size);
   }
 
+  /// Check if the board is completely empty (no filled blocks)
+  bool isEmpty() {
+    for (int row = 0; row < size; row++) {
+      for (int col = 0; col < size; col++) {
+        if (grid[row][col].type == BlockType.filled) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /// Count total filled cells
+  int getFilledCount() {
+    int count = 0;
+    for (int row = 0; row < size; row++) {
+      for (int col = 0; col < size; col++) {
+        if (grid[row][col].type == BlockType.filled) count++;
+      }
+    }
+    return count;
+  }
+
+  /// Get all filled block positions as (row, col) pairs
+  List<(int row, int col)> getFilledPositions() {
+    final positions = <(int, int)>[];
+    for (int row = 0; row < size; row++) {
+      for (int col = 0; col < size; col++) {
+        if (grid[row][col].type == BlockType.filled) {
+          positions.add((row, col));
+        }
+      }
+    }
+    return positions;
+  }
+
+  /// Get color distribution on the board
+  Map<Color, int> getColorDistribution() {
+    final distribution = <Color, int>{};
+    for (int row = 0; row < size; row++) {
+      for (int col = 0; col < size; col++) {
+        final block = grid[row][col];
+        if (block.type == BlockType.filled && block.color != null) {
+          distribution[block.color!] = (distribution[block.color!] ?? 0) + 1;
+        }
+      }
+    }
+    return distribution;
+  }
+
+  /// Find the most common color on the board
+  Color? getMostCommonColor() {
+    final distribution = getColorDistribution();
+    if (distribution.isEmpty) return null;
+
+    Color? mostCommon;
+    int maxCount = 0;
+    distribution.forEach((color, count) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = color;
+      }
+    });
+    return mostCommon;
+  }
+
   // Serialization methods
   Map<String, dynamic> toJson() {
     return {

@@ -37,15 +37,18 @@ class TutorialOverlay extends StatefulWidget {
   }
 
   @override
-  State<TutorialOverlay> createState() => _TutorialOverlayState();
+  State<TutorialOverlay> createState() => TutorialOverlayState();
 }
 
-class _TutorialOverlayState extends State<TutorialOverlay>
+class TutorialOverlayState extends State<TutorialOverlay>
     with SingleTickerProviderStateMixin {
   late int _currentStep;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  
+  /// Get current step (for external access)
+  int get currentStep => _currentStep;
 
   @override
   void initState() {
@@ -113,40 +116,52 @@ class _TutorialOverlayState extends State<TutorialOverlay>
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    
+    // Steps 1 and 2 are interactive - allow taps to pass through to game
+    final isInteractiveStep = _currentStep == 1 || _currentStep == 2;
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          children: [
-            // Dark overlay background
-            GestureDetector(
-              onTap: () {}, // Prevent taps from passing through
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.7),
+    return IgnorePointer(
+      // Allow all pointer events to pass through during interactive steps
+      ignoring: isInteractiveStep,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              // Dark overlay background
+              Container(
+                color: Colors.black.withValues(alpha: isInteractiveStep ? 0.0 : 0.7),
               ),
-            ),
 
-            // Skip button (top-right)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              right: 16,
-              child: _buildSkipButton(localizations),
-            ),
+              // Skip button (top-right) - always interactive
+              if (!isInteractiveStep)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 16,
+                  right: 16,
+                  child: _buildSkipButton(localizations),
+                ),
 
-            // Tutorial content
-            Center(
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: _buildStepContent(localizations),
-              ),
-            ),
-
-            // Highlight elements for interactive steps
-            if (_currentStep == 1) _buildPieceHighlight(),
-            if (_currentStep == 1) _buildArrowToBoad(),
-          ],
+              // Tutorial content - positioned at top for interactive steps
+              if (isInteractiveStep)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 20,
+                  left: 16,
+                  right: 16,
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: _buildCompactStepContent(localizations),
+                  ),
+                )
+              else
+                Center(
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: _buildStepContent(localizations),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -188,6 +203,71 @@ class _TutorialOverlayState extends State<TutorialOverlay>
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  /// Compact tutorial hint for interactive steps (shown at top, doesn't block game)
+  Widget _buildCompactStepContent(AppLocalizations localizations) {
+    String hint;
+    IconData icon;
+    Color color;
+    
+    if (_currentStep == 1) {
+      hint = localizations.translate('tutorial_drag_hint');
+      icon = Icons.touch_app;
+      color = Colors.blue;
+    } else if (_currentStep == 2) {
+      hint = localizations.translate('tutorial_clear_hint');
+      icon = Icons.auto_awesome;
+      color = Colors.green;
+    } else {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              hint,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _skipTutorial,
+            child: Text(
+              localizations.translate('skip_tutorial'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// STEP 0 - Welcome
@@ -280,34 +360,6 @@ class _TutorialOverlayState extends State<TutorialOverlay>
       }),
     );
   }
-
-  /// Highlight circle around first piece in tray
-  Widget _buildPieceHighlight() {
-    return Positioned(
-      bottom: 100,
-      left: MediaQuery.of(context).size.width * 0.15,
-      child: const _PulsingHighlight(
-        size: 80,
-        color: Colors.amber,
-      ),
-    );
-  }
-
-  /// Arrow pointing from piece to board
-  Widget _buildArrowToBoad() {
-    return Positioned(
-      bottom: 180,
-      left: MediaQuery.of(context).size.width * 0.25,
-      child: Transform.rotate(
-        angle: -0.5, // Point upward-right
-        child: const Icon(
-          Icons.arrow_upward,
-          color: Colors.amber,
-          size: 60,
-        ),
-      ),
-    );
-  }
 }
 
 /// Tutorial card widget for displaying step content
@@ -341,8 +393,8 @@ class _TutorialCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 32),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -359,41 +411,51 @@ class _TutorialCard extends StatelessWidget {
         children: [
           // Icon
           Container(
-            width: 72,
-            height: 72,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 40,
+              size: 32,
               color: iconColor,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           // Title
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          Flexible(
+            flex: 0,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           // Description
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[700],
-              height: 1.4,
+          Flexible(
+            flex: 0,
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
 
           // Example visualizations
@@ -420,7 +482,6 @@ class _TutorialCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
                     Icons.lightbulb_outline,
@@ -428,7 +489,7 @@ class _TutorialCard extends StatelessWidget {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       hint!,
                       style: TextStyle(
@@ -458,18 +519,20 @@ class _TutorialCard extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
                   foregroundColor: Colors.black87,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 4,
                 ),
                 child: Text(
                   buttonText!,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -488,32 +551,34 @@ class _TutorialCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           // Before: Full row
-          Column(
-            children: [
-              _buildMiniGrid(highlightRow: true),
-              const SizedBox(height: 4),
-              Text(
-                'Before',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
+          Flexible(
+            child: Column(
+              children: [
+                _buildMiniGrid(highlightRow: true),
+                const SizedBox(height: 4),
+                Text(
+                  'Before',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 16),
-          const Icon(Icons.arrow_forward, color: Colors.green),
-          const SizedBox(width: 16),
+          const Icon(Icons.arrow_forward, color: Colors.green, size: 20),
           // After: Cleared
-          Column(
-            children: [
-              _buildMiniGrid(cleared: true),
-              const SizedBox(height: 4),
-              Text(
-                'After',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
+          Flexible(
+            child: Column(
+              children: [
+                _buildMiniGrid(cleared: true),
+                const SizedBox(height: 4),
+                Text(
+                  'After',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -566,7 +631,7 @@ class _TutorialCard extends StatelessWidget {
   /// Visual example of combo system
   Widget _buildComboExample() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -579,11 +644,11 @@ class _TutorialCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildComboLevel('x1', Colors.grey, '10 pts'),
-          const Icon(Icons.arrow_forward, color: Colors.orange),
-          _buildComboLevel('x2', Colors.orange, '20 pts'),
-          const Icon(Icons.arrow_forward, color: Colors.red),
-          _buildComboLevel('x3', Colors.red, '30 pts'),
+          Flexible(child: _buildComboLevel('x1', Colors.grey, '10')),
+          const Icon(Icons.arrow_forward, color: Colors.orange, size: 14),
+          Flexible(child: _buildComboLevel('x2', Colors.orange, '20')),
+          const Icon(Icons.arrow_forward, color: Colors.red, size: 14),
+          Flexible(child: _buildComboLevel('x3', Colors.red, '30')),
         ],
       ),
     );
@@ -591,27 +656,28 @@ class _TutorialCard extends StatelessWidget {
 
   Widget _buildComboLevel(String level, Color color, String points) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             level,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 14,
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           points,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 10,
             color: Colors.grey[700],
           ),
         ),
@@ -628,29 +694,30 @@ class _TutorialCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildMiniPiece(Colors.blue, [[1, 1], [1, 0]]),
-              const SizedBox(width: 16),
-              _buildMiniPiece(Colors.red, [[1], [1], [1]]),
-              const SizedBox(width: 16),
-              _buildMiniPiece(Colors.green, [[1, 1]]),
+              Flexible(child: _buildMiniPiece(Colors.blue, [[1, 1], [1, 0]])),
+              Flexible(child: _buildMiniPiece(Colors.red, [[1], [1], [1]])),
+              Flexible(child: _buildMiniPiece(Colors.green, [[1, 1]])),
             ],
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.warning_amber, color: Colors.red[400], size: 16),
+              Icon(Icons.warning_amber, color: Colors.red[400], size: 14),
               const SizedBox(width: 4),
-              Text(
-                'No space for pieces = Game Over!',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.red[600],
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  'No space = Game Over!',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.red[600],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
