@@ -152,6 +152,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     // to prevent holding a strong reference to this widget state
     // FIX: Use stored reference instead of context.read() to avoid "deactivated widget" error
     _gameCubit?.onLinesCleared = null;
+    _gameCubit?.onChaosEvent = null;
 
     // CRITICAL FIX: Auto-save game before disposing (when navigating away)
     if (_gameCubit != null) {
@@ -252,6 +253,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
         // Set up line clear callback (for both story mode and regular modes)
         gameCubit.onLinesCleared = _onLinesCleared;
+
+        // Set up chaos event callback for notifications
+        gameCubit.onChaosEvent = _onChaosEvent;
       } catch (e) {
         debugPrint('Error initializing game: $e');
       }
@@ -392,6 +396,27 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         scoreEarned,
       );
     }
+  }
+
+  void _onChaosEvent(String message) {
+    if (!mounted) return; // Safety check
+
+    // Show a SnackBar notification to the player
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFFFF6B6B), // Chaos mode color
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+      ),
+    );
   }
 
   void _checkAchievements(int lineCount, int combo) {

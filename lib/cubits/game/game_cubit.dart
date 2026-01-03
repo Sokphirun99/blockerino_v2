@@ -19,6 +19,9 @@ import 'game_state.dart';
 typedef LineClearCallback = void Function(
     List<ClearedBlockInfo> clearedBlocks, int lineCount);
 
+/// Callback type for chaos event notifications
+typedef ChaosEventCallback = void Function(String message);
+
 /// Saved game state for a specific mode
 class _SavedGameState {
   final Board board;
@@ -77,6 +80,9 @@ class GameCubit extends Cubit<GameState> {
 
   /// Callback for when lines are cleared (for particle effects)
   LineClearCallback? onLinesCleared;
+
+  /// Callback for chaos event notifications (2X points, etc.)
+  ChaosEventCallback? onChaosEvent;
 
   // CRITICAL FIX: Track if saved games are still loading
   bool _savedGamesLoaded = false;
@@ -1016,7 +1022,8 @@ class GameCubit extends Cubit<GameState> {
       // TODO: REMOVE DEBUG LOGGING BEFORE RELEASE
       debugPrint('🎲 Event triggered: 2X POINTS');
 
-      // TODO: Show UI notification to player
+      // Notify UI to show player notification
+      onChaosEvent?.call('🎲 2X POINTS FOR 5 MOVES!');
     }
   }
 
