@@ -46,8 +46,8 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
-		<false/>
-		<key>NSLocalNetworkUsageDescription</key>
+		<false/>	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>		<key>NSLocalNetworkUsageDescription</key>
 		<string>This app uses local network for debugging and development purposes.</string>
 		<key>NSBonjourServices</key>
 		<array>
