@@ -286,11 +286,6 @@ class _PieceVisual extends StatelessWidget {
                           offset: const Offset(0, 2),
                         ),
                       ],
-                      border: Border.all(
-                        // <--- NEW: Highlight Edge
-                        color: Colors.white.withValues(alpha: 0.3 * opacity),
-                        width: 1,
-                      ),
                     )
                   : null,
             );
