@@ -115,7 +115,7 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen>
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveUtil(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -224,7 +224,8 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen>
                                       'No missions available\nPull to refresh',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.5),
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
                                         fontSize: 16,
                                       ),
                                     ),
@@ -233,7 +234,8 @@ class _DailyMissionsScreenState extends State<DailyMissionsScreen>
                               ],
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: _missions.length,
                               itemBuilder: (context, index) {
                                 final mission = _missions[index];

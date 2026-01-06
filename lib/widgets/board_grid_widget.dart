@@ -116,15 +116,17 @@ class _StaticBoardLayer extends StatelessWidget {
                       child: Row(
                         children: List.generate(board.size, (col) {
                           final block = board.grid[row][col];
+                          final hasStar = board.hasStar(row, col);
                           return Expanded(
                             // Use RepaintBoundary to isolate cell repaints for better performance
                             // Add key for stable widget tree and efficient diffing
                             child: RepaintBoundary(
-                              key: ValueKey('cell-$row-$col'),
+                              key: ValueKey('cell-$row-$col-$hasStar'),
                               child: _BlockCell(
                                 block: block,
                                 row: row,
                                 col: col,
+                                hasStar: hasStar,
                               ),
                             ),
                           );
@@ -225,11 +227,13 @@ class _BlockCell extends StatefulWidget {
   final BoardBlock block;
   final int row;
   final int col;
+  final bool hasStar;
 
   const _BlockCell({
     required this.block,
     required this.row,
     required this.col,
+    this.hasStar = false,
   });
 
   @override
@@ -340,14 +344,18 @@ class _BlockCellState extends State<_BlockCell>
     Color cellColor = Colors.blue;
     bool isBreaking = false;
     bool isEmpty = false;
+    bool isIce = false;
+    bool isIce2 = false;
+    bool isBlocked = false;
 
     switch (widget.block.type) {
       case BlockType.filled:
         cellColor = widget.block.color ?? Colors.blue;
         break;
       case BlockType.blocked:
-        // Obstacle cell - dark with pattern
-        cellColor = widget.block.color ?? const Color(0xFF2d3748);
+        // Obstacle cell - dark with X pattern
+        cellColor = const Color(0xFF4a5568);
+        isBlocked = true;
         break;
       case BlockType.hover:
         cellColor = widget.block.color ?? Colors.blue;
@@ -365,6 +373,14 @@ class _BlockCellState extends State<_BlockCell>
         cellColor = widget.block.color ?? Colors.blue;
         isBreaking = true;
         break;
+      case BlockType.ice:
+        cellColor = const Color(0xFF89CFF0); // Light ice blue
+        isIce = true;
+        break;
+      case BlockType.ice2:
+        cellColor = const Color(0xFF5DADE2); // Solid ice blue
+        isIce2 = true;
+        break;
       case BlockType.empty:
         cellColor = const Color(0xFF1a1a2e);
         isEmpty = true;
@@ -377,31 +393,133 @@ class _BlockCellState extends State<_BlockCell>
 
     if (isEmpty) {
       final isAlternate = (widget.row + widget.col) % 2 == 0;
+      return Stack(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(1),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  theme.emptyBlockColor,
+                  isAlternate
+                      ? theme.emptyBlockColor.withValues(alpha: 0.9)
+                      : theme.emptyBlockColor.withValues(alpha: 0.7),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: theme.blockColors.first.withValues(alpha: 0.08),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 1,
+                  offset: const Offset(0, 0.5),
+                ),
+              ],
+            ),
+          ),
+          // Star overlay for empty cells
+          if (widget.hasStar)
+            Positioned.fill(
+              child: Center(
+                child: _StarWidget(),
+              ),
+            ),
+        ],
+      );
+    }
+
+    // Ice block rendering
+    if (isIce || isIce2) {
+      return Stack(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  cellColor,
+                  cellColor.withValues(alpha: 0.7),
+                  isIce2 ? cellColor.withValues(alpha: 0.9) : cellColor.withValues(alpha: 0.5),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: isIce2 ? 0.6 : 0.3),
+                width: isIce2 ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cellColor.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                  offset: const Offset(-1, -1),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Ice shine effect
+                Container(
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.4),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.5],
+                    ),
+                  ),
+                ),
+                // Crack pattern for damaged ice (ice with 1 hit)
+                if (isIce)
+                  CustomPaint(
+                    size: Size.infinite,
+                    painter: _IceCrackPainter(),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Blocked/obstacle cell rendering
+    if (isBlocked) {
       return Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.emptyBlockColor,
-              isAlternate
-                  ? theme.emptyBlockColor.withValues(alpha: 0.9)
-                  : theme.emptyBlockColor.withValues(alpha: 0.7),
-            ],
-          ),
           borderRadius: BorderRadius.circular(4),
+          color: cellColor,
           border: Border.all(
-            color: theme.blockColors.first.withValues(alpha: 0.08),
-            width: 0.5,
+            color: const Color(0xFF718096),
+            width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 1,
-              offset: const Offset(0, 0.5),
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
             ),
           ],
+        ),
+        child: CustomPaint(
+          size: Size.infinite,
+          painter: _BlockedCellPainter(),
         ),
       );
     }
@@ -498,4 +616,81 @@ class _BlockCellState extends State<_BlockCell>
       },
     );
   }
+}
+
+/// Star widget with golden glow
+class _StarWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.8),
+            blurRadius: 8,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.star,
+        color: Color(0xFFFFD700),
+        size: 18,
+      ),
+    );
+  }
+}
+
+/// Ice crack pattern painter for damaged ice blocks
+class _IceCrackPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.7)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // Draw crack lines from center
+    canvas.drawLine(center, Offset(size.width * 0.2, size.height * 0.3), paint);
+    canvas.drawLine(center, Offset(size.width * 0.8, size.height * 0.2), paint);
+    canvas.drawLine(center, Offset(size.width * 0.7, size.height * 0.8), paint);
+    canvas.drawLine(center, Offset(size.width * 0.15, size.height * 0.7), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Blocked/obstacle cell painter with X pattern
+class _BlockedCellPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF718096)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final margin = size.width * 0.25;
+
+    // Draw X pattern
+    canvas.drawLine(
+      Offset(margin, margin),
+      Offset(size.width - margin, size.height - margin),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width - margin, margin),
+      Offset(margin, size.height - margin),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

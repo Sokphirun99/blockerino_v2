@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import 'game_mode.dart';
 import 'story_level.dart';
+import 'board.dart';
 
 /// Level difficulty tiers like Block Blast
 enum LevelTier {
@@ -132,6 +135,7 @@ class AdventureLevels {
     final title = _getTitle(levelNumber, tier);
     final difficulty = _getDifficulty(tier);
     final gameMode = _getGameMode(levelNumber, tier);
+    final boardSize = gameMode == GameMode.chaos ? 10 : 8;
 
     // Calculate objectives based on level number and tier
     final targetScore = _calculateTargetScore(levelNumber, tier);
@@ -149,10 +153,16 @@ class AdventureLevels {
     // Get restrictions for higher difficulty levels
     final restrictions = _getRestrictions(levelNumber, tier);
 
+    // Generate Block Quest features based on level
+    final prefilledBlocks = _generatePrefilledBlocks(levelNumber, tier, boardSize);
+    final iceBlocks = _generateIceBlocks(levelNumber, tier, boardSize, prefilledBlocks);
+    final starPositions = _generateStarPositions(levelNumber, tier, boardSize, prefilledBlocks, iceBlocks);
+    final targetStars = starPositions.isNotEmpty ? starPositions.length : null;
+
     return StoryLevel(
       levelNumber: levelNumber,
       title: title,
-      description: _getDescription(levelNumber, tier, targetScore, targetLines, timeLimit),
+      description: _getDescription(levelNumber, tier, targetScore, targetLines, timeLimit, targetStars),
       story: _getStoryText(levelNumber, tier),
       gameMode: gameMode,
       difficulty: difficulty,
@@ -165,7 +175,179 @@ class AdventureLevels {
       starThreshold3: starThreshold3,
       coinReward: coinReward,
       isUnlocked: levelNumber == 1,
+      prefilledBlocks: prefilledBlocks,
+      iceBlocks: iceBlocks,
+      starPositions: starPositions,
+      targetStars: targetStars,
     );
+  }
+
+  // ===== BLOCK QUEST FEATURES =====
+
+  /// Generate pre-filled blocks based on level
+  static List<PrefilledBlock> _generatePrefilledBlocks(int level, LevelTier tier, int boardSize) {
+    // Start adding prefilled blocks from level 10
+    if (level < 10) return [];
+
+    final random = math.Random(level * 13); // Seeded for consistent levels
+    int blockCount;
+
+    switch (tier) {
+      case LevelTier.beginner:
+        blockCount = 2 + (level - 10) ~/ 3; // 2-5 blocks
+        break;
+      case LevelTier.easy:
+        blockCount = 5 + (level - 21) ~/ 4; // 5-12 blocks
+        break;
+      case LevelTier.medium:
+        blockCount = 10 + (level - 51) ~/ 5; // 10-20 blocks
+        break;
+      case LevelTier.hard:
+        blockCount = 18 + (level - 101) ~/ 6; // 18-26 blocks
+        break;
+      case LevelTier.expert:
+        blockCount = 22 + (level - 151) ~/ 5; // 22-28 blocks
+        break;
+      case LevelTier.master:
+        blockCount = 25 + (level - 181) ~/ 4; // 25-30 blocks
+        break;
+    }
+
+    // Limit to reasonable amount
+    blockCount = blockCount.clamp(0, (boardSize * boardSize * 0.4).round());
+
+    final colors = [
+      const Color(0xFF00BFA5), // Teal
+      const Color(0xFFFF6B6B), // Coral
+      const Color(0xFFFFD93D), // Yellow
+      const Color(0xFF6C5CE7), // Purple
+      const Color(0xFF74B9FF), // Blue
+    ];
+
+    final usedPositions = <String>{};
+    final blocks = <PrefilledBlock>[];
+
+    // Generate blocks in clusters for more interesting patterns
+    while (blocks.length < blockCount) {
+      final row = random.nextInt(boardSize);
+      final col = random.nextInt(boardSize);
+      final key = '$row-$col';
+
+      if (!usedPositions.contains(key)) {
+        usedPositions.add(key);
+        blocks.add(PrefilledBlock(
+          row: row,
+          col: col,
+          color: colors[random.nextInt(colors.length)],
+        ));
+      }
+    }
+
+    return blocks;
+  }
+
+  /// Generate ice blocks based on level
+  static List<IceBlock> _generateIceBlocks(int level, LevelTier tier, int boardSize, List<PrefilledBlock> prefilled) {
+    // Start adding ice blocks from level 25
+    if (level < 25) return [];
+
+    final random = math.Random(level * 17);
+    int iceCount;
+
+    switch (tier) {
+      case LevelTier.beginner:
+        iceCount = 0;
+        break;
+      case LevelTier.easy:
+        iceCount = 1 + (level - 25) ~/ 5; // 1-5 ice blocks
+        break;
+      case LevelTier.medium:
+        iceCount = 4 + (level - 51) ~/ 6; // 4-12 ice blocks
+        break;
+      case LevelTier.hard:
+        iceCount = 10 + (level - 101) ~/ 7; // 10-17 ice blocks
+        break;
+      case LevelTier.expert:
+        iceCount = 14 + (level - 151) ~/ 5; // 14-20 ice blocks
+        break;
+      case LevelTier.master:
+        iceCount = 18 + (level - 181) ~/ 4; // 18-23 ice blocks
+        break;
+    }
+
+    // Get positions already used by prefilled blocks
+    final usedPositions = prefilled.map((b) => '${b.row}-${b.col}').toSet();
+    final blocks = <IceBlock>[];
+
+    while (blocks.length < iceCount) {
+      final row = random.nextInt(boardSize);
+      final col = random.nextInt(boardSize);
+      final key = '$row-$col';
+
+      if (!usedPositions.contains(key)) {
+        usedPositions.add(key);
+        // Higher levels have more 2-hit ice blocks
+        final hits = (random.nextDouble() < 0.3 + (level / 400)) ? 2 : 1;
+        blocks.add(IceBlock(row: row, col: col, hits: hits));
+      }
+    }
+
+    return blocks;
+  }
+
+  /// Generate star positions based on level
+  static List<StarPosition> _generateStarPositions(int level, LevelTier tier, int boardSize,
+      List<PrefilledBlock> prefilled, List<IceBlock> ice) {
+    // Start adding stars from level 15
+    if (level < 15) return [];
+
+    final random = math.Random(level * 23);
+    int starCount;
+
+    switch (tier) {
+      case LevelTier.beginner:
+        starCount = 1 + (level - 15) ~/ 3; // 1-2 stars
+        break;
+      case LevelTier.easy:
+        starCount = 2 + (level - 21) ~/ 6; // 2-6 stars
+        break;
+      case LevelTier.medium:
+        starCount = 4 + (level - 51) ~/ 8; // 4-10 stars
+        break;
+      case LevelTier.hard:
+        starCount = 6 + (level - 101) ~/ 8; // 6-12 stars
+        break;
+      case LevelTier.expert:
+        starCount = 8 + (level - 151) ~/ 6; // 8-13 stars
+        break;
+      case LevelTier.master:
+        starCount = 10 + (level - 181) ~/ 4; // 10-15 stars
+        break;
+    }
+
+    // Get positions already used
+    final usedPositions = <String>{};
+    for (final b in prefilled) {
+      usedPositions.add('${b.row}-${b.col}');
+    }
+    for (final b in ice) {
+      usedPositions.add('${b.row}-${b.col}');
+    }
+
+    final stars = <StarPosition>[];
+
+    while (stars.length < starCount) {
+      final row = random.nextInt(boardSize);
+      final col = random.nextInt(boardSize);
+      final key = '$row-$col';
+
+      if (!usedPositions.contains(key)) {
+        usedPositions.add(key);
+        stars.add(StarPosition(row: row, col: col));
+      }
+    }
+
+    return stars;
   }
 
   // ===== SCORE CALCULATION =====
@@ -312,22 +494,26 @@ class AdventureLevels {
   }
 
   // ===== DESCRIPTIONS =====
-  static String _getDescription(int level, LevelTier tier, int targetScore, int? targetLines, int? timeLimit) {
+  static String _getDescription(int level, LevelTier tier, int targetScore, int? targetLines, int? timeLimit, int? targetStars) {
     final parts = <String>[];
 
-    parts.add('Score $targetScore points');
+    parts.add('Score $targetScore');
 
     if (targetLines != null) {
       parts.add('Clear $targetLines lines');
+    }
+
+    if (targetStars != null) {
+      parts.add('Collect $targetStars stars');
     }
 
     if (timeLimit != null) {
       final minutes = timeLimit ~/ 60;
       final seconds = timeLimit % 60;
       if (seconds > 0) {
-        parts.add('Time: ${minutes}m ${seconds}s');
+        parts.add('${minutes}m ${seconds}s');
       } else {
-        parts.add('Time: $minutes minutes');
+        parts.add('$minutes min');
       }
     }
 

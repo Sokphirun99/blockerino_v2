@@ -41,6 +41,10 @@ class GameInProgress extends GameState {
   final DateTime?
       levelEndTime; // Exact end time for story mode (prevents timer cheating)
 
+  // Block Quest features
+  final int starsCollected; // Stars collected so far
+  final int totalStars; // Total stars in level
+
   const GameInProgress({
     required this.board,
     required this.hand,
@@ -58,6 +62,8 @@ class GameInProgress extends GameState {
     this.timeRemaining = -1,
     this.powerUpsDisabled = false,
     this.levelEndTime,
+    this.starsCollected = 0,
+    this.totalStars = 0,
   });
 
   @override
@@ -78,6 +84,8 @@ class GameInProgress extends GameState {
         timeRemaining,
         powerUpsDisabled,
         levelEndTime,
+        starsCollected,
+        totalStars,
       ];
 
   GameInProgress copyWith({
@@ -97,6 +105,8 @@ class GameInProgress extends GameState {
     int? timeRemaining,
     bool? powerUpsDisabled,
     DateTime? levelEndTime,
+    int? starsCollected,
+    int? totalStars,
   }) {
     return GameInProgress(
       board: board ?? this.board,
@@ -115,6 +125,8 @@ class GameInProgress extends GameState {
       timeRemaining: timeRemaining ?? this.timeRemaining,
       powerUpsDisabled: powerUpsDisabled ?? this.powerUpsDisabled,
       levelEndTime: levelEndTime ?? this.levelEndTime,
+      starsCollected: starsCollected ?? this.starsCollected,
+      totalStars: totalStars ?? this.totalStars,
     );
   }
 }

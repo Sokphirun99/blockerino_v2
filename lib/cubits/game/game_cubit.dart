@@ -198,10 +198,11 @@ class GameCubit extends Cubit<GameState> {
       _resetMissionTracking();
 
       final config = GameModeConfig.fromMode(mode);
-      // Add obstacles for chaos/adventure mode
-      final board = Board(size: config.boardSize, addObstacles: mode == GameMode.chaos);
+      // No obstacles in chaos mode - clean board
+      final board = Board(size: config.boardSize, addObstacles: false);
       final themeColors = settingsCubit?.state.currentTheme.blockColors;
-      final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
+      final hand =
+          _pieceService.generateHand(config.handSize, themeColors: themeColors);
 
       emit(GameInProgress(
         board: board,
@@ -223,8 +224,21 @@ class GameCubit extends Cubit<GameState> {
 
     final config = GameModeConfig.fromMode(level.gameMode);
     final board = Board(size: config.boardSize);
+
+    // Initialize Block Quest features
+    if (level.prefilledBlocks.isNotEmpty) {
+      board.initializeWithPrefilled(level.prefilledBlocks);
+    }
+    if (level.iceBlocks.isNotEmpty) {
+      board.initializeIceBlocks(level.iceBlocks);
+    }
+    if (level.starPositions.isNotEmpty) {
+      board.initializeStars(level.starPositions);
+    }
+
     final themeColors = settingsCubit?.state.currentTheme.blockColors;
-    final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
+    final hand =
+        _pieceService.generateHand(config.handSize, themeColors: themeColors);
 
     // Check if power-ups are disabled
     final powerUpsDisabled = level.restrictions.any((r) =>
@@ -250,6 +264,8 @@ class GameCubit extends Cubit<GameState> {
       timeRemaining: level.timeLimit ?? -1,
       powerUpsDisabled: powerUpsDisabled,
       levelEndTime: levelEndTime,
+      starsCollected: 0,
+      totalStars: level.starPositions.length,
     ));
 
     // Start timer if level has time limit
@@ -406,7 +422,8 @@ class GameCubit extends Cubit<GameState> {
       _pieceService.reset();
       final board = Board(size: config.boardSize);
       final themeColors = settingsCubit?.state.currentTheme.blockColors;
-      final hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
+      final hand =
+          _pieceService.generateHand(config.handSize, themeColors: themeColors);
       emit(GameInProgress(
         board: board,
         hand: hand,
@@ -431,7 +448,8 @@ class GameCubit extends Cubit<GameState> {
       final themeColors = settingsCubit?.state.currentTheme.blockColors;
       if (hand.isEmpty) {
         // Hand is completely empty - refill to full size
-        hand = _pieceService.generateHand(config.handSize, themeColors: themeColors);
+        hand = _pieceService.generateHand(config.handSize,
+            themeColors: themeColors);
       } else if (hand.length > config.handSize) {
         // Hand is too large - trim to correct size
         hand = hand.take(config.handSize).toList();
@@ -592,6 +610,10 @@ class GameCubit extends Cubit<GameState> {
     // Track lines cleared for story mode
     int newLinesCleared = currentState.linesCleared + linesBroken;
 
+    // Track stars collected for Block Quest
+    int newStarsCollected =
+        currentState.starsCollected + clearResult.collectedStars.length;
+
     // Update combo state using scoring service
     final (newCombo, newLastBrokenLine) = _scoringService.updateComboState(
       linesBroken: linesBroken,
@@ -610,7 +632,8 @@ class GameCubit extends Cubit<GameState> {
 
       // Check for perfect clear
       if (newBoard.isEmpty()) {
-        final perfectClearBonus = _scoringService.calculatePerfectClearBonus(newCombo);
+        final perfectClearBonus =
+            _scoringService.calculatePerfectClearBonus(newCombo);
         newScore += perfectClearBonus;
         _perfectClearCount++;
       }
@@ -655,14 +678,17 @@ class GameCubit extends Cubit<GameState> {
       final scoreComplete = newScore >= level.targetScore;
       final linesComplete =
           level.targetLines == null || newLinesCleared >= level.targetLines!;
+      final starsComplete =
+          level.targetStars == null || newStarsCollected >= level.targetStars!;
 
-      if (scoreComplete && linesComplete) {
+      if (scoreComplete && linesComplete && starsComplete) {
         // Victory! Level objectives met
         _endStoryLevel(
           currentState.copyWith(
             board: newBoard,
             score: newScore,
             linesCleared: newLinesCleared,
+            starsCollected: newStarsCollected,
             hand: newHand,
           ),
         );
@@ -684,6 +710,7 @@ class GameCubit extends Cubit<GameState> {
               board: newBoard, // FIX: Use the modified board
               score: newScore,
               linesCleared: newLinesCleared,
+              starsCollected: newStarsCollected,
               hand: newHand,
             ),
             failed: newScore < currentState.storyLevel!.targetScore);
@@ -735,6 +762,8 @@ class GameCubit extends Cubit<GameState> {
       timeRemaining: currentState.timeRemaining,
       powerUpsDisabled: currentState.powerUpsDisabled,
       levelEndTime: currentState.levelEndTime,
+      starsCollected: newStarsCollected,
+      totalStars: currentState.totalStars,
     );
 
     emit(newState);
@@ -905,7 +934,6 @@ class GameCubit extends Cubit<GameState> {
       if (gameMode == GameMode.chaos) {
         await _missionService.addMissionProgress(MissionType.useChaosMode, 1);
       }
-
     } catch (e) {
       // Error logged only in debug mode
       assert(() {
@@ -1008,5 +1036,4 @@ class GameCubit extends Cubit<GameState> {
       await settingsCubit!.usePowerUp(type);
     }
   }
-
 }

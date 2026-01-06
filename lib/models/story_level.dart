@@ -1,4 +1,5 @@
 import 'game_mode.dart';
+import 'board.dart';
 
 enum LevelDifficulty {
   easy,
@@ -26,6 +27,12 @@ class StoryLevel {
   final bool isUnlocked;
   final int starsEarned;
 
+  // Block Quest features
+  final List<PrefilledBlock> prefilledBlocks; // Pre-filled blocks at level start
+  final List<IceBlock> iceBlocks; // Ice blocks that need 2 clears
+  final List<StarPosition> starPositions; // Stars to collect
+  final int? targetStars; // Number of stars to collect (objective)
+
   const StoryLevel({
     required this.levelNumber,
     required this.title,
@@ -43,6 +50,10 @@ class StoryLevel {
     required this.coinReward,
     this.isUnlocked = false,
     this.starsEarned = 0,
+    this.prefilledBlocks = const [],
+    this.iceBlocks = const [],
+    this.starPositions = const [],
+    this.targetStars,
   });
 
   StoryLevel copyWith({
@@ -62,6 +73,10 @@ class StoryLevel {
     int? coinReward,
     bool? isUnlocked,
     int? starsEarned,
+    List<PrefilledBlock>? prefilledBlocks,
+    List<IceBlock>? iceBlocks,
+    List<StarPosition>? starPositions,
+    int? targetStars,
   }) {
     return StoryLevel(
       levelNumber: levelNumber ?? this.levelNumber,
@@ -80,6 +95,10 @@ class StoryLevel {
       coinReward: coinReward ?? this.coinReward,
       isUnlocked: isUnlocked ?? this.isUnlocked,
       starsEarned: starsEarned ?? this.starsEarned,
+      prefilledBlocks: prefilledBlocks ?? this.prefilledBlocks,
+      iceBlocks: iceBlocks ?? this.iceBlocks,
+      starPositions: starPositions ?? this.starPositions,
+      targetStars: targetStars ?? this.targetStars,
     );
   }
 

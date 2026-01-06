@@ -87,8 +87,10 @@ class _GameHudWidgetState extends State<GameHudWidget>
     final scoreComplete = gameState.score >= level.targetScore;
     final linesComplete = level.targetLines == null ||
         gameState.linesCleared >= level.targetLines!;
+    final starsComplete = level.targetStars == null ||
+        gameState.starsCollected >= level.targetStars!;
 
-    return scoreComplete && linesComplete;
+    return scoreComplete && linesComplete && starsComplete;
   }
 
   Widget _buildObjective(String text, bool completed) {
@@ -141,11 +143,15 @@ class _GameHudWidgetState extends State<GameHudWidget>
         // After 1 move: lastBrokenLine=1, so movesLeft = buffer - 1 = 2
         // After 2 moves: lastBrokenLine=2, so movesLeft = buffer - 2 = 1
         // After 3 moves: lastBrokenLine=3, so movesLeft = buffer - 3 = 0, combo resets
-        final movesLeft = ScoringService.comboResetBuffer - gameState.lastBrokenLine;
-        final comboProgress =
-            gameState.combo > 0 ? (ScoringService.comboResetBuffer - movesLeft) / ScoringService.comboResetBuffer : 0.0;
+        final movesLeft =
+            ScoringService.comboResetBuffer - gameState.lastBrokenLine;
+        final comboProgress = gameState.combo > 0
+            ? (ScoringService.comboResetBuffer - movesLeft) /
+                ScoringService.comboResetBuffer
+            : 0.0;
         final isNewHighScore = gameState.score > settings.highScore;
-        final hasCombo = gameState.combo >= 1; // Show combo display as soon as combo starts
+        final hasCombo =
+            gameState.combo >= 1; // Show combo display as soon as combo starts
         final responsive = ResponsiveUtil(context);
 
         return Column(
@@ -231,6 +237,12 @@ class _GameHudWidgetState extends State<GameHudWidget>
                         '📊 ${AppLocalizations.of(context).translate('lines_label')} ${gameState.linesCleared}/${gameState.storyLevel!.targetLines}',
                         gameState.linesCleared >=
                             gameState.storyLevel!.targetLines!,
+                      ),
+                    if (gameState.storyLevel!.targetStars != null)
+                      _buildObjective(
+                        '⭐ Stars ${gameState.starsCollected}/${gameState.storyLevel!.targetStars}',
+                        gameState.starsCollected >=
+                            gameState.storyLevel!.targetStars!,
                       ),
                     // Show COMPLETE button when objectives are met
                     if (_areObjectivesMet(gameState)) ...[
@@ -416,7 +428,7 @@ class _GameHudWidgetState extends State<GameHudWidget>
                           scale: _comboScaleAnimation.value,
                           child: Container(
                             padding: EdgeInsets.symmetric(
-                                horizontal: responsive.value(14, tablet: 20), 
+                                horizontal: responsive.value(14, tablet: 20),
                                 vertical: responsive.value(6, tablet: 10)),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
